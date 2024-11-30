@@ -133,6 +133,11 @@ public class TWGameManager extends AbstractGameManager {
      */
     private Player playerRequestingGameMaster = null;
 
+    public void incrementAndSendGameRound(){
+        getGame().incrementCurrentRound();
+        send(packetHelper.createCurrentRoundNumberPacket());
+    }
+
     private final TWPhaseEndManager phaseEndManager = new TWPhaseEndManager(this);
     private final TWPhasePreparationManager phasePreparationManager = new TWPhasePreparationManager(this);
 
