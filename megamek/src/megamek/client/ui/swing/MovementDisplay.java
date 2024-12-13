@@ -893,6 +893,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
             updateLoadButtons();
         }
 
+        //CONSIDER: Update the "More..." button
+
         setupButtonPanel();
         updateDonePanel();
     }
