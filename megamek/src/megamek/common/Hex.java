@@ -30,6 +30,7 @@ public class Hex implements Serializable {
     private Coords coords;
     private int level;
     private Map<Integer, Terrain> terrains = new HashMap<>(1);
+    private BitSet terrainTypes = new BitSet(Terrains.SIZE + 1);
     private String theme;
     private String originalTheme;
     private int fireTurn;
@@ -63,6 +64,7 @@ public class Hex implements Serializable {
         for (final Terrain t : terrains) {
             if (t != null) {
                 this.terrains.put(t.getType(), t);
+                this.terrainTypes.set(t.getType());
             }
         }
 
@@ -197,19 +199,19 @@ public class Hex implements Serializable {
 
             // Roads exit into pavement, too.
             if ((other != null) && roadsAutoExit && (cTerr.getType() == Terrains.ROAD)
-                    && other.containsTerrain(Terrains.PAVEMENT)) {
+                && other.containsTerrain(Terrains.PAVEMENT)) {
                 cTerr.setExit(direction, true);
             }
 
             // buildings must have the same building class
             if ((other != null) && (cTerr.getType() == Terrains.BUILDING)
-                    && (terrainLevel(Terrains.BLDG_CLASS) != other.terrainLevel(Terrains.BLDG_CLASS))) {
+                && (terrainLevel(Terrains.BLDG_CLASS) != other.terrainLevel(Terrains.BLDG_CLASS))) {
                 cTerr.setExit(direction, false);
             }
 
             // gun emplacements can only be single hex buildings
             if ((cTerr.getType() == Terrains.BUILDING)
-                    && (terrainLevel(Terrains.BLDG_CLASS) == Building.GUN_EMPLACEMENT)) {
+                && (terrainLevel(Terrains.BLDG_CLASS) == Building.GUN_EMPLACEMENT)) {
                 cTerr.setExit(direction, false);
             }
 
@@ -406,19 +408,6 @@ public class Hex implements Serializable {
 
     /**
      * @param types the terrains to check
-     * @return if at least one of the specified terrains are represented in the hex at any level.
-     * @see Hex#containsTerrain(int, int)
-     * @see Hex#containsTerrain(int)
-     * @see Hex#containsAllTerrainsOf(int...)
-     */
-    public boolean containsAnyTerrainOf(Set<Integer> types) {
-        Set<Integer> keys = new HashSet<>(terrains.keySet());
-        keys.retainAll(types);
-        return !keys.isEmpty();
-    }
-
-    /**
-     * @param types the terrains to check
      * @return <code>true</code> if all the specified terrains are represented in the hex at any level.
      * @see Hex#containsTerrain(int, int)
      * @see Hex#containsAllTerrainsOf(int...)
@@ -451,8 +440,7 @@ public class Hex implements Serializable {
      */
     public boolean hasPavedRoad() {
         if (containsTerrain(Terrains.ROAD)){
-            return !Arrays.asList(Terrains.ROAD_LVL_DIRT, Terrains.ROAD_LVL_GRAVEL).contains(terrainLevel(Terrains.ROAD));
-            //Return false if the road is dirt or gravel
+            return !Arrays.asList(Terrains.ROAD_LVL_DIRT, Terrains.ROAD_LVL_GRAVEL).contains(terrainLevel(Terrains.ROAD)); //Return false if the road is dirt or gravel
         }
         return false;
     }
@@ -531,12 +519,14 @@ public class Hex implements Serializable {
      */
     public void addTerrain(Terrain terrain) {
         terrains.put(terrain.getType(), terrain);
+        terrainTypes.set(terrain.getType());
     }
 
     /**
      * @param type the terrain type to remove
      */
     public void removeTerrain(int type) {
+        terrainTypes.clear(type);
         terrains.remove(type);
     }
 
@@ -544,6 +534,7 @@ public class Hex implements Serializable {
      * Removes all Terrains from the hex.
      */
     public void removeAllTerrains() {
+        terrainTypes.clear();
         terrains.clear();
     }
 
@@ -602,8 +593,8 @@ public class Hex implements Serializable {
      */
     public boolean isIgnitable() {
         return (containsTerrain(Terrains.WOODS) || containsTerrain(Terrains.JUNGLE)
-                || containsTerrain(Terrains.BUILDING) || containsTerrain(Terrains.FUEL_TANK)
-                || containsTerrain(Terrains.FIELDS) || containsTerrain(Terrains.INDUSTRIAL));
+            || containsTerrain(Terrains.BUILDING) || containsTerrain(Terrains.FUEL_TANK)
+            || containsTerrain(Terrains.FIELDS) || containsTerrain(Terrains.INDUSTRIAL));
     }
 
     /**
@@ -696,11 +687,20 @@ public class Hex implements Serializable {
         coords = c;
     }
 
+    static BitSet nonClearTerrains = new BitSet(Terrains.SIZE + 1);
+    static  {
+        nonClearTerrains.set(1, Terrains.BLDG_BASE_COLLAPSED);
+        nonClearTerrains.clear(Terrains.FLUFF);
+        nonClearTerrains.clear(Terrains.ARMS);
+        nonClearTerrains.clear(Terrains.LEGS);
+    }
+
     /**
      * @return if this hex is "clear", based on the absence of most terrain types.
      */
     public boolean isClearHex() {
-        for (int t = 1; t <= Terrains.BLDG_BASE_COLLAPSED; t++) {
+        return !terrainTypes.intersects(nonClearTerrains);
+        /*for (int t = 1; t <= Terrains.BLDG_BASE_COLLAPSED; t++) {
             // Ignore some terrain types
             if ((t == Terrains.FLUFF) || (t == Terrains.ARMS) || (t == Terrains.LEGS)) {
                 continue;
@@ -710,7 +710,7 @@ public class Hex implements Serializable {
                 return false;
             }
         }
-        return true;
+        return true;*/
     }
 
     /**
@@ -749,7 +749,7 @@ public class Hex implements Serializable {
         }
 
         if ((containsTerrain(Terrains.WOODS) || containsTerrain(Terrains.JUNGLE))
-                && containsTerrain(Terrains.FOLIAGE_ELEV)) {
+            && containsTerrain(Terrains.FOLIAGE_ELEV)) {
             int wl = terrainLevel(Terrains.WOODS);
             int jl = terrainLevel(Terrains.JUNGLE);
             int el = terrainLevel(Terrains.FOLIAGE_ELEV);
@@ -762,32 +762,32 @@ public class Hex implements Serializable {
             }
         }
         if (!(containsTerrain(Terrains.WOODS) || containsTerrain(Terrains.JUNGLE))
-                && containsTerrain(Terrains.FOLIAGE_ELEV)) {
+            && containsTerrain(Terrains.FOLIAGE_ELEV)) {
             newErrors.add("Woods and Jungle Elevation terrain present without Woods or Jungle.");
         }
 
         // Buildings must have at least BUILDING, BLDG_ELEV and BLDG_CF
         if (containsAnyTerrainOf(Terrains.BUILDING, Terrains.BLDG_ELEV, Terrains.BLDG_CF, Terrains.BLDG_FLUFF,
-                Terrains.BLDG_ARMOR, Terrains.BLDG_CLASS, Terrains.BLDG_BASE_COLLAPSED, Terrains.BLDG_BASEMENT_TYPE)
-                && !containsAllTerrainsOf(Terrains.BUILDING, Terrains.BLDG_ELEV, Terrains.BLDG_CF)) {
+            Terrains.BLDG_ARMOR, Terrains.BLDG_CLASS, Terrains.BLDG_BASE_COLLAPSED, Terrains.BLDG_BASEMENT_TYPE)
+            && !containsAllTerrainsOf(Terrains.BUILDING, Terrains.BLDG_ELEV, Terrains.BLDG_CF)) {
             newErrors.add("Incomplete Building! A hex with any building terrain must at least contain "
-                    + "a building type, building elevation and building CF.");
+                + "a building type, building elevation and building CF.");
         }
 
         // Bridges must have all of BRIDGE, BRIDGE_ELEV and BRIDGE_CF
         if (containsAnyTerrainOf(Terrains.BRIDGE, Terrains.BRIDGE_ELEV, Terrains.BRIDGE_CF)
-                && !containsAllTerrainsOf(Terrains.BRIDGE, Terrains.BRIDGE_ELEV, Terrains.BRIDGE_CF)) {
+            && !containsAllTerrainsOf(Terrains.BRIDGE, Terrains.BRIDGE_ELEV, Terrains.BRIDGE_CF)) {
             newErrors.add("Incomplete Bridge! A hex with any bridge terrain must contain "
-                    + "the bridge type, bridge elevation and the bridge CF.");
+                + "the bridge type, bridge elevation and the bridge CF.");
         }
 
         // Fuel Tanks must have all of FUEL_TANK, _ELEV, _CF and _MAGN
         if (containsAnyTerrainOf(Terrains.FUEL_TANK, Terrains.FUEL_TANK_CF,
-                Terrains.FUEL_TANK_ELEV, Terrains.FUEL_TANK_MAGN)
-                && !containsAllTerrainsOf(Terrains.FUEL_TANK, Terrains.FUEL_TANK_CF,
-                        Terrains.FUEL_TANK_ELEV, Terrains.FUEL_TANK_MAGN)) {
+            Terrains.FUEL_TANK_ELEV, Terrains.FUEL_TANK_MAGN)
+            && !containsAllTerrainsOf(Terrains.FUEL_TANK, Terrains.FUEL_TANK_CF,
+            Terrains.FUEL_TANK_ELEV, Terrains.FUEL_TANK_MAGN)) {
             newErrors.add("Incomplete Fuel Tank! A hex with any fuel tank terrain must contain "
-                    + "the fuel tank type, elevation, CF and the fuel tank magnitude.");
+                + "the fuel tank type, elevation, CF and the fuel tank magnitude.");
         }
 
         if (containsAllTerrainsOf(Terrains.FUEL_TANK, Terrains.BUILDING)) {
@@ -839,8 +839,8 @@ public class Hex implements Serializable {
                         break;
                     default:
                         sb.append(Terrains.getName(terrain.getType())).append("(")
-                                .append(terrain.getLevel()).append(", ")
-                                .append(terrain.getTerrainFactor()).append(")");
+                            .append(terrain.getLevel()).append(", ")
+                            .append(terrain.getTerrainFactor()).append(")");
                 }
                 sb.append("; ");
             }
@@ -862,8 +862,8 @@ public class Hex implements Serializable {
         hexString.append("Theme###").append(getTheme()).append("///");
         hexString.append("Terrain###");
         List<String> terrains = Arrays.stream(getTerrainTypes())
-                .filter(t -> !Terrains.AUTOMATIC.contains(t))
-                .mapToObj(t -> getTerrain(t).toString()).collect(Collectors.toList());
+            .filter(t -> !Terrains.AUTOMATIC.contains(t))
+            .mapToObj(t -> getTerrain(t).toString()).collect(Collectors.toList());
         hexString.append(String.join(";", terrains));
         return hexString.toString();
     }
