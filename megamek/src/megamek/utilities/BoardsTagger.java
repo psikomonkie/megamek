@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import megamek.common.*;
+import megamek.common.enums.BuildingType;
 import megamek.logging.MMLogger;
 
 /**
@@ -92,7 +93,8 @@ public class BoardsTagger {
         TAG_ARMOREDBUILDING("ArmoredBuilding"),
         TAG_IMPASSABLE("Impassable"),
         TAG_ELEVATOR("Elevator"),
-        TAG_MULTIPLETHEME("MultipleTheme");
+        TAG_MULTIPLETHEME("MultipleTheme"),
+        TAG_UNDERWATERBRIDGE("UnderWaterBridge");
 
         private String tagName;
         private static final Map<String, Tags> internalTagMap;
@@ -233,6 +235,7 @@ public class BoardsTagger {
         int impassable = 0;
         int elevator = 0;
         int multipleTheme = 0;
+        int underWaterBridge = 0;
 
         for (int x = 0; x < board.getWidth(); x++) {
             for (int y = 0; y < board.getHeight(); y++) {
@@ -274,8 +277,8 @@ public class BoardsTagger {
                 water += hex.containsTerrain(WATER) ? 1 : 0;
                 if (hex.containsTerrain(BUILDING)
                         && (!hex.containsTerrain(BLDG_CLASS) || hex.terrainLevel(BLDG_CLASS) == Building.STANDARD)
-                        && ((hex.terrainLevel(BUILDING) == Building.LIGHT)
-                                || (hex.terrainLevel(BUILDING) == Building.MEDIUM))) {
+                        && ((hex.terrainLevel(BUILDING) == BuildingType.LIGHT.getTypeValue())
+                                || (hex.terrainLevel(BUILDING) == BuildingType.MEDIUM.getTypeValue()))) {
                     stdBuildings++;
                     int height = hex.terrainLevel(BLDG_ELEV);
                     lowBuildings += (height <= 2) ? 1 : 0;
@@ -285,12 +288,17 @@ public class BoardsTagger {
                     hangar += hex.terrainLevel(BLDG_CLASS) == Building.HANGAR ? 1 : 0;
                     fortress += hex.terrainLevel(BLDG_CLASS) == Building.FORTRESS ? 1 : 0;
                     gunEnplacement += hex.terrainLevel(BLDG_CLASS) == Building.GUN_EMPLACEMENT ? 1 : 0;
-                    heavyBuilding += hex.terrainLevel(BUILDING) == Building.HEAVY ? 1 : 0;
-                    hardenedBuilding += hex.terrainLevel(BUILDING) == Building.HARDENED ? 1 : 0;
+                    heavyBuilding += hex.terrainLevel(BUILDING) == BuildingType.HEAVY.getTypeValue() ? 1 : 0;
+                    hardenedBuilding += hex.terrainLevel(BUILDING) == BuildingType.HARDENED.getTypeValue() ? 1 : 0;
                     armoredBuilding += hex.containsTerrain(BLDG_ARMOR) && hex.terrainLevel(Terrains.BLDG_ARMOR) > 0 ? 1 : 0;
                 }
                 impassable += hex.containsTerrain(IMPASSABLE) ? 1 : 0;
                 elevator += hex.containsTerrain(ELEVATOR) ? 1 : 0;
+                if (hex.containsTerrain(WATER)
+                    && hex.containsTerrain(BRIDGE)
+                    && (hex.terrainLevel(BRIDGE_ELEV) < hex.terrainLevel(WATER))) {
+                    underWaterBridge++;
+                }
             }
         }
 
@@ -359,6 +367,7 @@ public class BoardsTagger {
         multipleTheme += snowTheme > 0 ? 1 : 0;
         multipleTheme += volcanic > 0 ? 1 : 0;
         matchingTags.put(Tags.TAG_MULTIPLETHEME, multipleTheme > 1);
+        matchingTags.put(Tags.TAG_UNDERWATERBRIDGE, underWaterBridge > 0);
 
         // Remove (see below) any auto tags that might be present so that auto tags that
         // no longer apply

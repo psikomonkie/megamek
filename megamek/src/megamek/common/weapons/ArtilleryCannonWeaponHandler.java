@@ -17,8 +17,10 @@ package megamek.common.weapons;
 import java.util.Vector;
 
 import megamek.common.*;
+import megamek.common.actions.NukeDetonatedAction;
 import megamek.common.actions.WeaponAttackAction;
 import megamek.common.enums.GamePhase;
+import megamek.common.event.GamePlayerStrategicActionEvent;
 import megamek.logging.MMLogger;
 import megamek.server.totalwarfare.TWGameManager;
 
@@ -169,6 +171,10 @@ public class ArtilleryCannonWeaponHandler extends AmmoWeaponHandler {
                 return false;
             } else if (ammoType.getMunitionType().contains(AmmoType.Munitions.M_DAVY_CROCKETT_M)) {
                 // The appropriate term here is "Bwahahahahaha..."
+                gameManager.drawNukeHitOnBoard(targetPos);
+                gameManager.getGame().processGameEvent(
+                    new GamePlayerStrategicActionEvent(gameManager,
+                        new NukeDetonatedAction(ae.getId(), ae.getOwnerId(), AmmoType.Munitions.M_DAVY_CROCKETT_M)));
                 gameManager.doNuclearExplosion(targetPos, 1, vPhaseReport);
                 return false;
             } else if (ammoType.getMunitionType().contains(AmmoType.Munitions.M_FASCAM)) {
@@ -182,13 +188,21 @@ public class ArtilleryCannonWeaponHandler extends AmmoWeaponHandler {
                 // Currently Artillery Cannons _can_ make Flak attacks using FAE munitions
                 // If this is an ASF Flak attack we know we hit an entity by itself in the air,
                 // so just hit it for full damage.
+                int height = target.getElevation();
+                if (target instanceof HexTarget) {
+                    Board board = game.getBoard();
+                    if (board.contains(targetPos)) {
+                        height = board.getHex(targetPos).getLevel();
+                    }
+                }
+
                 if (asfFlak) {
                     AreaEffectHelper.artilleryDamageEntity((Entity) target, ammoType.getRackSize(), null,
-                            0, false, asfFlak, isFlak, target.getElevation(),
-                            targetPos, atype, targetPos, false, ae, null, target.getElevation(),
+                            0, false, asfFlak, isFlak, height,
+                            targetPos, atype, targetPos, false, ae, null, getAttackerId(),
                             vPhaseReport, gameManager);
                 } else {
-                    AreaEffectHelper.processFuelAirDamage(targetPos,
+                    AreaEffectHelper.processFuelAirDamage(targetPos, height,
                             ammoType, ae, vPhaseReport, gameManager);
                 }
 
@@ -218,7 +232,7 @@ public class ArtilleryCannonWeaponHandler extends AmmoWeaponHandler {
 
         gameManager.artilleryDamageArea(targetPos, ae.getPosition(), ammoType,
                 subjectId, ae, isFlak, altitude, mineClear, vPhaseReport,
-                asfFlak, -1);
+                asfFlak);
 
         // artillery may unintentionally clear minefields, but only if it wasn't trying
         // to

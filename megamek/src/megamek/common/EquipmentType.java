@@ -17,7 +17,6 @@ package megamek.common;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -161,7 +160,7 @@ public class EquipmentType implements ITechnology {
 
     protected TechAdvancement techAdvancement = new TechAdvancement();
 
-    protected BigInteger flags = BigInteger.ZERO;
+    protected EquipmentBitSet flags = new EquipmentBitSet();
 
     protected long subType = 0;
 
@@ -201,8 +200,8 @@ public class EquipmentType implements ITechnology {
         // default constructor
     }
 
-    public void setFlags(BigInteger inF) {
-        flags = inF;
+    public void setFlags(EquipmentBitSet flags) {
+        this.flags = flags;
     }
 
     public long getSubType() {
@@ -215,6 +214,10 @@ public class EquipmentType implements ITechnology {
 
     public void addSubType(int newFlag) {
         subType |= newFlag;
+    }
+
+    public boolean hasAnySubType(long... testFlags) {
+        return Arrays.stream(testFlags).anyMatch(this::hasSubType);
     }
 
     public boolean hasSubType(long testFlag) {
@@ -250,12 +253,9 @@ public class EquipmentType implements ITechnology {
     }
 
     /**
-     * @deprecated The old tech progression system has been replaced by the
-     *             TechAdvancement class.
+     * @deprecated since 0.50.04. Use {@see TechAdvancement} instead.
      */
-    // @Deprecated This is using the new TechAdvancement class under the hood.
-    // Should it really be deprecated now?
-    @Deprecated
+    @Deprecated(since = "0.50.04")
     public Map<Integer, Integer> getTechLevels() {
         Map<Integer, Integer> techLevel = new HashMap<Integer, Integer>();
         if (isUnofficial()) {
@@ -506,12 +506,43 @@ public class EquipmentType implements ITechnology {
         return toHitModifier;
     }
 
-    public BigInteger getFlags() {
+    public EquipmentBitSet getFlags() {
         return flags;
     }
 
-    public boolean hasFlag(BigInteger flag) {
-        return !(flags.and(flag)).equals(BigInteger.ZERO);
+    /**
+     * Returns true when this EquipmentType has the given flag. NOTE: Even though
+     * EquipmentFlags are enums, checking e.g. a WeaponType if it has a MiscTypeFlag
+     * may return an incorrect true result, as the actual test is made using
+     * EquipmentBitSet, i.e. a number comparison.
+     *
+     * Example: EquipmentType.get("BAArmoredGlove").hasFlag(WeaponType.F_VGL)
+     * returns true, as WeaponType.F_VGL has the same ordinal as
+     * MiscType.F_ARMORED_GLOVE. Therefore, always make sure to test only MiscTypes
+     * against MiscTypeFlags, WeaponTypes against WeaponTypeFlags and AmmoTypes
+     * against AmmoTypeFlags. This method will log a warning if the rule is not
+     * followed.
+     *
+     * @param flag The EquipmentFlag to check
+     * @return True when this EquipmentType has the given flag
+     * @see EquipmentFlag
+     */
+    public boolean hasFlag(EquipmentFlag flag) {
+        return flags.get(flag);
+    }
+
+    public boolean hasAnyFlag(EquipmentFlag... flags) {
+        return Arrays.stream(flags).anyMatch(this::hasFlag);
+    }
+
+    /**
+     * Checks if the equipment has all of the specified flags.
+     *
+     * @param flag The flags to check
+     * @return True if the equipment has all of the specified flags
+     */
+    public boolean hasFlag(EquipmentBitSet flag) {
+        return flags.contains(flag);
     }
 
     public double getBV(Entity entity) {
@@ -546,9 +577,11 @@ public class EquipmentType implements ITechnology {
         }
 
         // Avoid Concurrent Modification exception with this one simple trick!
-        for (Iterator<EquipmentMode> iterator = modes.iterator(); iterator.hasNext();) {
-            if (iterator.next().getName().equals(modeType)) {
-                return true;
+        synchronized (modes) {
+            for (Iterator<EquipmentMode> iterator = modes.iterator(); iterator.hasNext();) {
+                if (iterator.next().getName().equals(modeType)) {
+                    return true;
+                }
             }
         }
 
@@ -556,7 +589,8 @@ public class EquipmentType implements ITechnology {
     }
 
     /**
-     * @param mounted The equipment mount. In some cases the moudes are affected by linked equipment.
+     * @param mounted The equipment mount. In some cases the modes are affected by
+     *                linked equipment.
      * @return the number of modes that this type of equipment can be in or
      *         <code>0</code> if it doesn't have modes.
      */
@@ -1760,5 +1794,13 @@ public class EquipmentType implements ITechnology {
         result.put(T_STRUCTURE_ENDO_COMPOSITE, getStructureTypeName(T_STRUCTURE_ENDO_COMPOSITE));
 
         return result;
+    }
+
+    /**
+     * @return True if this equipment type is eligible for being an armored
+     *         component, TO:AUE p.95
+     */
+    public boolean isArmorable() {
+        return isHittable();
     }
 }

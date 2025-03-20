@@ -17,12 +17,10 @@ import megamek.client.ui.Messages;
 import megamek.common.Coords;
 import megamek.common.Hex;
 import megamek.server.Server;
-import megamek.server.commands.arguments.Argument;
-import megamek.server.commands.arguments.IntegerArgument;
+import megamek.server.commands.arguments.*;
 import megamek.server.totalwarfare.TWGameManager;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -48,8 +46,8 @@ public class FirestarterCommand extends GamemasterServerCommand {
     @Override
     public List<Argument<?>> defineArguments() {
         return List.of(
-            new IntegerArgument(X, Messages.getString("Gamemaster.cmd.x")),
-            new IntegerArgument(Y, Messages.getString("Gamemaster.cmd.y")),
+            new CoordXArgument(X, Messages.getString("Gamemaster.cmd.x")),
+            new CoordYArgument(Y, Messages.getString("Gamemaster.cmd.y")),
             new IntegerArgument(TYPE, Messages.getString("Gamemaster.cmd.fire.type"), 1, 4, 1));
     }
 
@@ -59,7 +57,7 @@ public class FirestarterCommand extends GamemasterServerCommand {
      * @see ServerCommand#run(int, String[])
      */
     @Override
-    protected void runAsGM(int connId, Map<String, Argument<?>> args) {
+    protected void runCommand(int connId, Arguments args) {
         if (getGameManager().getGame().getBoard().inSpace()) {
             server.sendServerChat(connId, "Can't start a fire in space");
             return;
@@ -74,7 +72,7 @@ public class FirestarterCommand extends GamemasterServerCommand {
         try {
             Hex hex = gameManager.getGame().getBoard().getHex(coords);
             Objects.requireNonNull(hex, "Hex not found.");
-            gameManager.ignite(coords, fireType, gameManager.getvPhaseReport());
+            gameManager.ignite(coords, fireType, gameManager.getMainPhaseReport());
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to ignite hex: " + e.getMessage());
         }

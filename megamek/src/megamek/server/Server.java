@@ -51,12 +51,12 @@ import megamek.SuiteConstants;
 import megamek.Version;
 import megamek.client.ui.swing.util.PlayerColour;
 import megamek.codeUtilities.StringUtility;
-import megamek.common.Game;
-import megamek.common.IGame;
-import megamek.common.Player;
-import megamek.common.Roll;
+import megamek.common.*;
 import megamek.common.annotations.Nullable;
 import megamek.common.commandline.AbstractCommandLineParser.ParseException;
+import megamek.common.enums.GamePhase;
+import megamek.common.event.GameListenerAdapter;
+import megamek.common.event.GamePhaseChangeEvent;
 import megamek.common.icons.Camouflage;
 import megamek.common.net.connections.AbstractConnection;
 import megamek.common.net.enums.PacketCommand;
@@ -65,7 +65,6 @@ import megamek.common.net.events.PacketReceivedEvent;
 import megamek.common.net.factories.ConnectionFactory;
 import megamek.common.net.listeners.ConnectionListener;
 import megamek.common.net.packets.Packet;
-import megamek.common.options.BasicGameOptions;
 import megamek.common.options.OptionsConstants;
 import megamek.common.preference.PreferenceManager;
 import megamek.common.util.EmailService;
@@ -184,8 +183,7 @@ public class Server implements Runnable {
     private Timer serverBrowserUpdateTimer = null;
 
     /**
-     * Used to ensure only one thread at a time is accessing this particular
-     * instance of the server.
+     * Used to ensure only one thread at a time is accessing this particular instance of the server.
      */
     private final Object serverLock = new Object();
 
@@ -207,6 +205,8 @@ public class Server implements Runnable {
     private static final String WARGAMES_CALL = "Shall we play a game?";
 
     private static final String WARGAMES_RESPONSE = "Let's play global thermonuclear war.";
+
+    public static final int SERVER_CONN = Integer.MIN_VALUE;
 
     private final ConnectionListener connectionListener = new ConnectionListener() {
 
@@ -291,7 +291,9 @@ public class Server implements Runnable {
 
     /**
      * @param serverAddress
+     *
      * @return valid hostName
+     *
      * @throws ParseException for null or empty serverAddress
      */
     public static String validateServerAddress(String serverAddress) throws ParseException {
@@ -306,6 +308,7 @@ public class Server implements Runnable {
 
     /**
      * @param playerName throw ParseException if null or empty
+     *
      * @return valid playerName
      */
     public static String validatePlayerName(String playerName) throws ParseException {
@@ -324,6 +327,7 @@ public class Server implements Runnable {
 
     /**
      * @param password
+     *
      * @return valid password or null if no password or password is blank string
      */
     public static @Nullable String validatePassword(@Nullable String password) {
@@ -334,29 +338,25 @@ public class Server implements Runnable {
      * Checks a String against the server password
      *
      * @param password The password provided by the user.
-     * @return true if the user-supplied data matches the server password or no
-     *         password is set.
+     *
+     * @return true if the user-supplied data matches the server password or no password is set.
      */
     public boolean passwordMatches(Object password) {
         return StringUtility.isNullOrBlank(this.password) || this.password.equals(password);
     }
 
     /**
-     * @param port if 0 or less, will return default, if illegal number, throws
-     *             ParseException
+     * @param port if outside the established range of #{@see MMConstants#MIN_PORT} and #{@see MMConstants#MAX_PORT} return
+     *             #{@see MMConstants#DEFAULT_PORT} or the passed in port.
+     *
      * @return valid port number
      */
     public static int validatePort(int port) throws ParseException {
-        if (port <= 0) {
+        if (port < MMConstants.MIN_PORT || port > MMConstants.MAX_PORT) {
             return MMConstants.DEFAULT_PORT;
-        } else if ((port < MMConstants.MIN_PORT) || (port > MMConstants.MAX_PORT)) {
-            String message = String.format("Port number %d outside allowed range %d-%d", port, MMConstants.MIN_PORT,
-                    MMConstants.MAX_PORT);
-            logger.error(message);
-            throw new ParseException(message);
-        } else {
-            return port;
         }
+
+        return port;
     }
 
     public Server(@Nullable String password, int port, IGameManager gameManager) throws IOException {
@@ -364,30 +364,24 @@ public class Server implements Runnable {
     }
 
     public Server(@Nullable String password, int port, IGameManager gameManager,
-            boolean registerWithServerBrowser, @Nullable String metaServerUrl) throws IOException {
+                  boolean registerWithServerBrowser, @Nullable String metaServerUrl) throws IOException {
         this(password, port, gameManager, registerWithServerBrowser, metaServerUrl, null, false);
     }
 
     /**
      * Construct a new GameHost and begin listening for incoming clients.
      *
-     * @param password                  the <code>String</code> that is set as a
-     *                                  password
-     * @param port                      the <code>int</code> value that specifies
-     *                                  the port that is used
-     * @param gameManager               the {@link IGameManager} instance for this
-     *                                  server instance.
-     * @param registerWithServerBrowser a <code>boolean</code> indicating whether we
-     *                                  should register with the master server
-     *                                  browser on https://api.megamek.org
-     * @param mailer                    an email service instance to use for sending
-     *                                  round reports.
-     * @param dedicated                 set to true if this server is started from a
-     *                                  GUI-less context
+     * @param password                  the <code>String</code> that is set as a password
+     * @param port                      the <code>int</code> value that specifies the port that is used
+     * @param gameManager               the {@link IGameManager} instance for this server instance.
+     * @param registerWithServerBrowser a <code>boolean</code> indicating whether we should register with the master server browser on
+     *                                  https://api.megamek.org
+     * @param mailer                    an email service instance to use for sending round reports.
+     * @param dedicated                 set to true if this server is started from a GUI-less context
      */
     public Server(@Nullable String password, int port, IGameManager gameManager,
-            boolean registerWithServerBrowser, @Nullable String metaServerUrl,
-            @Nullable EmailService mailer, boolean dedicated) throws IOException {
+                  boolean registerWithServerBrowser, @Nullable String metaServerUrl,
+                  @Nullable EmailService mailer, boolean dedicated) throws IOException {
         this.metaServerUrl = StringUtility.isNullOrBlank(metaServerUrl) ? null : metaServerUrl;
         this.password = StringUtility.isNullOrBlank(password) ? null : password;
         this.gameManager = gameManager;
@@ -456,9 +450,8 @@ public class Server implements Runnable {
     }
 
     /**
-     * Sets the game for this server. Restores any transient fields, and sets
-     * all players as ghosts. This should only be called during server
-     * initialization before any players have connected.
+     * Sets the game for this server. Restores any transient fields, and sets all players as ghosts. This should only be called during
+     * server initialization before any players have connected.
      */
     public void setGame(IGame g) {
         gameManager.setGame(g);
@@ -473,8 +466,7 @@ public class Server implements Runnable {
     }
 
     /**
-     * Make a default message o' the day containing the version string, and if
-     * it was found, the build timestamp
+     * Make a default message o' the day containing the version string, and if it was found, the build timestamp
      */
     private String createMotd() {
         return "Welcome to MegaMek. Server is running version " + SuiteConstants.VERSION;
@@ -577,8 +569,8 @@ public class Server implements Runnable {
      */
     public int getFreeConnectionId() {
         while ((getPendingConnection(connectionCounter) != null)
-                || (getConnection(connectionCounter) != null)
-                || (getPlayer(connectionCounter) != null)) {
+            || (getConnection(connectionCounter) != null)
+            || (getPlayer(connectionCounter) != null)) {
             connectionCounter++;
         }
         return connectionCounter;
@@ -615,9 +607,9 @@ public class Server implements Runnable {
             gamePlayer.setNbrMFInferno(player.getNbrMFInferno());
             if (gamePlayer.getConstantInitBonus() != player.getConstantInitBonus()) {
                 sendServerChat("Player " + gamePlayer.getName()
-                        + " changed their initiative bonus from "
-                        + gamePlayer.getConstantInitBonus() + " to "
-                        + player.getConstantInitBonus() + '.');
+                    + " changed their initiative bonus from "
+                    + gamePlayer.getConstantInitBonus() + " to "
+                    + player.getConstantInitBonus() + '.');
             }
             gamePlayer.setConstantInitBonus(player.getConstantInitBonus());
             gamePlayer.setEmail(player.getEmail());
@@ -629,6 +621,7 @@ public class Server implements Runnable {
      * Correct a duplicate player name
      *
      * @param oldName the <code>String</code> old player name, that is a duplicate
+     *
      * @return the <code>String</code> new player name
      */
     private String correctDupeName(String oldName) {
@@ -658,13 +651,13 @@ public class Server implements Runnable {
 
         if (!SuiteConstants.VERSION.is(version)) {
             final String message = String.format("Client/Server Version Mismatch -- Client: %s, Server: %s",
-                    version, SuiteConstants.VERSION);
+                version, SuiteConstants.VERSION);
             logger.error(message);
 
             final Player player = getPlayer(connId);
             sendServerChat(String.format("For %s, Server reports:%s%s",
-                    ((player == null) ? "unknown player" : player.getName()), System.lineSeparator(),
-                    message));
+                ((player == null) ? "unknown player" : player.getName()), System.lineSeparator(),
+                message));
             return false;
         }
 
@@ -683,28 +676,27 @@ public class Server implements Runnable {
             // print message indicating a client/server checksum mismatch
         } else if (!clientChecksum.equals(serverChecksum)) {
             message = String.format("Client/Server checksum mismatch. Server reports: %s, Client reports %s",
-                    serverChecksum, clientChecksum);
+                serverChecksum, clientChecksum);
             logger.warn(message);
         }
 
         // Now, if we need to, send message!
         if (message.isEmpty()) {
             message = String.format("SUCCESS: Client/Server Version (%s) and Checksum (%s) matched", version,
-                    clientChecksum);
+                clientChecksum);
             logger.info(message);
         } else {
             Player player = getPlayer(connId);
             sendServerChat(String.format("For %s, Server reports:%s%s",
-                    ((player == null) ? "unknown player" : player.getName()), System.lineSeparator(),
-                    message));
+                ((player == null) ? "unknown player" : player.getName()), System.lineSeparator(),
+                message));
         }
 
         return true;
     }
 
     /**
-     * Receives a player name, sent from a pending connection, and connects that
-     * connection.
+     * Receives a player name, sent from a pending connection, and connects that connection.
      */
     private void receivePlayerName(Packet packet, int connId) {
         final AbstractConnection conn = getPendingConnection(connId);
@@ -733,7 +725,8 @@ public class Server implements Runnable {
 
         if (!returning) {
             // Check to avoid duplicate names...
-            sendToPending(connId, new Packet(PacketCommand.SERVER_CORRECT_NAME, correctDupeName(name)));
+            name = correctDupeName(name);
+            sendToPending(connId, new Packet(PacketCommand.SERVER_CORRECT_NAME, name));
         }
 
         // right, switch the connection into the "active" bin
@@ -749,8 +742,8 @@ public class Server implements Runnable {
         // if it is not the lounge phase, this player becomes an observer
         Player player = getPlayer(connId);
         if (!getGame().getPhase().isLounge() &&
-                (null != player) &&
-                (getGame().getEntitiesOwnedBy(player) < 1)) {
+            (null != player) &&
+            (getGame().getEntitiesOwnedBy(player) < 1)) {
             player.setObserver(true);
         }
 
@@ -805,8 +798,7 @@ public class Server implements Runnable {
     }
 
     /**
-     * Sends a player the info they need to look at the current phase. This is
-     * triggered when a player first connects to the server.
+     * Sends a player the info they need to look at the current phase. This is triggered when a player first connects to the server.
      */
     public void sendCurrentInfo(int connId) {
         transmitPlayerConnect(getClient(connId));
@@ -817,22 +809,7 @@ public class Server implements Runnable {
      * Adds a new player to the game
      */
     private Player addNewPlayer(int connId, String name, boolean isBot) {
-        int team = Player.TEAM_UNASSIGNED;
-        if (getGame().getPhase().isLounge()) {
-            team = Player.TEAM_NONE;
-            final BasicGameOptions gOpts = getGame().getOptions();
-            if (isBot || !gOpts.booleanOption(OptionsConstants.BASE_SET_DEFAULT_TEAM_1)) {
-                for (Player p : getGame().getPlayersList()) {
-                    if (p.getTeam() > team) {
-                        team = p.getTeam();
-                    }
-                }
-                team++;
-            } else {
-                team = 1;
-            }
-
-        }
+        int team = getTeam(isBot);
         Player newPlayer = new Player(connId, name);
         newPlayer.setBot(isBot);
         PlayerColour colour = newPlayer.getColour();
@@ -852,6 +829,26 @@ public class Server implements Runnable {
         getGame().addPlayer(connId, newPlayer);
         validatePlayerInfo(connId);
         return newPlayer;
+    }
+
+    private int getTeam(boolean isBot) {
+        int team = Player.TEAM_UNASSIGNED;
+        if (getGame().getPhase().isLounge()) {
+            team = Player.TEAM_NONE;
+            final var gOpts = getGame().getOptions();
+            if (isBot || !gOpts.booleanOption(OptionsConstants.BASE_SET_DEFAULT_TEAM_1)) {
+                for (Player p : getGame().getPlayersList()) {
+                    if (p.getTeam() > team) {
+                        team = p.getTeam();
+                    }
+                }
+                team++;
+            } else {
+                team = 1;
+            }
+
+        }
+        return team;
     }
 
     /**
@@ -887,8 +884,8 @@ public class Server implements Runnable {
     }
 
     /**
-     * Called when it's been determined that an actual player disconnected.
-     * Notifies the other players and does the appropriate housekeeping.
+     * Called when it's been determined that an actual player disconnected. Notifies the other players and does the appropriate
+     * housekeeping.
      */
     void disconnected(Player player) {
         gameManager.disconnect(player);
@@ -919,8 +916,8 @@ public class Server implements Runnable {
      * load the game
      *
      * @param f The <code>File</code> to load
-     * @return A <code>boolean</code> value whether or not the loading was
-     *         successful
+     *
+     * @return A <code>boolean</code> value whether or not the loading was successful
      */
     public boolean loadGame(File f) {
         return loadGame(f, true);
@@ -930,12 +927,10 @@ public class Server implements Runnable {
      * load the game
      *
      * @param f        The <code>File</code> to load
-     * @param sendInfo Determines whether the connections should be updated with
-     *                 current info. This may be false if some reconnection
-     *                 remapping
-     *                 needs to be done first.
-     * @return A <code>boolean</code> value whether or not the loading was
-     *         successful
+     * @param sendInfo Determines whether the connections should be updated with current info. This may be false if some reconnection
+     *                 remapping needs to be done first.
+     *
+     * @return A <code>boolean</code> value whether or not the loading was successful
      */
     public boolean loadGame(File f, boolean sendInfo) {
         String message = String.format("s: Loading saved game file '%s'", f.getAbsolutePath());
@@ -981,16 +976,12 @@ public class Server implements Runnable {
     }
 
     /**
-     * When the load command is used, there is a list of already connected
-     * players which have assigned names and player id numbers with the id
-     * numbers matching the connection numbers. When a new game is loaded, this
-     * mapping may need to be updated. This method takes a map of player names
-     * to their current ids, and uses the list of players to figure out what the
-     * current ids should change to.
+     * When the load command is used, there is a list of already connected players which have assigned names and player id numbers with the
+     * id numbers matching the connection numbers. When a new game is loaded, this mapping may need to be updated. This method takes a map
+     * of player names to their current ids, and uses the list of players to figure out what the current ids should change to.
      *
      * @param nameToIdMap This maps a player name to the current connection ID
-     * @param idToNameMap This maps a current conn ID to a player name, and is just
-     *                    the inverse mapping from nameToIdMap
+     * @param idToNameMap This maps a current conn ID to a player name, and is just the inverse mapping from nameToIdMap
      */
     public void remapConnIds(Map<String, Integer> nameToIdMap, Map<Integer, String> idToNameMap) {
         // Keeps track of connections without Ids
@@ -1079,8 +1070,8 @@ public class Server implements Runnable {
     }
 
     /**
-     * Removes all entities owned by the given player. Should only be called when it
-     * won't cause trouble (the lounge, for instance, or between phases.)
+     * Removes all entities owned by the given player. Should only be called when it won't cause trouble (the lounge, for instance, or
+     * between phases.)
      */
     private void removeAllEntitiesOwnedBy(Player player) {
         gameManager.removeAllEntitiesOwnedBy(player);
@@ -1183,8 +1174,27 @@ public class Server implements Runnable {
         }
     }
 
+    /**
+     * Player can request its own change of team
+     *
+     * @param teamId target team id
+     * @param player player requesting the change
+     *
+     * @deprecated Planned to be removed. Use {@link #requestTeamChangeForPlayer(int, Player)} instead.
+     */
+    @Deprecated(since = "0.50.04")
     public void requestTeamChange(int teamId, Player player) {
         gameManager.requestTeamChange(teamId, player);
+    }
+
+    /**
+     * Player can request its own change of team
+     *
+     * @param teamID target team id
+     * @param player player requesting the change
+     */
+    public void requestTeamChangeForPlayer(int teamID, Player player) {
+        gameManager.requestTeamChangeForPlayer(teamID, player);
     }
 
     public void requestGameMaster(Player player) {
@@ -1222,13 +1232,12 @@ public class Server implements Runnable {
      */
     void send(Packet packet) {
         connections.stream()
-                .filter(Objects::nonNull)
-                .forEach(connection -> connection.send(packet));
+            .filter(Objects::nonNull)
+            .forEach(connection -> connection.send(packet));
     }
 
     /**
-     * Sends the given packet to the given connection (= player ID) if it is not
-     * null. Does nothing otherwise.
+     * Sends the given packet to the given connection (= player ID) if it is not null. Does nothing otherwise.
      */
     public void send(int connId, Packet packet) {
         AbstractConnection connection = getClient(connId);
@@ -1274,8 +1283,7 @@ public class Server implements Runnable {
     /**
      * Process a packet from a connection.
      *
-     * @param connId - the <code>int</code> ID the connection that received the
-     *               packet.
+     * @param connId - the <code>int</code> ID the connection that received the packet.
      * @param packet - the <code>Packet</code> to be processed.
      */
     protected void handle(int connId, Packet packet) {
@@ -1339,7 +1347,7 @@ public class Server implements Runnable {
                 } else if (INVADER_ZIM_CALL.equalsIgnoreCase(chat)) {
                     sendServerChat(INVADER_ZIM_RESPONSE);
                 } else if (WARGAMES_CALL.equalsIgnoreCase(chat)) {
-                    sendServerChat(WARGAMES_RESPONSE);
+                    wargamesResponse();
                 }
                 break;
             case LOAD_GAME:
@@ -1356,6 +1364,82 @@ public class Server implements Runnable {
             default:
                 gameManager.handlePacket(connId, packet);
         }
+    }
+
+    private void wargamesResponse() {
+        sendServerChat(WARGAMES_RESPONSE);
+        wargamesAttack(3, new Random().nextInt(5, 13));
+    }
+
+    private void wargamesAttack(int rounds, int numberOfStrikes) {
+        if (rounds <= 0) {
+            return;
+        }
+
+        if (this.getGame() != null && this.getGame().getBoard() != null) {
+            int height = this.getGame().getBoard().getHeight();
+            int width = this.getGame().getBoard().getWidth(); // Fixed width retrieval
+
+            Random random = new Random();
+            List<Coords> selectedCoords = new ArrayList<>();
+
+            int maxAttempts = 100;
+            int maxStrikes = rounds == 1 ? numberOfStrikes : new Random().nextInt(1, numberOfStrikes + 1);
+            for (int i = 0; i < maxStrikes; i++) {
+                Coords newCoord = null;
+
+                for (int attempt = 0; attempt < maxAttempts; attempt++) {
+                    int x = random.nextInt(width);
+                    int y = random.nextInt(height);
+                    Coords candidate = new Coords(x, y);
+
+                    boolean isValid = true;
+                    for (Coords coords : selectedCoords) {
+                        int dx = Math.abs(coords.getX() - x);
+                        int dy = Math.abs(coords.getY() - y);
+                        if (Math.max(dx, dy) <= 9) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+
+                    if (isValid) {
+                        newCoord = candidate;
+                        break;
+                    }
+                }
+
+                if (newCoord != null) {
+                    selectedCoords.add(newCoord);
+                } else {
+                    break; // Stop if we can't find a valid coordinate
+                }
+            }
+
+            if (!selectedCoords.isEmpty()) {
+                sendServerChat("!!!WARNING!!! LAUNCH OF STRATEGIC WEAPONS DETECTED");
+                sendServerChat("!!!WARNING!!! LAUNCH OF STRATEGIC WEAPONS DETECTED");
+                sendServerChat("!!!WARNING!!! LAUNCH OF STRATEGIC WEAPONS DETECTED");
+            }
+
+            for (Coords coords : selectedCoords) {
+                numberOfStrikes--;
+                processCommand(SERVER_CONN, "/ob " + coords.getX() + 1 + " " + coords.getY() + 1);
+                sendServerChat("DANGER ZONE: Incoming strategic strike at " + (coords.getX() + 1) + ", "
+                    + (coords.getY() + 1));
+            }
+        }
+
+        final int strikesRemaining = numberOfStrikes;
+        this.getGame().addGameListener(new GameListenerAdapter() {
+            @Override
+            public void gamePhaseChange(GamePhaseChangeEvent e) {
+                if (e.getNewPhase() == GamePhase.PREMOVEMENT) {
+                    wargamesAttack(rounds - 1, strikesRemaining);
+                    getGame().removeGameListener(this);
+                }
+            }
+        });
     }
 
     /**
@@ -1413,8 +1497,7 @@ public class Server implements Runnable {
     }
 
     /**
-     * @return the current server instance. This may be null if a server has not
-     *         been started
+     * @return the current server instance. This may be null if a server has not been started
      */
     public static @Nullable Server getServerInstance() {
         return serverInstance;
@@ -1430,7 +1513,7 @@ public class Server implements Runnable {
             OutputStream os = conn.getOutputStream();
             DataOutputStream dos = new DataOutputStream(os);
             String content = "port="
-                    + URLEncoder.encode(Integer.toString(serverSocket.getLocalPort()), StandardCharsets.UTF_8);
+                + URLEncoder.encode(Integer.toString(serverSocket.getLocalPort()), StandardCharsets.UTF_8);
             if (register) {
                 for (AbstractConnection iconn : connections) {
                     content += "&players[]=" + getPlayer(iconn.getId()).getName();

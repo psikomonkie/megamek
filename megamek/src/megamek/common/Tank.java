@@ -204,6 +204,10 @@ public class Tank extends Entity {
 
     @Override
     public CrewType defaultCrewType() {
+        // A tank that is a trailer, has no weapon list, and has no engine does not need any crew.
+        if (isTrailer() && getWeaponList().isEmpty() && (getEngineType() == Engine.NONE)) {
+            return CrewType.NONE;
+        }
         return CrewType.CREW;
     }
 
@@ -374,7 +378,7 @@ public class Tank extends Entity {
     }
 
     @Override
-    public boolean isEligibleForPavementBonus() {
+    public boolean isEligibleForPavementOrRoadBonus() {
         return movementMode == EntityMovementMode.TRACKED || movementMode == EntityMovementMode.WHEELED
                 || movementMode == EntityMovementMode.HOVER;
     }
@@ -545,8 +549,14 @@ public class Tank extends Entity {
         crewHitPS = hit;
     }
 
+    /**
+     * @return  true if <code>m_bImmobile</code> is true and the original walk MP
+     *          for the unit is greater than 0.
+     * @see #applyMovementDamage
+     */
     public boolean isMovementHit() {
-        return m_bImmobile;
+        // We don't want to return true for trailers,
+        return (m_bImmobile) && (getOriginalWalkMP() > 0);
     }
 
     public boolean isMovementHitPending() {
@@ -2241,14 +2251,25 @@ public class Tank extends Entity {
         return (m_bTurretJammed || m_bDualTurretJammed) && getStunnedTurns() <= 0;
     }
 
+    /**
+     * Adds the provided weapon as a weapon that is jammed via the vehicle "weapon malfunction" critical hit
+     * @param weapon Weapon that suffered a "Weapon Malfunction" crit and should be jammed
+     */
     public void addJammedWeapon(Mounted<?> weapon) {
         jammedWeapons.add(weapon);
     }
 
+    /**
+     * All weapons that a vehicle could use "unjam weapon" for
+     * @return all weapons that are jammed via the vehicle "weapon malfunction" critical hit
+     */
     public ArrayList<Mounted<?>> getJammedWeapons() {
         return jammedWeapons;
     }
 
+    /**
+     * Resets the list of weapons a vehicle has jammed via "weapon malfunction" crits to empty
+     */
     public void resetJammedWeapons() {
         jammedWeapons = new ArrayList<>();
     }
@@ -2987,7 +3008,7 @@ public class Tank extends Entity {
 
     @Override
     public boolean isEjectionPossible() {
-        return game.getOptions().booleanOption(OptionsConstants.ADVGRNDMOV_VEHICLES_CAN_EJECT)
+        return game != null && game.getOptions().booleanOption(OptionsConstants.ADVGRNDMOV_VEHICLES_CAN_EJECT)
                 && getCrew().isActive()
                 && !hasQuirk(OptionsConstants.QUIRK_NEG_NO_EJECT);
     }
@@ -3129,5 +3150,14 @@ public class Tank extends Entity {
     @Override
     public int getGenericBattleValue() {
         return (int) Math.round(Math.exp(2.866 + 0.987 * Math.log(getWeight())));
+    }
+
+    /**
+     * @param location The location to check
+     * @return True when the given location is a side location, i.e. left, right or, on superheavy units, front or
+     * rear left/right.
+     */
+    public boolean isSideLocation(int location) {
+        return (location == Tank.LOC_LEFT) || (location == Tank.LOC_RIGHT);
     }
 }

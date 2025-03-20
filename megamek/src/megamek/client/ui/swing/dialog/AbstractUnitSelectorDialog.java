@@ -14,22 +14,32 @@
  */
 package megamek.client.ui.swing.dialog;
 
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.WindowEvent;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.PatternSyntaxException;
+import megamek.MegaMek;
+import megamek.client.ui.Messages;
+import megamek.client.ui.advancedsearch.AdvancedSearchDialog2;
+import megamek.client.ui.advancedsearch.MekSearchFilter;
+import megamek.client.ui.dialogs.BVDisplayDialog;
+import megamek.client.ui.models.XTableColumnModel;
+import megamek.client.ui.panes.EntityViewPane;
+import megamek.client.ui.swing.GUIPreferences;
+import megamek.client.ui.swing.UnitLoadingDialog;
+import megamek.common.Entity;
+import megamek.common.EntityWeightClass;
+import megamek.common.MekFileParser;
+import megamek.common.MekSummary;
+import megamek.common.MekSummaryCache;
+import megamek.common.TechConstants;
+import megamek.common.UnitType;
+import megamek.common.annotations.Nullable;
+import megamek.common.battlevalue.BVCalculator;
+import megamek.common.internationalization.Internationalization;
+import megamek.common.loaders.EntityLoadingException;
+import megamek.common.options.GameOptions;
+import megamek.common.options.OptionsConstants;
+import megamek.common.preference.ClientPreferences;
+import megamek.common.preference.PreferenceManager;
+import megamek.common.util.sorter.NaturalOrderComparator;
+import megamek.logging.MMLogger;
 
 import javax.swing.*;
 import javax.swing.RowSorter.SortKey;
@@ -41,31 +51,20 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableRowSorter;
-
-import megamek.MegaMek;
-import megamek.client.ui.Messages;
-import megamek.client.ui.advancedsearch.AdvancedSearchDialog2;
-import megamek.client.ui.dialogs.BVDisplayDialog;
-import megamek.client.ui.models.XTableColumnModel;
-import megamek.client.ui.panes.EntityViewPane;
-import megamek.client.ui.swing.GUIPreferences;
-import megamek.client.ui.swing.UnitLoadingDialog;
-import megamek.common.Entity;
-import megamek.common.EntityWeightClass;
-import megamek.common.MekFileParser;
-import megamek.client.ui.advancedsearch.MekSearchFilter;
-import megamek.common.MekSummary;
-import megamek.common.MekSummaryCache;
-import megamek.common.TechConstants;
-import megamek.common.UnitType;
-import megamek.common.annotations.Nullable;
-import megamek.common.battlevalue.BVCalculator;
-import megamek.common.options.GameOptions;
-import megamek.common.options.OptionsConstants;
-import megamek.common.preference.ClientPreferences;
-import megamek.common.preference.PreferenceManager;
-import megamek.common.util.sorter.NaturalOrderComparator;
-import megamek.logging.MMLogger;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 /**
  * This is a heavily reworked version of the original MekSelectorDialog which
@@ -106,7 +105,6 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
     protected Map<Integer, Integer> techLevelListToIndex = new HashMap<>();
     protected JComboBox<String> comboUnitType = new JComboBox<>();
     protected JComboBox<String> comboWeight = new JComboBox<>();
-    private JScrollPane techLevelScroll;
     private JPanel panelFilterButtons;
     protected JLabel labelImage = new JLabel(""); // inline to avoid potential null pointer issues
     protected JTable tableUnits;
@@ -121,6 +119,8 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
     private long lastSearch = 0;
     // how long after a key is typed does a new search begin
     private static final int KEY_TIMEOUT = 1000;
+
+    protected final boolean multiSelect;
 
     protected static MekSummaryCache mscInstance = MekSummaryCache.getInstance();
     protected MekSummary[] meks;
@@ -152,10 +152,15 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
     // endregion Variable Declarations
 
     protected AbstractUnitSelectorDialog(JFrame frame, UnitLoadingDialog unitLoadingDialog) {
+        this(frame, unitLoadingDialog, false);
+    }
+
+    protected AbstractUnitSelectorDialog(JFrame frame, UnitLoadingDialog unitLoadingDialog, boolean multiSelect) {
         super(frame, Messages.getString("MekSelectorDialog.title"), true);
         setName("UnitSelectorDialog");
         this.frame = frame;
         this.unitLoadingDialog = unitLoadingDialog;
+        this.multiSelect = multiSelect;
         super.setVisible(false);
     }
 
@@ -213,7 +218,6 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         // region Unit Preview Pane
         panePreview = new EntityViewPane(frame, null);
         panePreview.setMinimumSize(new Dimension(0, 0));
-        panePreview.setPreferredSize(new Dimension(0, 0));
         // endregion Unit Preview Pane
 
         // region Selection Panel
@@ -234,7 +238,7 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         tableUnits.setDefaultRenderer(Integer.class, centeredRenderer);
         tableUnits.getColumnModel().getColumn(MekTableModel.COL_LEVEL).setCellRenderer(centeredRenderer);
 
-        tableUnits.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tableUnits.setSelectionMode(multiSelect ? ListSelectionModel.MULTIPLE_INTERVAL_SELECTION : ListSelectionModel.SINGLE_SELECTION);
         sorter = new TableRowSorter<>(unitModel);
         sorter.setComparator(MekTableModel.COL_CHASSIS, new NaturalOrderComparator());
         sorter.setComparator(MekTableModel.COL_MODEL, new NaturalOrderComparator());
@@ -258,15 +262,6 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         scrollTableUnits = new JScrollPane(tableUnits);
         scrollTableUnits.setName("scrollTableUnits");
 
-        gridBagConstraints.insets = new Insets(5, 0, 0, 0);
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.fill = GridBagConstraints.BOTH;
-        gridBagConstraints.anchor = GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
-        selectionPanel.add(scrollTableUnits, gridBagConstraints);
-
         panelFilterButtons = new JPanel(new GridBagLayout());
 
         JLabel labelType = new JLabel(Messages.getString("MekSelectorDialog.m_labelType"));
@@ -277,10 +272,11 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         panelFilterButtons.add(labelType, gridBagConstraintsWest);
 
         listTechLevel.setToolTipText(Messages.getString("MekSelectorDialog.m_labelType.ToolTip"));
-        techLevelScroll = new JScrollPane(listTechLevel);
+        listTechLevel.setLayoutOrientation(JList.VERTICAL_WRAP);
+        listTechLevel.setVisibleRowCount(3);
         gridBagConstraintsWest.gridx = 1;
         gridBagConstraintsWest.gridy = 2;
-        panelFilterButtons.add(techLevelScroll, gridBagConstraintsWest);
+        panelFilterButtons.add(listTechLevel, gridBagConstraintsWest);
 
         JLabel labelWeight = new JLabel(Messages.getString("MekSelectorDialog.m_labelWeightClass"));
         labelWeight.setName("labelWeight");
@@ -437,15 +433,6 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         gridBagConstraints.weighty = 1.0;
         panelFilterButtons.add(labelImage, gridBagConstraints);
 
-        gridBagConstraints = new GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.fill = GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 0.0;
-        gridBagConstraints.insets = new Insets(10, 10, 5, 0);
-        selectionPanel.add(panelFilterButtons, gridBagConstraints);
-
         JPanel panelSearchButtons = new JPanel(new GridBagLayout());
 
         buttonAdvancedSearch = new JButton(Messages.getString("MekSelectorDialog.AdvSearch"));
@@ -476,22 +463,24 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
 
         gridBagConstraints = new GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 1;
         gridBagConstraints.fill = GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 0.0;
+        gridBagConstraints.insets = new Insets(10, 10, 5, 0);
+        selectionPanel.add(panelFilterButtons, gridBagConstraints);
+
         gridBagConstraints.insets = new Insets(10, 10, 10, 0);
         selectionPanel.add(panelSearchButtons, gridBagConstraints);
-        // endregion Selection Panel
 
-        JScrollPane selectionScrollPane = new JScrollPane(selectionPanel);
-        JScrollPane previewScrollPane = new JScrollPane(panePreview);
+        gridBagConstraints.insets = new Insets(5, 0, 0, 0);
+        gridBagConstraints.fill = GridBagConstraints.BOTH;
+        gridBagConstraints.weightx = 1;
+        gridBagConstraints.weighty = 1;
+        selectionPanel.add(scrollTableUnits, gridBagConstraints);
 
         JPanel panelButtons = createButtonsPanel();
 
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true,
-                selectionScrollPane, previewScrollPane);
-        splitPane.setResizeWeight(0);
+            selectionPanel, panePreview);
         gridBagConstraints = new GridBagConstraints();
         gridBagConstraints.gridx = gridBagConstraints.gridy = 0;
         gridBagConstraints.fill = GridBagConstraints.BOTH;
@@ -690,9 +679,9 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
 
     protected boolean matchesTextFilter(MekSummary unit) {
         if (!textFilter.getText().isBlank()) {
-            String text = textFilter.getText().toLowerCase();
+            String text = Internationalization.normalizeTextToASCII(textFilter.getText()).toLowerCase();
             String[] tokens = text.split(" ");
-            String searchText = unit.getName().toLowerCase() + "###" + unit.getModel().toLowerCase();
+            String searchText = Internationalization.normalizeTextToASCII(unit.getName() + "###" + unit.getModel()).toLowerCase();
             for (String token : tokens) {
                 if (!searchText.contains(token)) {
                     return false;
@@ -735,15 +724,31 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         }
     }
 
+    public ArrayList<Entity> getSelectedEntities() {
+        return getSelectedMekSummaries().stream().map(
+            ms -> {
+                try {
+                    return new MekFileParser(ms.getSourceFile(), ms.getEntryName()).getEntity();
+                } catch (EntityLoadingException e) {
+                    logger.error(e, "Unable to load mek: " + ms.getSourceFile() + ": " + ms.getEntryName());
+                    return null;
+                }
+            }
+        ).filter(Objects::nonNull).collect(Collectors.toCollection(ArrayList::new));
+    }
+
     /** @return The MekSummary for the selected unit. */
     public @Nullable MekSummary getSelectedMekSummary() {
-        int view = tableUnits.getSelectedRow();
-        if (view < 0) {
-            // selection got filtered away
+        var summaries = getSelectedMekSummaries();
+        if (summaries.size() != 1) {
             return null;
         }
-        int selected = tableUnits.convertRowIndexToModel(view);
-        return meks[selected];
+        return summaries.get(0);
+    }
+
+    public List<MekSummary> getSelectedMekSummaries() {
+        var rows = tableUnits.getSelectedRows();
+        return Arrays.stream(rows).map(tableUnits::convertRowIndexToModel).mapToObj(i -> meks[i]).toList();
     }
 
     @Override

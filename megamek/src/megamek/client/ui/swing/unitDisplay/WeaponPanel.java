@@ -21,7 +21,6 @@ package megamek.client.ui.swing.unitDisplay;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Image;
@@ -37,7 +36,6 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.MouseInputAdapter;
 
-import megamek.MMConstants;
 import megamek.client.Client;
 import megamek.client.event.MekDisplayEvent;
 import megamek.client.ui.GBC;
@@ -48,13 +46,13 @@ import megamek.client.ui.swing.FiringDisplay;
 import megamek.client.ui.swing.GUIPreferences;
 import megamek.client.ui.swing.TargetingPhaseDisplay;
 import megamek.client.ui.swing.tooltip.UnitToolTip;
-import megamek.client.ui.swing.util.UIUtil;
 import megamek.client.ui.swing.widget.BackGroundDrawer;
 import megamek.client.ui.swing.widget.PMUtil;
 import megamek.client.ui.swing.widget.PicMap;
 import megamek.client.ui.swing.widget.SkinXMLHandler;
 import megamek.client.ui.swing.widget.UnitDisplaySkinSpecification;
 import megamek.common.*;
+import megamek.common.AmmoType.Munitions;
 import megamek.common.annotations.Nullable;
 import megamek.common.enums.WeaponSortOrder;
 import megamek.common.equipment.AmmoMounted;
@@ -64,14 +62,18 @@ import megamek.common.preference.IPreferenceChangeListener;
 import megamek.common.preference.PreferenceChangeEvent;
 import megamek.common.util.fileUtils.MegaMekFile;
 import megamek.common.weapons.AreaEffectHelper;
+import megamek.common.weapons.AreaEffectHelper.DamageFalloff;
 import megamek.common.weapons.bayweapons.BayWeapon;
 import megamek.common.weapons.gaussrifles.HAGWeapon;
 import megamek.common.weapons.infantry.InfantryWeapon;
+import megamek.logging.MMLogger;
 
 /**
  * This class contains the all the gizmos for firing the mek's weapons.
  */
 public class WeaponPanel extends PicMap implements ListSelectionListener, ActionListener, IPreferenceChangeListener {
+    private static final MMLogger logger = MMLogger.create(WeaponPanel.class);
+
     /**
      * Mouse adaptor for the weapon list. Supports rearranging the weapons
      * to define a custom ordering.
@@ -1097,6 +1099,7 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
                 + Math.min(max_ext_heat, en.heatFromExternal) // heat from external sources
                 + en.heatBuildup) // heat we're building up this round
                 - Math.min(9, en.coolFromExternal); // cooling from external
+
         // sources
         if (en instanceof Mek) {
             if (en.infernos.isStillBurning()) { // hit with inferno ammo
@@ -1119,31 +1122,35 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
         Coords position = entity.getPosition();
         if (!en.isOffBoard() && (position != null)) {
             Hex hex = game.getBoard().getHex(position);
-            if (hex.containsTerrain(Terrains.FIRE)
-                    && (hex.getFireTurn() > 0)) {
-                // standing in fire
-                if ((en instanceof Mek)
-                        && ((Mek) en).hasIntactHeatDissipatingArmor()) {
-                    currentHeatBuildup += 2;
-                } else {
-                    currentHeatBuildup += 5;
+            if (hex != null) {
+                if (hex.containsTerrain(Terrains.FIRE)
+                        && (hex.getFireTurn() > 0)) {
+                    // standing in fire
+                    if ((en instanceof Mek)
+                            && ((Mek) en).hasIntactHeatDissipatingArmor()) {
+                        currentHeatBuildup += 2;
+                    } else {
+                        currentHeatBuildup += 5;
+                    }
                 }
-            }
 
-            if (hex.terrainLevel(Terrains.MAGMA) == 1) {
-                if ((en instanceof Mek)
-                        && ((Mek) en).hasIntactHeatDissipatingArmor()) {
-                    currentHeatBuildup += 2;
-                } else {
-                    currentHeatBuildup += 5;
+                if (hex.terrainLevel(Terrains.MAGMA) == 1) {
+                    if ((en instanceof Mek)
+                            && ((Mek) en).hasIntactHeatDissipatingArmor()) {
+                        currentHeatBuildup += 2;
+                    } else {
+                        currentHeatBuildup += 5;
+                    }
+                } else if (hex.terrainLevel(Terrains.MAGMA) == 2) {
+                    if ((en instanceof Mek)
+                            && ((Mek) en).hasIntactHeatDissipatingArmor()) {
+                        currentHeatBuildup += 5;
+                    } else {
+                        currentHeatBuildup += 10;
+                    }
                 }
-            } else if (hex.terrainLevel(Terrains.MAGMA) == 2) {
-                if ((en instanceof Mek)
-                        && ((Mek) en).hasIntactHeatDissipatingArmor()) {
-                    currentHeatBuildup += 5;
-                } else {
-                    currentHeatBuildup += 10;
-                }
+            } else {
+                logger.warn("An entity is not offboard but has a position not on board.");
             }
         }
 
@@ -1195,12 +1202,10 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
                     && game.getPhase().isFiring()) {
                 hasFiredWeapons = true;
                 // add heat from weapons fire to heat tracker
-                if (entity.usesWeaponBays()) {
+                if (entity.isLargeCraft()) {
                     // if using bay heat option then don't add total arc
                     if (game.getOptions().booleanOption(OptionsConstants.ADVAERORULES_HEAT_BY_BAY)) {
-                        for (WeaponMounted weapon : mounted.getBayWeapons()) {
-                            currentHeatBuildup += weapon.getCurrentHeat();
-                        }
+                        currentHeatBuildup += mounted.getHeatByBay();
                     } else {
                         // check whether arc has fired
                         int loc = mounted.getLocation();
@@ -1219,7 +1224,7 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
                     }
                 } else {
                     if (!mounted.isBombMounted()) {
-                        currentHeatBuildup += mounted.getCurrentHeat();
+                        currentHeatBuildup += mounted.getHeatByBay();
                     }
                 }
             }
@@ -1231,8 +1236,10 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
             currentHeatBuildup++;
         }
 
+        String cambatComputerIndicator = "";
         if (en.hasQuirk(OptionsConstants.QUIRK_POS_COMBAT_COMPUTER)) {
             currentHeatBuildup -= 4;
+            cambatComputerIndicator = " \uD83D\uDCBB";
         }
 
         // check for negative values due to extreme temp
@@ -1252,20 +1259,34 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
             sheatOverCapacity = " " + heatOverCapacity + " " + msg_over;
         }
 
+        String heatMessage = heatText + " (" + heatCapacityStr + ')' + sheatOverCapacity;
+        String tempIndicatoer = "";
+
+        if ((game != null) && (game.getPlanetaryConditions().isExtremeTemperature())) {
+            tempIndicatoer = " " + game.getPlanetaryConditions().getTemperatureIndicator();
+        }
+
+        heatMessage += cambatComputerIndicator + tempIndicatoer;
+
         currentHeatBuildupR.setForeground(GUIP.getColorForHeat(heatOverCapacity, Color.WHITE));
-        currentHeatBuildupR.setText(heatText + " (" + heatCapacityStr + ')' + sheatOverCapacity);
+        currentHeatBuildupR.setText(heatMessage);
 
         // change what is visible based on type
         if (entity.usesWeaponBays()) {
-            wArcHeatL.setVisible(true);
-            wArcHeatR.setVisible(true);
             m_chBayWeapon.setVisible(true);
             wBayWeapon.setVisible(true);
         } else {
-            wArcHeatL.setVisible(false);
-            wArcHeatR.setVisible(false);
             m_chBayWeapon.setVisible(false);
             wBayWeapon.setVisible(false);
+        }
+        if ((!entity.isLargeCraft())
+                || ((game != null) && (game.getOptions().booleanOption(OptionsConstants.ADVAERORULES_HEAT_BY_BAY)))){
+            wArcHeatL.setVisible(false);
+            wArcHeatR.setVisible(false);
+        }
+        else {
+            wArcHeatL.setVisible(true);
+            wArcHeatR.setVisible(true);
         }
 
         wDamageTrooperL.setVisible(false);
@@ -1835,22 +1856,29 @@ public class WeaponPanel extends PicMap implements ListSelectionListener, Action
         } else if (wtype.getDamage() == WeaponType.DAMAGE_ARTILLERY) {
             StringBuilder damage = new StringBuilder();
             int artyDamage = wtype.getRackSize();
-            damage.append(artyDamage);
             int falloff = 10;
+            boolean fuelAirExplosive = false;
             boolean specialArrowIV = false;
             if ((mounted.getLinked() != null) && (mounted.getLinked().getType() instanceof AmmoType)) {
                 AmmoType ammoType = (AmmoType) mounted.getLinked().getType();
+                fuelAirExplosive = ammoType.getMunitionType().contains(Munitions.M_FAE);
                 specialArrowIV = (ammoType.is(AmmoType.T_ARROW_IV)
                         && (ammoType.getMunitionType().contains(AmmoType.Munitions.M_ADA)
                                 || ammoType.getMunitionType().contains(AmmoType.Munitions.M_HOMING)));
                 int attackingBA = (entity instanceof BattleArmor) ? ((BattleArmor) entity).getShootingStrength() : -1;
-                falloff = AreaEffectHelper.calculateDamageFallOff(ammoType, attackingBA, false).falloff;
+                DamageFalloff damageFalloff = AreaEffectHelper.calculateDamageFallOff(ammoType, attackingBA, false);
+                artyDamage = damageFalloff.damage;
+                falloff = damageFalloff.falloff;
             }
+            damage.append(artyDamage);
             if (!specialArrowIV) {
                 artyDamage -= falloff;
                 while ((artyDamage > 0) && (falloff > 0)) {
                     damage.append('/').append(artyDamage);
                     artyDamage -= falloff;
+                }
+                if (fuelAirExplosive) {
+                    damage.append("/5");
                 }
             }
             wDamR.setText(damage.toString());

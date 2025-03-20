@@ -37,7 +37,7 @@ import megamek.common.annotations.Nullable;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.event.GamePhaseChangeEvent;
 import megamek.common.event.GameTurnChangeEvent;
-import megamek.common.options.AbstractOptions;
+import megamek.common.options.IGameOptions;
 import megamek.common.options.GameOptions;
 import megamek.common.options.OptionsConstants;
 import megamek.common.pathfinder.AbstractPathFinder;
@@ -977,19 +977,17 @@ public class MovementDisplay extends ActionPhaseDisplay {
     }
 
     private void updateFleeButton() {
-        boolean fleeStart = (cmd.getLastStep() == null)
-            && ce().canFlee(ce().getPosition());
-        boolean jumpMoveRemaining = (cmd.getLastStep() != null)
-            && cmd.getLastStep().isJumping()
-            && (cmd.getMpUsed() < ce().getJumpMP());
-        boolean runMoveRemaining = (cmd.getLastStep() != null)
-            && !cmd.getLastStep().isJumping()
-            && (cmd.getMpUsed() < ce().getRunMP());
-        boolean moveRemaining = jumpMoveRemaining || runMoveRemaining;
-        boolean fleeEnd = (cmd.getLastStep() != null)
+        if (ce() == null) {
+            return;
+        }
+        boolean hasLastStep = (cmd != null) && (cmd.getLastStep() != null);
+        boolean fleeStart = !hasLastStep &&
+            ce().canFlee(ce().getPosition());
+        boolean fleeEnd = hasLastStep
+            && (cmd.getMpUsed() < cmd.getMaxMP())
             && (cmd.getLastStepMovementType() != EntityMovementType.MOVE_ILLEGAL)
-            && moveRemaining
             && clientgui.getClient().getGame().canFleeFrom(ce(), cmd.getLastStep().getPosition());
+
         setFleeEnabled(fleeStart || fleeEnd);
     }
 
@@ -1600,7 +1598,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
                         && unusedVelocity
                         && !offOrReturn
                         && !cmd.contains(MoveStepType.LAND)
-                        && !cmd.contains(MoveStepType.EJECT)) {
+                        && !cmd.contains(MoveStepType.EJECT)
+                        && !cmd.contains(MoveStepType.FLEE)) {
                     String title = Messages.getString("MovementDisplay.VelocityLeft.title");
                     String body = Messages.getString("MovementDisplay.VelocityLeft.message");
                     clientgui.doAlertDialog(title, body);
@@ -2250,7 +2249,7 @@ public class MovementDisplay extends ActionPhaseDisplay {
                         || (gear == MovementDisplay.GEAR_TURN)
                         || (gear == MovementDisplay.GEAR_BACKUP))
                 && ((cmd.getMpUsed() <= ce.getWalkMP())
-                        || (cmd.getLastStep().isOnlyPavement()
+                        || (cmd.getLastStep().isOnlyPavementOrRoad()
                                 && (cmd.getMpUsed() <= (ce.getWalkMP() + 1))))
                 && !(opts.booleanOption(OptionsConstants.ADVANCED_TACOPS_TANK_CREWS)
                         && (cmd.getMpUsed() > 0) && (ce instanceof Tank)
@@ -2576,13 +2575,93 @@ public class MovementDisplay extends ActionPhaseDisplay {
                 || !ce.getLaunchableDropships().isEmpty());
     }
 
+    /**
+     *
+     * @param bay Instance
+     * @param droppedUnits Set of unit ids of entities already dropped this turn.
+     * @return true if there are available droppable units in this bay
+     */
+    private boolean checkBayDropEnable(Bay bay, Set<Integer> droppedUnits) {
+        // If this bay has unloaded more units this turn than
+        // it has doors* for, we should move on
+        // *(excluding Infantry, see StratOps pg. 20)
+        int doorsEligibleForDrop = bay.getCurrentDoors();
+        List <Entity> droppableUnits = bay.getDroppableUnits();
+        boolean infantryTransporter = (bay instanceof InfantryTransporter);
+
+        // No units == no drops
+        if (droppableUnits.isEmpty()) {
+            return false;
+        }
+
+        // If we have droppable units and we haven't
+        // dropped any, let's enable the button.
+        // doorsEligibleForDrop can be 0 even before
+        // dropping units if it's damaged.
+        if (doorsEligibleForDrop > 0 && droppedUnits.isEmpty()) {
+            return true;
+        }
+
+        // If current entity has any viable bays with droppable units that aren't already dropping,
+        // activate the button.
+        boolean hasDroppableUnit = false;
+        for (Entity droppableUnit : droppableUnits) {
+            if (infantryTransporter || doorsEligibleForDrop > 0) {
+                if (droppedUnits.contains(droppableUnit.getId())) {
+                    // Infantry don't count against door usage
+                    if (!droppableUnit.isInfantry()) {
+                        doorsEligibleForDrop--;
+                    }
+                } else {
+                    // Cannot set the button enabled yet,
+                    // need to make sure we consider every
+                    // unit in the bay that's already dropped
+                    hasDroppableUnit = true;
+                }
+            }
+        }
+        if (hasDroppableUnit) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     *
+     * @param compartment Instance
+     * @param droppedUnits Set of unit ids of entities already dropped this turn.
+     * @return true if there are available droppable units in this compartment
+     */
+    private boolean checkCompartmentDropEnable(InfantryCompartment compartment, Set<Integer> droppedUnits) {
+        List <Entity> droppableUnits = compartment.getDroppableUnits();
+        return droppableUnits.stream().map(Entity::getId).anyMatch(u -> !droppedUnits.contains(u));
+    }
+
     private void updateDropButton() {
         final Entity ce = ce();
         if (ce == null) {
             return;
         }
 
-        setDropEnabled(ce.isAirborne() && !ce.getDroppableUnits().isEmpty());
+        if (ce.isAirborne() && !ce.getDroppableUnits().isEmpty()) {
+            Set<Integer> droppedUnits = cmd.getDroppedUnits();
+            boolean setEnabled = false;
+
+            // check bays and compartments
+            for (Transporter t : ce.getTransports()) {
+                if (t instanceof Bay tBay) {
+                    setEnabled = checkBayDropEnable(tBay, droppedUnits);
+                } else if (t instanceof InfantryCompartment tCompartment) {
+                    setEnabled = checkCompartmentDropEnable(tCompartment, droppedUnits);
+                }
+                setDropEnabled(setEnabled);
+                // Only need one viable drop bay/compartment to enable the button
+                if (setEnabled) {
+                    return;
+                }
+            }
+        }
+        setDropEnabled(false);
     }
 
     private void updateEvadeButton() {
@@ -3948,26 +4027,60 @@ public class MovementDisplay extends ActionPhaseDisplay {
         Set<Integer> alreadyDropped = cmd.getDroppedUnits();
         // cycle through the bays
         int bayNum = 1;
-        Vector<Bay> Bays = ce.getTransportBays();
-        for (int i = 0; i < Bays.size(); i++) {
-            Bay currentBay = Bays.elementAt(i);
-            Vector<Integer> bayChoices = new Vector<>();
-            List<Entity> currentUnits = currentBay.getDroppableUnits().stream()
-                    .filter(e -> !alreadyDropped.contains(e.getId()))
-                    .collect(Collectors.toList());
+        Vector<Transporter> transporters = ce.getTransports();
+        List<Entity> currentUnits;
 
-            int doors = currentBay.getCurrentDoors();
-            if (!currentUnits.isEmpty() && (doors > 0)) {
+        for (int i = 0; i < transporters.size(); i++) {
+            Transporter currentTransporter = transporters.elementAt(i);
+            boolean isInfantryTransporter = false;
+            currentUnits = new ArrayList<>();
+            Vector<Integer> bayChoices = new Vector<>();
+            int doorsEligibleForDrop = 0;
+
+            // Handle infantry first
+            if (currentTransporter instanceof InfantryTransporter infantryTransporter) {
+                isInfantryTransporter = true;
+
+                // Can't drop infantry from above 8 Altitude
+                if (cmd.getFinalAltitude() > 8) {
+                    continue;
+                }
+
+                for (Entity entity : infantryTransporter.getDroppableUnits()) {
+                    if (!alreadyDropped.contains(entity.getId())) {
+                        currentUnits.add(entity);
+                    }
+                }
+            // Handle other stuff
+            } else if (currentTransporter instanceof Bay currentBay) {
+                doorsEligibleForDrop = currentBay.getCurrentDoors();
+
+                for (Entity entity : currentBay.getDroppableUnits()) {
+                    // Do account for already-dropped Infantry
+                    if (alreadyDropped.contains(entity.getId())) {
+                        // But exclude infantry from count of doors used/usable
+                        if (!entity.isInfantry()) {
+                            doorsEligibleForDrop--; //If a unit is set to drop from a bay, we should reduce our capacity
+                        }
+                    } else {
+                        currentUnits.add(entity);
+                    }
+                }
+            }
+
+            if (!currentUnits.isEmpty() && (isInfantryTransporter || (doorsEligibleForDrop > 0))) {
                 String[] names = new String[currentUnits.size()];
                 String question = Messages.getString("MovementDisplay.DropUnitDialog.message",
-                        doors, bayNum);
+                        doorsEligibleForDrop, bayNum);
                 for (int loop = 0; loop < names.length; loop++) {
                     names[loop] = currentUnits.get(loop).getShortName();
                 }
+                // If this is an infantry-transporting bay (cargo, Infantry Bay, etc.) no limit on drops
+                int max = (isInfantryTransporter) ? -1 : doorsEligibleForDrop;
                 ChoiceDialog choiceDialog = new ChoiceDialog(clientgui.frame,
                         Messages.getString("MovementDisplay.DropUnitDialog.title",
-                                currentBay.getType(), bayNum),
-                        question, names, false, doors);
+                                currentTransporter.getType(), bayNum),
+                        question, names, false, max);
                 choiceDialog.setVisible(true);
                 if (choiceDialog.getAnswer()) {
                     // load up the choices
@@ -4460,6 +4573,28 @@ public class MovementDisplay extends ActionPhaseDisplay {
         }
     }
 
+    private int maxMP(Entity en, int mvMode) {
+        int maxMP;
+        if (mvMode == GEAR_JUMP || mvMode == GEAR_DFA) {
+            maxMP = en.getJumpMP();
+        } else if (mvMode == GEAR_BACKUP) {
+            maxMP = en.getWalkMP();
+        } else if ((ce() instanceof Mek) && !(ce() instanceof QuadVee)
+            && (ce().getMovementMode() == EntityMovementMode.TRACKED)) {
+            // A non-QuadVee 'Mek that is using tracked movement is limited to walking
+            maxMP = en.getWalkMP();
+        } else {
+            if (clientgui.getClient().getGame().getOptions()
+                .booleanOption(OptionsConstants.ADVGRNDMOV_TACOPS_SPRINT)) {
+                maxMP = en.getSprintMP();
+            } else {
+                maxMP = en.getRunMP();
+            }
+        }
+
+        return maxMP;
+    }
+
     /**
      * Computes all of the possible moves for an Entity in a particular gear. The
      * Entity can either
@@ -4496,6 +4631,7 @@ public class MovementDisplay extends ActionPhaseDisplay {
         } else {
             en = suggestion;
         }
+
         if (en.isDone()) {
             return;
         }
@@ -4503,28 +4639,13 @@ public class MovementDisplay extends ActionPhaseDisplay {
         Map<Coords, MovePath> mvEnvData = new HashMap<>();
         MovePath mp = new MovePath(clientgui.getClient().getGame(), en);
 
-        int maxMP;
-        if (mvMode == GEAR_JUMP || mvMode == GEAR_DFA) {
-            maxMP = en.getJumpMP();
-        } else if (mvMode == GEAR_BACKUP) {
-            maxMP = en.getWalkMP();
-        } else if ((ce() instanceof Mek) && !(ce() instanceof QuadVee)
-                && (ce().getMovementMode() == EntityMovementMode.TRACKED)) {
-            // A non-QuadVee 'Mek that is using tracked movement is limited to walking
-            maxMP = en.getWalkMP();
-        } else {
-            if (clientgui.getClient().getGame().getOptions()
-                    .booleanOption(OptionsConstants.ADVGRNDMOV_TACOPS_SPRINT)) {
-                maxMP = en.getSprintMP();
-            } else {
-                maxMP = en.getRunMP();
-            }
-        }
         MoveStepType stepType = (mvMode == GEAR_BACKUP) ? MoveStepType.BACKWARDS
                 : MoveStepType.FORWARDS;
         if (mvMode == GEAR_JUMP || mvMode == GEAR_DFA) {
             mp.addStep(MoveStepType.START_JUMP);
         }
+
+        int maxMP = maxMP(en, mvMode);
 
         // Create a path finder to find possible moves; if aerodyne, use a custom Aero
         // path finder.
@@ -4620,6 +4741,10 @@ public class MovementDisplay extends ActionPhaseDisplay {
     @Override
     public synchronized void actionPerformed(ActionEvent ev) {
         final Entity ce = ce();
+        final String actionCmd = ev.getActionCommand();
+        if (actionCmd.equals(MoveCommand.MOVE_NEXT.getCmd())) {
+            selectEntity(clientgui.getClient().getNextEntityNum(currentEntity));
+        }
 
         if (ce == null) {
             return;
@@ -4633,11 +4758,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
             // odd...
             return;
         }
-        final String actionCmd = ev.getActionCommand();
-        final AbstractOptions opts = clientgui.getClient().getGame().getOptions();
-        if (actionCmd.equals(MoveCommand.MOVE_NEXT.getCmd())) {
-            selectEntity(clientgui.getClient().getNextEntityNum(currentEntity));
-        } else if (actionCmd.equals(
+        final IGameOptions opts = clientgui.getClient().getGame().getOptions();
+        if (actionCmd.equals(
                 MoveCommand.MOVE_FORWARD_INI.getCmd())) {
             selectNextPlayer();
         } else if (actionCmd.equals(MoveCommand.MOVE_CANCEL.getCmd())) {
@@ -4655,7 +4777,7 @@ public class MovementDisplay extends ActionPhaseDisplay {
                     || (gear == MovementDisplay.GEAR_CHARGE)
                     || (gear == MovementDisplay.GEAR_DFA)
                     || ((cmd.getMpUsed() > ce.getWalkMP())
-                            && !(cmd.getLastStep().isOnlyPavement()
+                            && !(cmd.getLastStep().isOnlyPavementOrRoad()
                                     && (cmd.getMpUsed() <= (ce.getWalkMP() + 1))))
                     || (opts.booleanOption("tacops_tank_crews")
                             && (cmd.getMpUsed() > 0) && (ce instanceof Tank)

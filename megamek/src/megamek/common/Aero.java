@@ -95,6 +95,8 @@ public abstract class Aero extends Entity implements IAero, IBomber {
     public static final int CRIT_GRAV_DECK = 20;
     public static final int CRIT_WEAPON_BROAD = 21;
 
+    // Effective elevation of airborne Aerospace units
+    public static final int AERO_EFFECTIVE_ELEVATION = 999;
     // aeros have no critical slot limitations
     // this needs to be larger, it is too easy to go over when you get to
     // warships
@@ -224,6 +226,8 @@ public abstract class Aero extends Entity implements IAero, IBomber {
     private int whoFirst = 0;
 
     private int eccmRoll = 0;
+
+    private int enginesLostRound = Integer.MAX_VALUE;
 
     // List of escape craft used by this ship
     private final Set<String> escapeCraftList = new HashSet<>();
@@ -760,6 +764,9 @@ public abstract class Aero extends Entity implements IAero, IBomber {
 
     public void setEngineHits(int hits) {
         engineHits = hits;
+        if ((engineHits >= getMaxEngineHits()) && getEnginesLostRound() == Integer.MAX_VALUE ) {
+            setEnginesLostRound(game.getCurrentRound());
+        }
     }
 
     @Override
@@ -1804,7 +1811,7 @@ public abstract class Aero extends Entity implements IAero, IBomber {
     }
 
     /**
-    
+
      */
     @Override
     public void setOmni(boolean omni) {
@@ -2476,7 +2483,7 @@ public abstract class Aero extends Entity implements IAero, IBomber {
         // and uses elevation normally. Otherwise, just set elevation to a very large
         // number so that
         // a flying aero won't interact with the ground maps in any way
-        return isAirborne() ? 999 : super.getElevation();
+        return isAirborne() ? AERO_EFFECTIVE_ELEVATION : super.getElevation();
     }
 
     @Override
@@ -3278,5 +3285,15 @@ public abstract class Aero extends Entity implements IAero, IBomber {
      */
     public void setEjecting(boolean ejecting) {
         this.ejecting = ejecting;
+    }
+
+    @Override
+    public int getEnginesLostRound() {
+        return this.enginesLostRound;
+    }
+
+    @Override
+    public void setEnginesLostRound(int enginesLostRound) {
+        this.enginesLostRound = enginesLostRound;
     }
 }

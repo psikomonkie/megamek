@@ -27,6 +27,7 @@ import java.util.TreeMap;
 import java.util.Vector;
 
 import megamek.common.MovePath.MoveStepType;
+import megamek.common.enums.BuildingType;
 import megamek.common.enums.MPBoosters;
 import megamek.common.options.OptionsConstants;
 import megamek.common.pathfinder.CachedEntityState;
@@ -111,7 +112,7 @@ public class MoveStep implements Serializable {
     private boolean prevStepOnPavement; // prev
     private boolean hasJustStood;
     private boolean thisStepBackwards;
-    private boolean onlyPavement; // additive
+    private boolean onlyPavementOrRoad; // additive
     private boolean isPavementStep;
     private boolean isRunProhibited = false;
     private boolean isStackingViolation = false;
@@ -356,99 +357,7 @@ public class MoveStep implements Serializable {
 
     @Override
     public String toString() {
-        switch (type) {
-            case BACKWARDS:
-                return "B";
-            case CHARGE:
-                return "Ch";
-            case DFA:
-                return "DFA";
-            case FORWARDS:
-                return "F";
-            case CAREFUL_STAND:
-            case GET_UP:
-                return "Up";
-            case GO_PRONE:
-                return "Prone";
-            case START_JUMP:
-                return "StrJump";
-            case TURN_LEFT:
-                return "L";
-            case TURN_RIGHT:
-                return "R";
-            case LATERAL_LEFT:
-                return "ShL";
-            case LATERAL_RIGHT:
-                return "ShR";
-            case LATERAL_LEFT_BACKWARDS:
-                return "ShLB";
-            case LATERAL_RIGHT_BACKWARDS:
-                return "ShRB";
-            case UNJAM_RAC:
-                return "Unjam";
-            case SEARCHLIGHT:
-                return "SLight";
-            case LOAD:
-                return "Load";
-            case UNLOAD:
-                return "Unload";
-            case EJECT:
-                return "Eject";
-            case UP:
-                return "U";
-            case DOWN:
-                return "D";
-            case HULL_DOWN:
-                return "HullDown";
-            case CLIMB_MODE_ON:
-                return "CM+";
-            case CLIMB_MODE_OFF:
-                return "CM-";
-            case TAKEOFF:
-                return "Takeoff";
-            case VTAKEOFF:
-                return "Vertical Takeoff";
-            case LAND:
-                return "Landing";
-            case VLAND:
-                return "Vertical Landing";
-            case ACC:
-                return "Acc";
-            case DEC:
-                return "Dec";
-            case MANEUVER:
-                return "Maneuver";
-            case RETURN:
-                return "Fly Off (Return)";
-            case OFF:
-                return "Fly Off";
-            case FLEE:
-                return "Flee";
-            case EVADE:
-                return "Evade";
-            case CONVERT_MODE:
-                return "ConvMode";
-            case TOW:
-                return "Tow";
-            case DISCONNECT:
-                return "Disconnect";
-            case THRUST:
-                return "Thrust";
-            case YAW:
-                return "Yaw";
-            case HOVER:
-                return "Hover";
-            case BRACE:
-                return "Brace";
-            case CHAFF:
-                return "Chaff";
-            case PICKUP_CARGO:
-                return "Pickup Cargo";
-            case DROP_CARGO:
-                return "Drop Cargo";
-            default:
-                return "???";
-        }
+        return type.getHumanReadableLabel();
     }
 
     public MoveStepType getType() {
@@ -542,7 +451,7 @@ public class MoveStep implements Serializable {
             setPavementStep(true);
         } else {
             setPavementStep(false);
-            setOnlyPavement(false);
+            setOnlyPavementOrRoad(false);
         }
 
         setHasJustStood(false);
@@ -671,7 +580,7 @@ public class MoveStep implements Serializable {
                     maxElevation++;
                 }
 
-                if (bld.getType() == Building.WALL) {
+                if (bld.getType() == BuildingType.WALL) {
                     if (maxElevation >= hex.terrainLevel(Terrains.BLDG_ELEV)) {
                         setElevation(Math.max(getElevation(),
                                 hex.terrainLevel(Terrains.BLDG_ELEV)));
@@ -837,7 +746,7 @@ public class MoveStep implements Serializable {
                     setPavementStep(true);
                 } else {
                     setPavementStep(false);
-                    setOnlyPavement(false);
+                    setOnlyPavementOrRoad(false);
                 }
 
                 // Infantry can turn for free, except for field artillery
@@ -1235,7 +1144,7 @@ public class MoveStep implements Serializable {
         mpUsed = prev.mpUsed;
         totalHeat = prev.totalHeat;
         isPavementStep = prev.isPavementStep;
-        onlyPavement = prev.onlyPavement;
+        onlyPavementOrRoad = prev.onlyPavementOrRoad;
         wigeBonus = prev.wigeBonus;
         nWigeDescent = prev.nWigeDescent;
         thisStepBackwards = prev.thisStepBackwards;
@@ -1343,15 +1252,27 @@ public class MoveStep implements Serializable {
         // check pavement & water
         if (position != null) {
             Hex curHex = game.getBoard().getHex(position);
-            if (curHex.hasPavement()) {
-                onlyPavement = true;
-                isPavementStep = true;
+            if (curHex.hasPavementOrRoad()) {
+                if (curHex.hasPavement()) {
+                    isPavementStep = true;
+                    onlyPavementOrRoad = true;
+                }
+                else if (curHex.containsTerrain(Terrains.ROAD, Terrains.ROAD_LVL_DIRT)){
+                    if (entity.getMovementMode().isHover()){
+                        onlyPavementOrRoad = true;
+                    }
+                }
+                else if (curHex.containsTerrain(Terrains.ROAD, Terrains.ROAD_LVL_GRAVEL)){
+                    if (entity.getMovementMode().isHover() || entity.getMovementMode().isTracked()){
+                        onlyPavementOrRoad=true;
+                    }
+                }
                 // if we previously moved, and didn't get a pavement bonus, we
                 // shouldn't now get one, either (this can happen when skidding
                 // onto a pavement hex
-                if (!entity.gotPavementBonus
+                if (!entity.gotPavementOrRoadBonus
                         && (entity.delta_distance > 0)) {
-                    onlyPavement = false;
+                    onlyPavementOrRoad = false;
                 }
             }
             // if entity already moved into water it can't run now
@@ -1688,8 +1609,8 @@ public class MoveStep implements Serializable {
         return mpUsed;
     }
 
-    public boolean isOnlyPavement() {
-        return onlyPavement;
+    public boolean isOnlyPavementOrRoad() {
+        return onlyPavementOrRoad;
     }
 
     public int getWiGEBonus() {
@@ -1823,8 +1744,8 @@ public class MoveStep implements Serializable {
         isSelfDestructing = b;
     }
 
-    protected void setOnlyPavement(boolean b) {
-        onlyPavement = b;
+    protected void setOnlyPavementOrRoad(boolean b) {
+        onlyPavementOrRoad = b;
     }
 
     protected void setWiGEBonus(int i) {
@@ -2297,10 +2218,10 @@ public class MoveStep implements Serializable {
 
         int bonus = wigeBonus;
         entity.wigeBonus = wigeBonus;
-        if (entity.isEligibleForPavementBonus()
-                && isOnlyPavement()) {
+        if (entity.isEligibleForPavementOrRoadBonus()
+                && isOnlyPavementOrRoad()) {
             bonus++;
-            entity.gotPavementBonus = true;
+            entity.gotPavementOrRoadBonus = true;
         }
         int tmpWalkMP = cachedEntityState.getWalkMP() + bonus;
 
@@ -3279,7 +3200,7 @@ public class MoveStep implements Serializable {
             } else if (!isInfantry && !isSuperHeavyMek) {
                 if (!isProto) {
                     // non-protos pay extra according to the building type
-                    mp += bldg.getType();
+                    mp += bldg.getType().getTypeValue();
                     if (bldg.getBldgClass() == Building.HANGAR) {
                         mp--;
                     }
@@ -3415,7 +3336,7 @@ public class MoveStep implements Serializable {
             int maxElevation = (2 + entity.getElevation() + game.getBoard()
                     .getHex(entity.getPosition()).getLevel()) - hex.getLevel();
 
-            if ((bld.getType() == Building.WALL)
+            if ((bld.getType() == BuildingType.WALL)
                     && (maxElevation < hex.terrainLevel(Terrains.BLDG_ELEV))) {
                 return false;
             }
@@ -3842,6 +3763,11 @@ public class MoveStep implements Serializable {
                     return false;
                 }
             } else if (elevation <= (destHex.ceiling() - destHex.getLevel())) {
+                // WiGE are not prohibited from flying over planted fields.
+                if ((entity.getMovementMode() == EntityMovementMode.WIGE) && destHex.containsTerrain(Terrains.FIELDS)) {
+                    return true;
+                }
+
                 // VTOLs and WiGEs can fly through woods and jungle below the level of the
                 // treetops on a road.
                 if (destHex.containsTerrain(Terrains.WOODS) || destHex.containsTerrain(Terrains.JUNGLE)) {
