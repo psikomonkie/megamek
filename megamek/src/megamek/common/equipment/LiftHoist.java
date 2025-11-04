@@ -35,6 +35,7 @@ package megamek.common.equipment;
 
 import java.util.List;
 
+import megamek.common.game.Game;
 import megamek.common.units.Entity;
 
 /**
@@ -42,11 +43,13 @@ import megamek.common.units.Entity;
  */
 public class LiftHoist extends ExternalCargo {
 
+    private transient Entity entity;
     private int entityId;
     private int mountedId;
 
     public LiftHoist(Mounted<?> mounted, double tonnage) {
         super(tonnage, List.of(Entity.LOC_NONE));
+        entity = mounted.getEntity();
         entityId = mounted.getEntity().getId();
         mountedId = mounted.getEquipmentNum();
     }
@@ -75,5 +78,11 @@ public class LiftHoist extends ExternalCargo {
             return null;
         }
         return entity.getEquipment(mountedId);
+    }
+
+    @Override
+    public void setGame(Game game) {
+        super.setGame(game);
+        entityId = entity.getId();
     }
 }
