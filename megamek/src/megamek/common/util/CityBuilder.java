@@ -396,7 +396,11 @@ public class CityBuilder {
             }
 
             if (t == null) {
-                addRoad(hex, src.direction(dest), roadStyle);
+                if (hex.containsTerrain(Terrains.WATER)) {
+                    tryToBuildBridge(src, src.direction(dest));
+                } else {
+                    addRoad(hex, src.direction(dest), roadStyle);
+                }
             } else {
                 t.setExit(src.direction(dest), true);
             }
@@ -418,9 +422,10 @@ public class CityBuilder {
         Vector<Coords> hexes = new Vector<>(7);
         Coords end = null;
         Coords next = start.translated(direction);
-        while (hexes.size() < 6) {
+        for (int i = 0; i < 6; i++) {
             if (!board.contains(next)) {
                 // offboard, why bother?
+                end = start;
                 break;
             }
             if (!hexNeedsBridge(board.getHex(next))) {
@@ -430,6 +435,7 @@ public class CityBuilder {
             hexes.add(next);
             next = next.translated(direction);
         }
+
 
         if (end != null) {
             // got start and end, can we make a bridge?
