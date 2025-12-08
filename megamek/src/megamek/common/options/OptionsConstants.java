@@ -92,10 +92,10 @@ public class OptionsConstants {
     public static final String QUIRK_POS_UBIQUITOUS_CLAN = "ubiquitous_clan";
     public static final String QUIRK_POS_VAR_RNG_TARG = "variable_range_targeting";
     /** @deprecated Use {@link #QUIRK_POS_VAR_RNG_TARG} instead. Kept for backward compatibility. */
-    @Deprecated(since = "0.50.06", forRemoval = true)
+    @Deprecated(since = "0.50.06")
     public static final String QUIRK_POS_VAR_RNG_TARG_L = "variable_range_long";
     /** @deprecated Use {@link #QUIRK_POS_VAR_RNG_TARG} instead. Kept for backward compatibility. */
-    @Deprecated(since = "0.50.06", forRemoval = true)
+    @Deprecated(since = "0.50.06")
     public static final String QUIRK_POS_VAR_RNG_TARG_S = "variable_range_short";
     // TODO Game Rules
     public static final String QUIRK_POS_VESTIGIAL_HANDS_LA = "vestigial_hands_la";
