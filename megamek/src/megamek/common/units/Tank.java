@@ -62,6 +62,7 @@ import megamek.common.enums.TechBase;
 import megamek.common.enums.TechRating;
 import megamek.common.equipment.*;
 import megamek.common.equipment.enums.FuelType;
+import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.exceptions.LocationFullException;
 import megamek.common.interfaces.ILocationExposureStatus;
 import megamek.common.options.OptionsConstants;
@@ -2512,7 +2513,7 @@ public class Tank extends Entity {
                   !m.isBreached() &&
                   (m.getType() instanceof MiscType) &&
                   m.getType().hasFlag(MiscType.F_MASC) &&
-                  (m.curMode().equals("Armed") || m.getType().hasSubType(MiscType.S_JET_BOOSTER))) {
+                  (m.curMode().equals("Armed") || m.getType().hasFlag(MiscTypeFlag.S_JET_BOOSTER))) {
                 return true;
             }
         }
@@ -3050,6 +3051,109 @@ public class Tank extends Entity {
 
     @Override
     public boolean canPerformGroundSalvageOperations() {
+        return true;
+    }
+
+    /**
+     * Returns true if this vehicle can be abandoned by its crew. Per TacOps, vehicles can be abandoned during the End
+     * Phase. Crew size (1 per 15 tons) is defined in TM p.103 and is available regardless of optional rules.
+     * <p>
+     * Note: Naval vessels (surface ships, hydrofoils, submarines) are currently excluded. A future PR will address
+     * naval vessel abandonment once Large Naval Craft are implemented.
+     *
+     * @return true if this vehicle can be abandoned
+     */
+    public boolean canAbandon() {
+        // Must have a living crew that hasn't already ejected
+        if (getCrew() == null || getCrew().isEjected() || getCrew().isDead()) {
+            return false;
+        }
+
+        // Can't abandon if already pending abandonment
+        if (isPendingAbandon()) {
+            return false;
+        }
+
+        if (game == null) {
+            return false;
+        }
+
+        // Naval vessels excluded until Large Naval Craft abandonment is implemented
+        if (isNaval()) {
+            return false;
+        }
+
+        // Only requires the vehicle eject/abandon option
+        // Crew size is defined in TM p.103, not dependent on TacOps Vehicle Crews option
+        return game.getOptions().booleanOption(OptionsConstants.ADVANCED_GROUND_MOVEMENT_VEHICLES_CAN_EJECT);
+    }
+
+    /**
+     * Returns true if this vehicle has been abandoned - the crew has exited but the vehicle itself is not destroyed.
+     *
+     * @return true if this vehicle is crewless but intact
+     */
+    @Override
+    public boolean isAbandoned() {
+        if (getCrew() == null) {
+            return false;
+        }
+        return getCrew().isEjected() && !isDestroyed();
+    }
+
+    // Combat Vehicle Escape Pod (CVEP) - TO:AUE p.121
+
+    /**
+     * Returns true if this vehicle has a Combat Vehicle Escape Pod installed.
+     *
+     * @return true if this vehicle has a CVEP
+     */
+    public boolean hasCombatVehicleEscapePod() {
+        for (MiscMounted misc : getMisc()) {
+            if (misc.getType().hasFlag(MiscType.F_COMBAT_VEHICLE_ESCAPE_POD)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if this vehicle has an undamaged Combat Vehicle Escape Pod. Per TO:AUE p.121, the CVEP is treated as
+     * a weapon item and can be damaged by critical hits to the rear location.
+     *
+     * @return true if this vehicle has an undamaged CVEP
+     */
+    public boolean hasUndamagedCombatVehicleEscapePod() {
+        for (MiscMounted misc : getMisc()) {
+            if (misc.getType().hasFlag(MiscType.F_COMBAT_VEHICLE_ESCAPE_POD)) {
+                return !misc.isDestroyed() && !misc.isBreached() && !misc.isMissing();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the crew can launch the Combat Vehicle Escape Pod this turn. Per TO:AUE p.121, the crew may
+     * choose to use the CVEP during the Movement Phase if the system has not been previously damaged.
+     *
+     * @return true if the CVEP can be launched
+     */
+    public boolean canLaunchEscapePod() {
+        // Must have a living crew
+        if (getCrew() == null || getCrew().isEjected() || getCrew().isDead()) {
+            return false;
+        }
+
+        // Must have an undamaged CVEP
+        if (!hasUndamagedCombatVehicleEscapePod()) {
+            return false;
+        }
+
+        // Vehicle must not already be destroyed
+        if (isDestroyed() || isDoomed()) {
+            return false;
+        }
+
         return true;
     }
 }

@@ -266,6 +266,7 @@ public class ClientGUI extends AbstractClientGUI
     public static final String VIEW_TOGGLE_SENSOR_RANGE = "viewToggleSensorRange";
     public static final String VIEW_TOGGLE_FOV_DARKEN = "viewToggleFovDarken";
     public static final String VIEW_TOGGLE_FOV_HIGHLIGHT = "viewToggleFovHighlight";
+    public static final String VIEW_TOGGLE_FOV_SPOTTING = "viewToggleFovSpotting";
     public static final String VIEW_TOGGLE_FIRING_SOLUTIONS = "viewToggleFiringSolutions";
     public static final String VIEW_TOGGLE_CF_WARNING = "viewToggleCFWarnings";
     public static final String VIEW_MOVE_ENV = "viewMovementEnvelope";
@@ -309,6 +310,8 @@ public class ClientGUI extends AbstractClientGUI
     public static final String CG_FIRING_DISPLAY = "FiringDisplay";
     public static final String CG_POINTBLANK_SHOT_DISPLAY = "PointblankShotDisplay";
     public static final String CG_PHYSICAL_DISPLAY = "PhysicalDisplay";
+    public static final String CG_PREEND_DECLARATIONS_DISPLAY = "PreEndDeclarationsDisplay";
+    public static final String CG_INFANTRY_COMBAT_DISPLAY = "InfantryVsInfantryCombatDisplay";
     public static final String CG_REPORT_DISPLAY = "ReportDisplay";
     public static final String CG_DEFAULT = "JLabel-Default";
 
@@ -1158,6 +1161,11 @@ public class ClientGUI extends AbstractClientGUI
                     ((BoardView) boardViews.get(0)).clearHexImageCache();
                 }
                 break;
+            case VIEW_TOGGLE_FOV_SPOTTING:
+                GUIP.setFovSpottingMode(!GUIP.getFovSpottingMode());
+                boardViews.get(0).refreshDisplayables();
+                ((BoardView) boardViews.get(0)).clearHexImageCache();
+                break;
             case VIEW_TOGGLE_FIRING_SOLUTIONS:
                 GUIP.setShowFiringSolutions(!GUIP.getShowFiringSolutions());
                 break;
@@ -1587,6 +1595,28 @@ public class ClientGUI extends AbstractClientGUI
                 component = new PhysicalDisplay(this);
                 main = CG_BOARD_VIEW;
                 secondary = CG_PHYSICAL_DISPLAY;
+                component.setName(secondary);
+                if (!mainNames.containsValue(main)) {
+                    panMain.add(panTop, main);
+                }
+                currPhaseDisplay = (StatusBarPhaseDisplay) component;
+                panSecondary.add(component, secondary);
+                break;
+            case PREEND_DECLARATIONS:
+                component = new PreEndDeclarationsDisplay(this);
+                main = CG_BOARD_VIEW;
+                secondary = CG_PREEND_DECLARATIONS_DISPLAY;
+                component.setName(secondary);
+                if (!mainNames.containsValue(main)) {
+                    panMain.add(panTop, main);
+                }
+                currPhaseDisplay = (StatusBarPhaseDisplay) component;
+                panSecondary.add(component, secondary);
+                break;
+            case INFANTRY_VS_INFANTRY_COMBAT:
+                component = new InfantryVsInfantryCombatDisplay(this);
+                main = CG_BOARD_VIEW;
+                secondary = CG_INFANTRY_COMBAT_DISPLAY;
                 component.setName(secondary);
                 if (!mainNames.containsValue(main)) {
                     panMain.add(panTop, main);
@@ -2716,6 +2746,11 @@ public class ClientGUI extends AbstractClientGUI
             // Swap to this phase's panel.
             GamePhase phase = getClient().getGame().getPhase();
             switchPanel(phase);
+
+            // Reset spotting FOV mode at game start to prevent player confusion
+            if (phase.isLounge()) {
+                GUIP.setFovSpottingMode(false);
+            }
 
             if (phase.isDeployment()) {
                 setWeaponOrderPrefs(false);

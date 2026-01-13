@@ -38,10 +38,12 @@ import java.util.*;
 import megamek.common.RangeType;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechAdvancement;
+import megamek.common.TechAdvancement.AdvancementPhase;
 import megamek.common.TechConstants;
 import megamek.common.annotations.Nullable;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.enums.AvailabilityValue;
+import megamek.common.enums.Era;
 import megamek.common.enums.Faction;
 import megamek.common.enums.TechBase;
 import megamek.common.enums.TechRating;
@@ -291,6 +293,9 @@ public class AmmoType extends EquipmentType {
 
     // Used for Internal Bomb Bay bombs; to differentiate them from
     public static final AmmoTypeFlag F_INTERNAL_BOMB = AmmoTypeFlag.F_INTERNAL_BOMB;
+
+    // Used for Incendiary ammo modification and lookups
+    public static final String INCENDIARY_MOD = "w/ Incendiary";
 
     private static final MunitionMutator CLAN_MPM_MUNITION_MUTATOR = new MunitionMutator("(Clan) Multi-Purpose",
           1,
@@ -701,7 +706,19 @@ public class AmmoType extends EquipmentType {
                 .setStaticTechLevel(SimpleTechLevel.EXPERIMENTAL),
           "180, TO:AUE");
 
-    private static final MunitionMutator SEMI_GUIDED_MUNITION_MUTATOR = new MunitionMutator("Semi-guided",
+    private static final MunitionMutator INCENDIARY_LRM_MUNITION_MUTATOR = new MunitionMutator("Incendiary",
+          1,
+          Munitions.M_INCENDIARY_LRM,
+          new TechAdvancement(TechBase.ALL).setIntroLevel(false)
+                .setTechRating(TechRating.D)
+                .setAvailability(AvailabilityValue.E, AvailabilityValue.E, AvailabilityValue.E, AvailabilityValue.E)
+                .setAdvancement(2341, 2342, 2352, DATE_NONE, DATE_NONE)
+                .setPrototypeFactions(Faction.TH)
+                .setProductionFactions(Faction.TH)
+                .setStaticTechLevel(SimpleTechLevel.ADVANCED),
+          "181, TO:AUE");
+
+    private static final MunitionMutator SEMI_GUIDED_MUNITION_MUTATOR = new MunitionMutator("Semi-Guided",
           1,
           Munitions.M_SEMIGUIDED,
           new TechAdvancement(TechBase.IS).setIntroLevel(false)
@@ -862,7 +879,7 @@ public class AmmoType extends EquipmentType {
                 .setStaticTechLevel(SimpleTechLevel.EXPERIMENTAL),
           "180, TO:AUE");
 
-    private static final MunitionMutator CLAN_SEMI_GUIDED = new MunitionMutator("(Clan) Semi-guided",
+    private static final MunitionMutator CLAN_SEMI_GUIDED = new MunitionMutator("(Clan) Semi-Guided",
           1,
           Munitions.M_SEMIGUIDED,
           new TechAdvancement(TechBase.CLAN).setIntroLevel(false)
@@ -2061,7 +2078,7 @@ public class AmmoType extends EquipmentType {
         M_ANTI_PERSONNEL,
         // The rest were already defined
         // Flare
-        // Semi-guided
+        // Semi-Guided
         // Smoke
 
         // More SRM+LRM Munitions types
@@ -3468,10 +3485,11 @@ public class AmmoType extends EquipmentType {
          * .setPrototypeFactions(Faction.TH) .setProductionFactions(Faction.TH),"369, TO"));
          */
         // TODO Flare LRMs IO pg 230
-        // TODO Incendiary LRMs - IO pg 61, TO pg 369
         // TODO Mag Pulse see IO pg 62
         munitions.add(ARAD_MUNITION_MUTATOR);
         munitions.add(FOLLOW_THE_LEADER_MUNITION_MUTATOR);
+        // Incendiary LRM is created via createIncendiaryVariants() as separate ammo types (e.g., "LRM 5 w/ Incendiary Ammo")
+        // See LRMHandler.isIncendiaryMixed() for combat effects (TO:AUE pg 181)
         munitions.add(HEAT_SEEKING_MUNITION_MUTATOR);
         munitions.add(SEMI_GUIDED_MUNITION_MUTATOR);
         munitions.add(SMOKE_MUNITION_MUTATOR);
@@ -3503,10 +3521,10 @@ public class AmmoType extends EquipmentType {
          * DATE_NONE, DATE_NONE) .setClanApproximate(false, false, false, false, false)
          * .setPrototypeFactions(Faction.TH) .setProductionFactions(Faction.TH),"369, TO"));
          */
-        // TODO Incendiary LRMs - IO pg 61, TO pg 369
         // TODO Mag Pulse see IO pg 62
         munitions.add(CLAN_ARAD_MUNITION_MUTATOR);
         munitions.add(CLAN_FOLLOW_THE_LEADER_MUNITION_MUTATOR);
+        // Incendiary LRM is created via createIncendiaryVariants() as separate ammo types
         munitions.add(CLAN_HEAT_SEEKING_MUNITIONS_MUTATOR);
         munitions.add(CLAN_SEMI_GUIDED);
         munitions.add(CLAN_SMOKE_STANDARD_MUNITION_MUTATOR);
@@ -3680,6 +3698,9 @@ public class AmmoType extends EquipmentType {
         munitions.add(CLAN_COOLANT_MUNITION_MUTATOR_FOR_HEAVY_FLAMER);
         AmmoType.createMunitions(clanHeavyFlamerAmmos, munitions);
 
+        // Create incendiary variants of all LRM-compatible ammo types (TO:AUE pg 181)
+        createIncendiaryVariants();
+
         // cache types that share a launcher for load out purposes
         for (Enumeration<EquipmentType> equipmentTypes = EquipmentType.getAllTypes();
               equipmentTypes.hasMoreElements(); ) {
@@ -3703,6 +3724,280 @@ public class AmmoType extends EquipmentType {
                 EquipmentType.addType(mutator.createMunitionType(base));
             }
         }
+    }
+
+    /**
+     * Creates incendiary variants of all LRM-compatible ammo types. Per TO:AUE pg 181, incendiary rounds can be mixed
+     * with any LRM ammo. This creates distinct ammo types for MekHQ inventory tracking. Called after all standard
+     * munition variants are created.
+     */
+    private static void createIncendiaryVariants() {
+        List<AmmoType> incendiaryVariants = new ArrayList<>();
+
+        for (Enumeration<EquipmentType> e = EquipmentType.getAllTypes(); e.hasMoreElements(); ) {
+            EquipmentType et = e.nextElement();
+            if (!(et instanceof AmmoType ammo)) {
+                continue;
+            }
+
+            // Only LRM-compatible types (LRM, LRM_IMP, MML, NLRM)
+            AmmoTypeEnum type = ammo.getAmmoType();
+            if (type != AmmoTypeEnum.LRM && type != AmmoTypeEnum.LRM_IMP &&
+                  type != AmmoTypeEnum.MML && type != AmmoTypeEnum.NLRM) {
+                continue;
+            }
+
+            // Skip if already has incendiary (avoid duplicates)
+            if (ammo.getMunitionType().contains(Munitions.M_INCENDIARY_LRM)) {
+                continue;
+            }
+
+            // For MML, only create incendiary variants of LRM-mode ammo
+            if (type == AmmoTypeEnum.MML && !ammo.hasFlag(F_MML_LRM)) {
+                continue;
+            }
+
+            // Create incendiary variant
+            AmmoType incendiary = createIncendiaryVariant(ammo);
+            if (incendiary != null) {
+                incendiaryVariants.add(incendiary);
+            }
+        }
+
+        // Register all incendiary variants
+        for (AmmoType variant : incendiaryVariants) {
+            EquipmentType.addType(variant);
+        }
+    }
+
+    /**
+     * Creates an incendiary variant of the given LRM-compatible ammo type. Per TO:AUE pg 181, incendiary rounds are
+     * mixed with LRM ammo at 1:5 ratio.
+     *
+     * @param base The base ammo type to create an incendiary variant of
+     *
+     * @return The new incendiary variant ammo type
+     */
+    private static AmmoType createIncendiaryVariant(AmmoType base) {
+        AmmoType incendiary = new AmmoType();
+        String spacedIncendiaryMod = " " + INCENDIARY_MOD;
+
+        // Build names with " w/ Incendiary" suffix
+        // Follow the pattern from MunitionMutator for LRM/MML/NLRM types
+        StringBuilder nameBuf = new StringBuilder(base.name);
+        int index = base.name.lastIndexOf("Ammo");
+        if (index > 0) {
+            nameBuf.insert(index, " ");
+            nameBuf.insert(index, INCENDIARY_MOD);
+        } else {
+            nameBuf.append(spacedIncendiaryMod);
+        }
+        incendiary.name = nameBuf.toString();
+
+        incendiary.shortName = base.shortName + spacedIncendiaryMod;
+        incendiary.setInternalName(base.getInternalName() + spacedIncendiaryMod);
+        incendiary.subMunitionName = (base.subMunitionName.isBlank()) ? INCENDIARY_MOD : base.subMunitionName + spacedIncendiaryMod;
+
+        // Add all base lookup names with " w/ Incendiary" suffix
+        incendiary.addToEnd(base, spacedIncendiaryMod);
+
+        // Copy base reference
+        incendiary.base = (base.base != null) ? base.base : base;
+
+        // Copy tonnage (critical for ammo compatibility)
+        incendiary.setTonnage(base.getTonnage(null));
+
+        // Copy numeric properties
+        incendiary.damagePerShot = base.damagePerShot;
+        incendiary.rackSize = base.rackSize;
+        incendiary.ammoType = base.ammoType;
+        incendiary.shots = base.shots;
+        incendiary.kgPerShot = base.kgPerShot;
+        incendiary.flags = base.flags;
+        incendiary.hittable = base.hittable;
+        incendiary.explosive = base.explosive;
+        incendiary.toHitModifier = base.toHitModifier;
+
+        // Copy modes if base has them (e.g., HotLoad)
+        if (base.getModesCount() > 0) {
+            List<String> modeNames = new ArrayList<>();
+            Enumeration<EquipmentMode> modes = base.getModes();
+            while (modes.hasMoreElements()) {
+                modeNames.add(modes.nextElement().getName());
+            }
+            incendiary.setModes(modeNames.toArray(new String[0]));
+        }
+
+        // Add M_INCENDIARY_LRM to existing munition types
+        incendiary.munitionType = EnumSet.copyOf(base.getMunitionType());
+        incendiary.munitionType.add(Munitions.M_INCENDIARY_LRM);
+
+        // Apply 1.5x cost multiplier per TO:AUE pg 181
+        incendiary.cost = base.cost * 1.5;
+        incendiary.bv = base.bv;
+
+        // Combine tech advancements to get earliest / lowest legal TA
+        incendiary.techAdvancement = combineTechAdvancements(
+              base.techAdvancement,
+              INCENDIARY_LRM_MUNITION_MUTATOR.techAdvancement
+        );
+
+        incendiary.rulesRefs = "181, TO:AUE";
+
+        return incendiary;
+    }
+
+    /**
+     * Create a new techAdvancement that uses:
+     * 1. the more restrictive tech base
+     * 2. the more-restrictive of all faction tech advancements
+     * 3. the later of all intro dates,
+     * 4. the earlier of all extinction dates,
+     * 5. the smaller of all prototype / production / reintroduction faction lists,
+     * 6. the greater of all extinction faction lists,
+     * 7. the higher static tech level,
+     * 8. the rarer availability level
+     * 9. the higher TechRating score
+     * given two other TechAdvancements.
+     *
+     * @param base  TechAdvancement of base ammo type being modified
+     * @param mod   TechAdvancement of the mod/mutator; currently only Incendiary
+     * @return combination TechAdvancement
+     */
+    private static TechAdvancement combineTechAdvancements(TechAdvancement base, TechAdvancement mod) {
+        TechAdvancement combination = new TechAdvancement(mod);
+
+        // Tech Base
+        if (base.getTechBase() != mod.getTechBase()) {
+            combination.setTechBase(TechBase.fromIndex(Math.max(base.getTechBase().getIndex(),
+                  mod.getTechBase().getIndex())));
+        }
+
+        // Advancement - later takes precendent except for extinction, but -1 trumps all
+        for (AdvancementPhase phase : List.of(AdvancementPhase.PROTOTYPE, AdvancementPhase.PRODUCTION, AdvancementPhase.COMMON,
+              AdvancementPhase.REINTRODUCED)) {
+            combination.setISAdvancement(phase, laterOrUnsetYear(base.getISAdvancement(phase), mod.getISAdvancement(phase)));
+            combination.setISApproximate(phase, (base.getISApproximate(phase) || mod.getISApproximate(phase)));
+            combination.setClanAdvancement(phase, laterOrUnsetYear(base.getClanAdvancement(phase), mod.getClanAdvancement(phase)));
+            combination.setClanApproximate(phase, (base.getClanApproximate(phase) || mod.getClanApproximate(phase)));
+        }
+
+        // Extinction dates: earlier non-"-1" value wins
+        AdvancementPhase phase = AdvancementPhase.EXTINCT;
+        combination.setISAdvancement(phase, earlierNotUnsetYear(base.getISAdvancement(phase),
+                    mod.getISAdvancement(phase)));
+        combination.setISApproximate(phase, (base.getISApproximate(phase) || mod.getISApproximate(phase)));
+        combination.setClanAdvancement(phase, earlierNotUnsetYear(base.getClanAdvancement(phase),
+              mod.getClanAdvancement(phase)));
+        combination.setClanApproximate(phase, (base.getClanApproximate(phase) || mod.getClanApproximate(phase)));
+
+        // Faction lists - eugh.
+        Set<Faction> bProto = base.getPrototypeFactions();
+        Set<Faction> mProto = mod.getPrototypeFactions();
+        Set<Faction> bProd = base.getProductionFactions();
+        Set<Faction> mProd = mod.getProductionFactions();
+        Set<Faction> bExtinct = base.getExtinctionFactions();
+        Set<Faction> mExtinct = mod.getExtinctionFactions();
+        Set<Faction> bReintro = base.getReintroductionFactions();
+        Set<Faction> mReintro = mod.getReintroductionFactions();
+
+        // Take intersections except for Extinction
+        combination.setPrototypeFactions(restrictFactions(bProto, mProto).toArray(new Faction[0]));
+        combination.setProductionFactions(restrictFactions(bProd, mProd).toArray(new Faction[0]));
+        combination.setReintroductionFactions(restrictFactions(bReintro, mReintro).toArray(new Faction[0]));
+
+        // Extinction should cover the most possible factions
+        Set<Faction> extinct = new HashSet<Faction>(bExtinct);
+        extinct.addAll(mExtinct);
+        combination.setExtinctionFactions(extinct.toArray(new Faction[0]));
+
+        // Use the higher static tech level between base and incendiary
+        combination.setStaticTechLevel(SimpleTechLevel.max(
+              base.getStaticTechLevel(),
+              mod.getStaticTechLevel()
+        ));
+
+        // Availability
+        for (Era era: Era.values()) {
+            combination.setAvailability(
+                  era,
+                  (base.calcEraAvailability(era).isBetterThan(mod.calcEraAvailability(era)))
+                        ? base.getBaseAvailability(era)
+                        : mod.getBaseAvailability(era)
+            );
+        }
+
+        // Tech Rating
+        combination.setTechRating(
+              (base.getTechRating().isBetterThan(mod.getTechRating()))
+                    ? base.getTechRating()
+                    : mod.getTechRating()
+        );
+
+        return combination;
+    }
+
+    /**
+     * Determine the earlier of two years for purposes of setting extinction year of modified munitions
+     * @param left  Left year
+     * @param right Right year
+     * @return Lower year that is not "DATE_NONE", that is, the unset value of -1, or -1 if both are unset.
+     */
+    private static int earlierNotUnsetYear(int left, int right) {
+        if (!(left == DATE_NONE && right == DATE_NONE)) {
+            if (left == DATE_NONE) {
+                return right;
+            } else if (right == DATE_NONE) {
+                return left;
+            } else {
+                return Math.min(left, right);
+            }
+        }
+        return left;
+    }
+
+    /**
+     * Determine the later of two years for purposes of setting intro or re-intro of modified munitions
+     * @param left  Left year
+     * @param right Right year
+     * @return DATE_NONE if either or both are DATE_NONE, or later year if both are not DATE_NONE
+     */
+    private static int laterOrUnsetYear(int left, int right) {
+        if (!(left == DATE_NONE && right == DATE_NONE)) {
+            if (left == DATE_NONE) {
+                return left;
+            } else if (right == DATE_NONE) {
+                return right;
+            } else {
+                return Math.max(left, right);
+            }
+        }
+        return left;
+    }
+
+    /**
+     * Determine which factions should be in a restricted Faction set based on Set composition
+     * @param left      Left set
+     * @param right     Right set
+     * @return the most restrictive set / intersection of both sets / empty set if no matches exist.
+     */
+    private static Set<Faction> restrictFactions(Set<Faction> left, Set<Faction> right) {
+        if (!(left.isEmpty() && right.isEmpty())) {
+            // If both are not empty, choose the smallest non-empty set.
+            if (left.isEmpty()) {
+                return right;
+            } else if (right.isEmpty()) {
+                return left;
+            } else {
+                // Both have entries so we want the intersection of the two sets, which may then be empty,
+                // indicating everyone has the same access (which may be "none at all")
+                Set<Faction> result = new HashSet<>(left);
+                result.retainAll(right);
+                return result;
+            }
+        }
+        // If both are empty, return whichever
+        return left;
     }
 
     // Anti-Missile Ammo
@@ -16271,10 +16566,6 @@ public class AmmoType extends EquipmentType {
     @Override
     public Map<String, Object> getYamlData() {
         Map<String, Object> data = super.getYamlData();
-        data.put("type", "ammo");
-        if (kgPerShot > 0) {
-            data.put("kgPerShot", this.getKgPerShot());
-        }
         return data;
     }
 }

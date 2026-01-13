@@ -155,6 +155,8 @@ public record TWPhasePreparationManager(TWGameManager gameManager) {
             case PHYSICAL:
             case TARGETING:
             case OFFBOARD:
+            case PREEND_DECLARATIONS:
+            case INFANTRY_VS_INFANTRY_COMBAT:
                 gameManager.deployOffBoardEntities();
 
                 // Check for activating hidden units
@@ -191,6 +193,7 @@ public record TWPhasePreparationManager(TWGameManager gameManager) {
                 gameManager.addReport(new Report(5005, Report.PUBLIC));
                 gameManager.addReport(gameManager.resolveInternalBombHits());
                 gameManager.checkLayExplosives();
+                gameManager.resolveInfantryActions();
                 gameManager.resolveHarJelRepairs();
                 gameManager.resolveEmergencyCoolantSystem();
                 gameManager.checkForSuffocation();
@@ -206,6 +209,7 @@ public record TWPhasePreparationManager(TWGameManager gameManager) {
                 gameManager.resolveSelfDestruct();
                 gameManager.resolveShutdownCrashes();
                 gameManager.checkForIndustrialEndOfTurn();
+                gameManager.processUnitAbandonments();
                 gameManager.resolveMekWarriorPickUp();
                 gameManager.resolveVeeINarcPodRemoval();
                 gameManager.resolveFortify();
