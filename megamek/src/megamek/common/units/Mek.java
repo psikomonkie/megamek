@@ -67,6 +67,7 @@ import megamek.common.enums.TechBase;
 import megamek.common.enums.TechRating;
 import megamek.common.equipment.*;
 import megamek.common.equipment.enums.BombType;
+import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.exceptions.LocationFullException;
 import megamek.common.interfaces.ILocationExposureStatus;
 import megamek.common.interfaces.ITechnology;
@@ -284,6 +285,12 @@ public abstract class Mek extends Entity {
     private boolean fullHeadEject = false;
 
     private boolean riscHeatSinkKit = false;
+
+    /**
+     * Tracks whether the Damage Interrupt Circuit is disabled. DIC is disabled by Life Support critical hit or any hit
+     * rolling "2" on hit location table.
+     */
+    private boolean dicDisabled = false;
 
     protected static int[] EMERGENCY_COOLANT_SYSTEM_FAILURE = { 3, 5, 7, 10, 13, 13, 13 };
 
@@ -788,8 +795,8 @@ public abstract class Mek extends Entity {
     public boolean hasExtendedRetractableBlade() {
         for (Mounted<?> m : getEquipment()) {
             if (!m.isInoperable() && (m.getType() instanceof MiscType)
-                  && m.getType().hasFlag(MiscType.F_CLUB)
-                  && m.getType().hasSubType(MiscType.S_RETRACTABLE_BLADE)
+                  && m.getType().hasFlag(MiscTypeFlag.F_CLUB)
+                  && m.getType().hasFlag(MiscTypeFlag.S_RETRACTABLE_BLADE)
                   && m.curMode().equals("extended")) {
                 return true;
             }
@@ -1079,7 +1086,7 @@ public abstract class Mek extends Entity {
 
     @Override
     public int getJumpMP(MPCalculationSetting mpCalculationSetting) {
-        if (hasShield() && (getNumberOfShields(MiscType.S_SHIELD_LARGE) > 0)) {
+        if (hasShield() && (getNumberOfShields(MiscTypeFlag.S_SHIELD_LARGE) > 0)) {
             return 0;
         }
 
@@ -1108,7 +1115,7 @@ public abstract class Mek extends Entity {
         }
 
         // Medium shield reduces jump mp by 1/shield
-        mp -= getNumberOfShields(MiscType.S_SHIELD_MEDIUM);
+        mp -= getNumberOfShields(MiscTypeFlag.S_SHIELD_MEDIUM);
 
         if (!mpCalculationSetting.ignoreModularArmor() && hasModularArmor()) {
             mp--;
@@ -1133,7 +1140,7 @@ public abstract class Mek extends Entity {
 
     @Override
     public int getMechanicalJumpBoosterMP(MPCalculationSetting mpCalculationSetting) {
-        if (hasShield() && (getNumberOfShields(MiscType.S_SHIELD_LARGE) > 0)) {
+        if (hasShield() && (getNumberOfShields(MiscTypeFlag.S_SHIELD_LARGE) > 0)) {
             return 0;
         }
 
@@ -1158,7 +1165,7 @@ public abstract class Mek extends Entity {
         }
 
         // Medium shield reduces jump mp by 1/shield
-        mp -= getNumberOfShields(MiscType.S_SHIELD_MEDIUM);
+        mp -= getNumberOfShields(MiscTypeFlag.S_SHIELD_MEDIUM);
 
         if (!mpCalculationSetting.ignoreModularArmor() && hasModularArmor()) {
             mp--;
@@ -1261,12 +1268,12 @@ public abstract class Mek extends Entity {
         jumpType = JUMP_NONE;
         for (MiscMounted m : miscList) {
             if (m.getType().hasFlag(MiscType.F_JUMP_JET)) {
-                if (m.getType().hasSubType(MiscType.S_IMPROVED)
-                      && m.getType().hasSubType(MiscType.S_PROTOTYPE)) {
+                if (m.getType().hasFlag(MiscTypeFlag.S_IMPROVED)
+                      && m.getType().hasFlag(MiscTypeFlag.S_PROTOTYPE)) {
                     jumpType = JUMP_PROTOTYPE_IMPROVED;
-                } else if (m.getType().hasSubType(MiscType.S_IMPROVED)) {
+                } else if (m.getType().hasFlag(MiscTypeFlag.S_IMPROVED)) {
                     jumpType = JUMP_IMPROVED;
-                } else if (m.getType().hasSubType(MiscType.S_PROTOTYPE)) {
+                } else if (m.getType().hasFlag(MiscTypeFlag.S_PROTOTYPE)) {
                     jumpType = JUMP_PROTOTYPE;
                 } else {
                     jumpType = JUMP_STANDARD;
@@ -3362,19 +3369,23 @@ public abstract class Mek extends Entity {
         // Prototype DNI gives -3 piloting (IO pg 83)
         // VDNI gives -1 piloting (IO pg 71) - BVDNI does NOT get piloting bonus due to "neuro-lag"
         // Check Proto DNI first as it's more powerful
-        if (hasAbility(OptionsConstants.MD_PROTO_DNI)) {
-            roll.addModifier(-3, Messages.getString("PilotingRoll.ProtoDni"));
-        } else if (hasAbility(OptionsConstants.MD_VDNI)
-              && !hasAbility(OptionsConstants.MD_BVDNI)) {
-            roll.addModifier(-1, "VDNI");
-        } else if (hasAbility(OptionsConstants.MD_BVDNI)) {
-            roll.addModifier(0, "BVDNI (no piloting bonus)");
+        // When tracking neural interface hardware, require DNI cockpit mod for benefits
+        if (hasActiveDNI()) {
+            if (hasAbility(OptionsConstants.MD_PROTO_DNI)) {
+                roll.addModifier(-3, Messages.getString("PilotingRoll.ProtoDni"));
+            } else if (hasAbility(OptionsConstants.MD_VDNI)
+                  && !hasAbility(OptionsConstants.MD_BVDNI)) {
+                roll.addModifier(-1, "VDNI");
+            } else if (hasAbility(OptionsConstants.MD_BVDNI)) {
+                roll.addModifier(0, "BVDNI (no piloting bonus)");
+            }
         }
 
         // Small/torso-mounted cockpit penalty?
         // BVDNI negates small cockpit penalty, but Proto DNI does not
+        // Requires active DNI when tracking neural interface hardware
         if ((getCockpitType() == Mek.COCKPIT_SMALL) || (getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
-            if (hasAbility(OptionsConstants.MD_BVDNI)) {
+            if (hasActiveDNI() && hasAbility(OptionsConstants.MD_BVDNI)) {
                 roll.addModifier(0, "Small Cockpit (negated by BVDNI)");
             } else if (!hasAbility(OptionsConstants.UNOFFICIAL_SMALL_PILOT)) {
                 roll.addModifier(1, "Small Cockpit");
@@ -3416,6 +3427,11 @@ public abstract class Mek extends Entity {
         }
         if (hasIndustrialTSM()) {
             roll.addModifier(1, "Industrial TSM");
+        }
+
+        // Damage Interrupt Circuit (IO p.39) adds +1 to all PSR when disabled
+        if ((hasDamageInterruptCircuit()) && (isDICDisabled())) {
+            roll.addModifier(1, "Damage Interrupt Circuit disabled");
         }
 
         return roll;
@@ -3947,11 +3963,6 @@ public abstract class Mek extends Entity {
                   && ((location == Mek.LOC_LEFT_ARM) || (location == Mek.LOC_LEFT_TORSO) || (location
                   == Mek.LOC_LEFT_LEG));
         }
-    }
-
-    @Override
-    public boolean hasEiCockpit() {
-        return isClan() || super.hasEiCockpit();
     }
 
     @Override
@@ -5632,6 +5643,43 @@ public abstract class Mek extends Entity {
         return riscHeatSinkKit;
     }
 
+    /**
+     * Returns true if this Mek has the Damage Interrupt Circuit cockpit modification installed.
+     *
+     * @return true if DIC is installed
+     */
+    public boolean hasDamageInterruptCircuit() {
+        return hasWorkingMisc(MiscType.F_DAMAGE_INTERRUPT_CIRCUIT);
+    }
+
+    /**
+     * Returns true if the Damage Interrupt Circuit is currently disabled. DIC is disabled by Life Support critical hit
+     * or any hit rolling "2" on hit location table.
+     *
+     * @return true if DIC is disabled
+     */
+    public boolean isDICDisabled() {
+        return dicDisabled;
+    }
+
+    /**
+     * Sets the disabled state of the Damage Interrupt Circuit.
+     *
+     * @param disabled true to disable the DIC
+     */
+    public void setDICDisabled(boolean disabled) {
+        this.dicDisabled = disabled;
+    }
+
+    /**
+     * Returns true if this Mek has a working (installed and not disabled) Damage Interrupt Circuit.
+     *
+     * @return true if DIC is installed and functional
+     */
+    public boolean hasWorkingDIC() {
+        return hasDamageInterruptCircuit() && !isDICDisabled();
+    }
+
     public abstract boolean hasMPReducingHardenedArmor();
 
     /**
@@ -6180,8 +6228,8 @@ public abstract class Mek extends Entity {
             Mounted<?> m = cs.getMount();
             EquipmentType type = m.getType();
             if ((type instanceof MiscType)
-                  && type.hasFlag(MiscType.F_HAND_WEAPON)
-                  && type.hasSubType(MiscType.S_CLAW)) {
+                  && type.hasFlag(MiscTypeFlag.F_HAND_WEAPON)
+                  && type.hasFlag(MiscTypeFlag.S_CLAW)) {
                 return !(m.isDestroyed() || m.isMissing() || m.isBreached());
             }
         }
@@ -6375,5 +6423,45 @@ public abstract class Mek extends Entity {
     @Override
     public int getRecoveryTime() {
         return 60;
+    }
+
+    /**
+     * Determines if this Mek can announce abandonment per TacOps:AR p.165. Requirements: must be prone, must be
+     * shutdown, must have crew that hasn't ejected, game option must be enabled, and abandonment must not already be
+     * pending.
+     *
+     * @return true if this Mek can announce abandonment
+     */
+    public boolean canAbandon() {
+        if (!isProne()) {
+            return false;
+        }
+        if (!isShutDown()) {
+            return false;
+        }
+        if (getCrew() == null || getCrew().isEjected() || getCrew().isDead()) {
+            return false;
+        }
+        if (isPendingAbandon()) {
+            return false;
+        }
+        if (game == null) {
+            return false;
+        }
+        return game.getOptions().booleanOption(OptionsConstants.ADVANCED_GROUND_MOVEMENT_VEHICLES_CAN_EJECT);
+    }
+
+    /**
+     * Returns true if this Mek has been abandoned - the crew has exited but the Mek itself is not destroyed. This is
+     * different from ejection which destroys the cockpit.
+     *
+     * @return true if this Mek is crewless but intact
+     */
+    @Override
+    public boolean isAbandoned() {
+        if (getCrew() == null) {
+            return false;
+        }
+        return getCrew().isEjected() && !isDestroyed();
     }
 }

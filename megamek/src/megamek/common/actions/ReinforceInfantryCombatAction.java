@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2025-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -30,43 +30,32 @@
  * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
  * affiliated with Microsoft.
  */
-package megamek.common.util;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+package megamek.common.actions;
 
-import megamek.common.equipment.AmmoType;
-import megamek.common.equipment.EquipmentType;
+import megamek.common.game.Game;
+import megamek.common.units.Entity;
 
-public class YamlSerializerAmmoType extends YamlSerializerEquipmentType {
-    static public final String TYPENAME = "ammo";
-
-    /**
-     * Constructor for YamlSerializerAmmoType.
-     */
-    public YamlSerializerAmmoType() {
-    }
+/**
+ * Action to REINFORCE existing infantry vs. infantry combat in a building.
+ * Only valid when combat ALREADY exists in the target building.
+ */
+public class ReinforceInfantryCombatAction extends InfantryCombatAction {
 
     /**
-     * Constructs a map containing the YAML-serializable data for the given ammo type.
+     * Creates a new reinforce infantry combat action.
      *
-     * @param ammo The ammo type to serialize
-     *
-     * @return A map containing the YAML-serializable data for the equipment type
+     * @param entityId the reinforcing infantry entity ID
+     * @param targetId the target entity ID (AbstractBuildingEntity)
      */
-    public Map<String, Object> serialize(AmmoType ammo) {
-        Map<String, Object> data = super.serialize(ammo);
-        data.put("type", TYPENAME);
-        addAmmoDetails(data, ammo);
-        return data;
+    public ReinforceInfantryCombatAction(int entityId, int targetId) {
+        super(entityId, targetId, false);
     }
 
-    private static void addAmmoDetails(Map<String, Object> data, AmmoType ammo) {
-        EquipmentType defaultAmmo = new AmmoType();
-        Map<String, Object> details = new LinkedHashMap<>();
-        details.put("type", ammo.getAmmoType().name());
-        //TODO: work in progress!
-
-        data.put("details", details);
+    @Override
+    public String toSummaryString(Game game) {
+        Entity target = game.getEntity(getTargetId());
+        String targetName = (target != null) ? target.getDisplayName() : "Unknown";
+        return "Reinforce combat at " + targetName;
     }
 }

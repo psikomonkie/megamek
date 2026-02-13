@@ -65,6 +65,7 @@ import megamek.common.board.Coords;
 import megamek.common.compute.Compute;
 import megamek.common.enums.MoveStepType;
 import megamek.common.equipment.*;
+import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.game.Game;
 import megamek.common.game.GameTurn;
 import megamek.common.moves.MovePath;
@@ -136,6 +137,8 @@ class MovePathHandler extends AbstractTWRuleHandler {
     private boolean continueTurnFromFishtail = false;
     private boolean continueTurnFromLevelDrop = false;
     private boolean continueTurnFromCliffAscent = false;
+    // Track if we already sent a special report popup for EMP mines during this move
+    private boolean sentEMPPopupThisMove = false;
 
     // get a list of coordinates that the unit passed through this turn
     // so that I can later recover potential bombing targets
@@ -211,6 +214,37 @@ class MovePathHandler extends AbstractTWRuleHandler {
                 addReport(gameManager.ejectEntity(entity, false));
                 return;
             }
+        }
+
+        // Combat Vehicle Escape Pod launch (TO:AUE p.121)
+        if (md.contains(MoveStepType.LAUNCH_ESCAPE_POD)) {
+            if ((entity instanceof Tank tank) && tank.canLaunchEscapePod()) {
+                // Find the step to get the player-chosen landing hex
+                Coords landingCoords = null;
+                for (MoveStep step : md.getStepVector()) {
+                    if (step.getType() == MoveStepType.LAUNCH_ESCAPE_POD) {
+                        landingCoords = step.getEscapePodLandingCoords();
+                        break;
+                    }
+                }
+                addReport(gameManager.launchCombatVehicleEscapePod(tank, landingCoords));
+                // Mark entity's turn as complete so client advances to next unit
+                entity.setDone(true);
+                gameManager.entityUpdate(entity.getId());
+                return;
+            }
+        }
+
+        // Handle Mek abandonment announcements during Movement Phase (TacOps:AR p.165)
+        // Mek must be prone and shutdown; crew exits during End Phase of following turn
+        if (md.contains(MoveStepType.ABANDON) && (entity instanceof Mek mek) && mek.canAbandon()) {
+            Vector<Report> abandonReports = gameManager.announceUnitAbandonment(entity);
+            for (Report abandonReport : abandonReports) {
+                addReport(abandonReport);
+            }
+            entity.setDone(true);
+            gameManager.entityUpdate(entity.getId());
+            return;
         }
 
         if (md.contains(MoveStepType.CAREFUL_STAND)) {
@@ -899,7 +933,7 @@ class MovePathHandler extends AbstractTWRuleHandler {
 
                     // If the swarmer has Assault claws, give a 1 modifier.
                     // We can stop looking when we find our first match.
-                    if (swarmer.hasWorkingMisc(MiscType.F_MAGNET_CLAW, -1)) {
+                    if (swarmer.hasWorkingMisc(MiscTypeFlag.F_MAGNET_CLAW)) {
                         rollTarget.addModifier(1, "swarmer has magnetic claws");
                     }
 
@@ -1069,7 +1103,8 @@ class MovePathHandler extends AbstractTWRuleHandler {
             gameManager.send(gameManager.getPacketHelper().createTurnListPacket());
 
             // let everyone know about what just happened
-            if (gameManager.getMainPhaseReport().size() > 1) {
+            // Skip if we already sent an EMP popup this move (avoid duplicate popups)
+            if ((gameManager.getMainPhaseReport().size() > 1) && !sentEMPPopupThisMove) {
                 gameManager.send(entity.getOwner().getId(), gameManager.createSpecialReportPacket());
             }
         } else {
@@ -2492,6 +2527,23 @@ class MovePathHandler extends AbstractTWRuleHandler {
                 }
             }
 
+            // Check for infantry gliding down terrain with glider wings (IO p.85)
+            if (!lastPos.equals(curPos) && (entity instanceof Infantry infantry)
+                  && infantry.hasAbility(OptionsConstants.MD_PL_GLIDER)
+                  && infantry.canUseGliderWings()) {
+                int glideDistance = (lastElevation + getGame().getBoard(curBoardId).getHex(lastPos).getLevel())
+                      - (curElevation + curHex.getLevel());
+                // Report if descending more than normal max (1 for regular infantry)
+                if (glideDistance > infantry.getMaxElevationChange()) {
+                    Report r = new Report(2522);
+                    r.subject = entity.getId();
+                    r.indent(1);
+                    r.addDesc(infantry);
+                    r.add(glideDistance);
+                    addReport(r);
+                }
+            }
+
             // Check for skid.
             rollTarget = entity.checkSkid(moveType, prevHex, overallMoveType,
                   prevStep, step, prevFacing, curFacing, lastPos, curPos,
@@ -2852,6 +2904,18 @@ class MovePathHandler extends AbstractTWRuleHandler {
                 if (isOnGround) {
                     boom = gameManager.checkVibraBombs(entity, curPos, false, lastPos, curPos,
                           gameManager.getMainPhaseReport());
+                    // Collect EMP reports separately for popup, then add to main report
+                    Vector<Report> empReports = new Vector<>();
+                    boolean empBoom = gameManager.checkEMPMines(entity, curPos, empReports);
+                    // Send popup FIRST with only EMP reports, before adding to mainPhaseReport
+                    if (empBoom && !empReports.isEmpty()) {
+                        gameManager.send(entity.getOwner().getId(),
+                              gameManager.createSpecialReportPacket(empReports));
+                        sentEMPPopupThisMove = true;
+                    }
+                    // Now add to main phase report for end-of-phase display
+                    gameManager.getMainPhaseReport().addAll(empReports);
+                    boom = empBoom || boom;
                 }
                 if (getGame().containsMinefield(curPos)) {
                     // set the new position temporarily, because
@@ -3324,6 +3388,18 @@ class MovePathHandler extends AbstractTWRuleHandler {
                     report.add(unloaded.generalName());
                     report.add(unloadPos.toFriendlyString());
                     addReport(report);
+
+                    // Report glider wings landing safely (IO p.85)
+                    if ((entity instanceof VTOL) && (unloaded instanceof Infantry)) {
+                        Infantry infantry = (Infantry) unloaded;
+                        if (infantry.hasAbility(OptionsConstants.MD_PL_GLIDER)) {
+                            report = new Report(2521);
+                            report.subject = unloaded.getId();
+                            report.indent(1);
+                            report.addDesc(infantry);
+                            addReport(report);
+                        }
+                    }
                 }
 
                 // some additional stuff to take care of for small

@@ -1984,12 +1984,13 @@ public class FireControl {
         // 1. Target is flying Aerospace unit
         // 2. Target is VTOL not above blast-causing terrain
         // 3. Target is Submarine too far below surface level
+        // 4. Target is hidden
         if (target.getTargetType() == Targetable.TYPE_ENTITY) {
             Entity entity = (Entity) target;
             Hex hex = game.getHexOf(entity);
             hexToBomb.setTargetLevel((hex != null) ? hex.getLevel() : 0);
 
-            if (entity.isAirborne()) {
+            if (entity.isAirborne() || entity.isHidden()) {
                 return diveBombPlan;
             }
             if (entity.isAirborneVTOLorWIGE()) {
@@ -3304,7 +3305,8 @@ public class FireControl {
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_FRAGMENTATION)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_CLUSTER)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO)
-                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO_IV)) {
+                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO_IV)
+                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_LRM)) {
 
                 // MMLs have additional considerations.
                 if (!(weaponType instanceof MMLWeapon)) {
@@ -3386,10 +3388,10 @@ public class FireControl {
         for (final AmmoMounted ammo : ammoList) {
             final AmmoType ammoType = ammo.getType();
             if (ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY)
-                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_LRM)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_AC)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO)
-                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO_IV)) {
+                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO_IV)
+                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_LRM)) {
 
                 // MMLs have additional considerations.
                 if (!(weaponType instanceof MMLWeapon)) {
@@ -3442,9 +3444,9 @@ public class FireControl {
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_HAYWIRE)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_AC)
-                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_LRM)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INFERNO_IV)
+                  || ammoType.getMunitionType().contains(AmmoType.Munitions.M_INCENDIARY_LRM)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_LASER_INHIB)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_OIL_SLICK)
                   || ammoType.getMunitionType().contains(AmmoType.Munitions.M_NEMESIS)

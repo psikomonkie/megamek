@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2024-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -192,11 +192,21 @@ record TWPhaseEndManager(TWGameManager gameManager) {
                     gameManager.addReport(new Report(1205, Report.PUBLIC));
                     gameManager.getGame().addReports(gameManager.getMainPhaseReport());
                     gameManager.sendReport();
-                    gameManager.changePhase(GamePhase.END);
+                    gameManager.changePhase(GamePhase.PREEND_DECLARATIONS);
                 }
                 gameManager.sendGroundObjectUpdate();
                 break;
             case PHYSICAL_REPORT:
+                gameManager.changePhase(GamePhase.PREEND_DECLARATIONS);
+                break;
+            case PREEND_DECLARATIONS:
+                // Actions already added during player turns
+                // No processing needed here - just transition
+                gameManager.changePhase(GamePhase.INFANTRY_VS_INFANTRY_COMBAT);
+                break;
+            case INFANTRY_VS_INFANTRY_COMBAT:
+                // Actions already added during player turns
+                // No processing needed here - just transition
                 gameManager.changePhase(GamePhase.END);
                 break;
             case TARGETING:
@@ -262,6 +272,15 @@ record TWPhaseEndManager(TWGameManager gameManager) {
                 // remove any entities that died in the heat/end phase before
                 // checking for victory
                 gameManager.resetEntityPhase(GamePhase.END);
+
+                // Remove expired temporary ECM fields (from EMP mines, etc.)
+                gameManager.getGame().removeExpiredECMFields(
+                      gameManager.getGame().getRoundCount(),
+                      GamePhase.END
+                );
+                // Sync remaining ECM fields to clients
+                gameManager.sendSyncTemporaryECMFields();
+
                 boolean victory = gameManager.victory(); // note this may add reports
                 // check phase report
                 // HACK: hardcoded message ID check

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000-2005 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2002-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2002-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -219,7 +219,25 @@ public abstract class BotClient extends Client {
                         // Picks the WAA with the highest expected damage,
                         // essentially same as if the auto_ams option was on
                         waa = Compute.getHighestExpectedDamage(game, evt.getWAAs(), true);
-                        sendAMSAssignCFRResponse(evt.getWAAs().indexOf(waa));
+
+                        // Add second weapon attack counter for the bot when playtest 3 is active
+                        WeaponAttackAction secondWaa = null;
+                        if (game.getOptions().booleanOption(OptionsConstants.PLAYTEST_3)) {
+                            secondWaa = Compute.getSecondHighestExpectedDamage(game, evt.getWAAs(), true);
+                        }
+
+                        // Adjusting for new response.
+                        int numInts = 1;
+                        if (secondWaa != null) {
+                            numInts = 2;
+                        }
+                        int[] indexes = new int[numInts];
+                        indexes[0] = evt.getWAAs().indexOf(waa);
+                        if (numInts == 2) {
+                            indexes[1] = evt.getWAAs().indexOf(secondWaa);
+                        }
+
+                        sendAMSAssignCFRResponse(indexes);
                         break;
                     case CFR_APDS_ASSIGN:
                         // Picks the WAA with the highest expected damage,
@@ -308,6 +326,18 @@ public abstract class BotClient extends Client {
 
     @Nullable
     protected abstract PhysicalOption calculatePhysicalTurn();
+
+    /**
+     * Calculate what to do during the PRE_END_DECLARATIONS phase.
+     * This phase allows infantry to initiate building/vessel combat.
+     */
+    protected abstract void calculatePreEndDeclarationsTurn();
+
+    /**
+     * Calculate what to do during the INFANTRY_VS_INFANTRY_COMBAT phase.
+     * This phase allows infantry to reinforce or withdraw from building/vessel combat.
+     */
+    protected abstract void calculateInfantryVsInfantryCombatTurn();
 
     protected Vector<EntityAction> calculatePointBlankShot(int firingEntityID, int targetID) {
         return new Vector<>();
@@ -653,6 +683,10 @@ public abstract class BotClient extends Client {
                 calculateTargetingOffBoardTurn();
             } else if (game.getPhase().isPremovement() || game.getPhase().isPreFiring()) {
                 calculatePrePhaseTurn();
+            } else if (game.getPhase().isPreEndDeclarations()) {
+                calculatePreEndDeclarationsTurn();
+            } else if (game.getPhase().isInfantryVsInfantryCombat()) {
+                calculateInfantryVsInfantryCombatTurn();
             }
 
             return true;
@@ -1318,6 +1352,7 @@ public abstract class BotClient extends Client {
         getLocalPlayer().setNbrMFConventional(0);
         getLocalPlayer().setNbrMFInferno(0);
         getLocalPlayer().setNbrMFVibra(0);
+        getLocalPlayer().setNbrMFEMP(0);
         sendPlayerInfo();
     }
 
@@ -1356,10 +1391,11 @@ public abstract class BotClient extends Client {
                                               Minefield.TYPE_CONVENTIONAL),
                                         new MinefieldNumbers(getLocalPlayer().getNbrMFVibra(),
                                               Minefield.TYPE_VIBRABOMB),
+                                        new MinefieldNumbers(getLocalPlayer().getNbrMFEMP(),
+                                              Minefield.TYPE_EMP),
                                         // the following are added for completeness, but are not used by the bot
                                         new MinefieldNumbers(0, Minefield.TYPE_COMMAND_DETONATED),
                                         // no command detonated mines
-                                        new MinefieldNumbers(0, Minefield.TYPE_EMP), // no field for EMP mines exists
         };
     }
 

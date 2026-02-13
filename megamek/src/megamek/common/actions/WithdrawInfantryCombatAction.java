@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2025-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -30,26 +30,31 @@
  * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
  * affiliated with Microsoft.
  */
-package megamek.client.ui.dialogs.advancedsearch;
 
-class TriStateItem {
-    public String state;
-    public String text;
-    public int code;
+package megamek.common.actions;
 
-    public TriStateItem(String state, String text) {
-        this.state = state;
-        this.text = text;
-    }
+import megamek.common.game.Game;
+import megamek.common.units.Entity;
 
-    public TriStateItem(String state, int code, String text) {
-        this.state = state;
-        this.code = code;
-        this.text = text;
+/**
+ * Action to WITHDRAW from infantry vs. infantry combat (attackers only).
+ */
+public class WithdrawInfantryCombatAction extends InfantryCombatAction {
+
+    /**
+     * Creates a new withdraw from infantry combat action.
+     *
+     * @param entityId the withdrawing infantry entity ID
+     * @param targetId the target entity ID
+     */
+    public WithdrawInfantryCombatAction(int entityId, int targetId) {
+        super(entityId, targetId, true);
     }
 
     @Override
-    public String toString() {
-        return state + " " + text;
+    public String toSummaryString(Game game) {
+        Entity target = game.getEntity(getTargetId());
+        String targetName = (target != null) ? target.getDisplayName() : "Unknown";
+        return "Withdraw from " + targetName;
     }
 }

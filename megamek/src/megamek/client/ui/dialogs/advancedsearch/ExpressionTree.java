@@ -30,12 +30,40 @@
  * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
  * affiliated with Microsoft.
  */
-package megamek.client.ui.dialogs.advancedsearch.exceptions;
+package megamek.client.ui.dialogs.advancedsearch;
 
-public class FilterParsingException extends Exception {
-    public String msg;
+/**
+ * This class allows to create a tree where the leaf nodes contain names and quantities of pieces of equipment while the
+ * non-leaf nodes contain boolean operations (AND and OR).
+ *
+ * @author Arlith
+ */
+class ExpressionTree {
+    private final ExpNode root;
 
-    FilterParsingException(String m) {
-        msg = m;
+    public ExpressionTree() {
+        root = new ExpNode();
+    }
+
+    /**
+     * Deep copy constructor. New instantiations of all state variables are created.
+     *
+     * @param expressionTree The <code>ExpressionTree</code> to create a copy of.
+     */
+    public ExpressionTree(ExpressionTree expressionTree) {
+        root = new ExpNode(expressionTree.root);
+    }
+
+    public ExpressionTree(ExpNode rootNode) {
+        root = rootNode;
+    }
+
+    @Override
+    public String toString() {
+        return root.children.isEmpty() ? "" : root.toString();
+    }
+
+    public ExpNode getRoot() {
+        return root;
     }
 }

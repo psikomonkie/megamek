@@ -570,7 +570,6 @@ public class Compute {
               || (entering instanceof Dropship)
               || ((entering instanceof Mek) && entering.isSuperHeavy());
 
-        boolean isTrain = !entering.getAllTowedUnits().isEmpty();
         boolean isDropship = entering instanceof Dropship;
         boolean isInfantry = entering instanceof Infantry;
         Entity firstEntity = transport;
@@ -1681,13 +1680,13 @@ public class Compute {
                     rangeModifier = attackingEntity.getExtremeRangeModifier();
                 }
                 if ((c3ecmRange == RangeType.RANGE_SHORT) || (c3ecmRange == RangeType.RANGE_MINIMUM)) {
-                    rangeModifier = (int) (rangeModifier + attackingEntity.getShortRangeModifier()) / 2;
+                    rangeModifier = (rangeModifier + attackingEntity.getShortRangeModifier()) / 2;
                     mods.addModifier(rangeModifier, "short range due to C3 spotter under ECM");
                 } else if (c3ecmRange == RangeType.RANGE_MEDIUM) {
-                    rangeModifier = (int) (rangeModifier + attackingEntity.getMediumRangeModifier()) / 2;
+                    rangeModifier = (rangeModifier + attackingEntity.getMediumRangeModifier()) / 2;
                     mods.addModifier(rangeModifier, "medium range due to C3 spotter under ECM");
                 } else if (c3ecmRange == RangeType.RANGE_LONG) {
-                    rangeModifier = (int) (rangeModifier + attackingEntity.getLongRangeModifier()) / 2;
+                    rangeModifier = (rangeModifier + attackingEntity.getLongRangeModifier()) / 2;
                     mods.addModifier(rangeModifier, "long range due to C3 spotter under ECM");
                 }
             } else {
@@ -1907,20 +1906,15 @@ public class Compute {
     }
 
     /**
-     * Finds the effective distance between an attacker and a target. Includes the distance bonus if the attacker and
-     * target are in the same building and on different levels. Also takes account of altitude differences
+     * Calculates effective distance from a weapon's firing position to a target, accounting for altitude differences
+     * and same-building elevation modifiers. This is used for entities with multiple firing positions like
+     * BuildingEntity.
      *
-     * @return the effective distance
-     */
-    /**
-     * Calculates effective distance from a weapon's firing position to a target,
-     * accounting for altitude differences and same-building elevation modifiers.
-     * This is used for entities with multiple firing positions like BuildingEntity.
-     *
-     * @param game The current game
+     * @param game         The current game
      * @param weaponEntity The entity with the weapon
-     * @param weapon The weapon being fired
-     * @param target The target being attacked
+     * @param weapon       The weapon being fired
+     * @param target       The target being attacked
+     *
      * @return The effective distance from the weapon's firing position to the target
      */
     public static int effectiveWeaponDistance(final Game game, final Entity weaponEntity,
@@ -3176,13 +3170,17 @@ public class Compute {
               || (targetable.getTargetType() == Targetable.TYPE_HEX_BOMB)
               || (targetable.getTargetType() == Targetable.TYPE_HEX_ARTILLERY)
               || (targetable.getTargetType() == Targetable.TYPE_MINEFIELD_DELIVER))) {
-            if ((woodsLevel == 1) && (eiStatus != 2)) {
+            if (woodsLevel == 1) {
+                // EI reduces modifier by 1 per hex, minimum +1 per hex (IO p.69)
+                // Light woods is already +1, so EI provides no benefit
                 toHit.addModifier(1, woodsText);
             } else if (woodsLevel > 1) {
+                // Always add full woods modifier
+                toHit.addModifier(woodsLevel, woodsText);
                 if (eiStatus > 0) {
-                    toHit.addModifier(woodsLevel - 1, woodsText);
-                } else {
-                    toHit.addModifier(woodsLevel, woodsText);
+                    // EI reduces modifier by 1 per hex, minimum +1 per hex (IO p.69)
+                    // Track in ToHitData for combined EI modifier at the end
+                    toHit.addEiReduction(woodsLevel - 1);
                 }
             }
         }
@@ -3193,22 +3191,28 @@ public class Compute {
                 case SmokeCloud.SMOKE_LI_HEAVY:
                 case SmokeCloud.SMOKE_CHAFF_LIGHT:
                 case SmokeCloud.SMOKE_GREEN:
+                    // EI reduces modifier by 1 per hex, minimum +1 per hex (IO p.69)
+                    // Light smoke is already +1, so EI provides no benefit
                     toHit.addModifier(1, "target in light smoke");
                     break;
                 case SmokeCloud.SMOKE_HEAVY:
+                    // Always add full heavy smoke modifier
+                    toHit.addModifier(2, "target in heavy smoke");
                     if (eiStatus > 0) {
-                        toHit.addModifier(1, "target in heavy smoke");
-                    } else {
-                        toHit.addModifier(2, "target in heavy smoke");
+                        // EI reduces modifier by 1 per hex (IO p.69)
+                        // Track in ToHitData for combined EI modifier at the end
+                        toHit.addEiReduction(1);
                     }
                     break;
             }
         }
         if (hex.terrainLevel(Terrains.GEYSER) == 2) {
+            // Always add full geyser modifier
+            toHit.addModifier(2, "target in erupting geyser");
             if (eiStatus > 0) {
-                toHit.addModifier(1, "target in erupting geyser");
-            } else {
-                toHit.addModifier(2, "target in erupting geyser");
+                // EI reduces geyser modifier by 1 (IO p.69)
+                // Track in ToHitData for combined EI modifier at the end
+                toHit.addEiReduction(1);
             }
         }
 
@@ -3261,13 +3265,17 @@ public class Compute {
         }
 
         if (!game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_WOODS_COVER)) {
-            if ((woodsLevel == 1) && (eiStatus != 2)) {
+            if (woodsLevel == 1) {
+                // EI reduces modifier by 1 per hex, minimum +1 per hex (IO p.69)
+                // Light woods is already +1, so EI provides no benefit
                 toHit.addModifier(1, woodsText);
             } else if (woodsLevel > 1) {
+                // Always add full woods modifier
+                toHit.addModifier(woodsLevel, woodsText);
                 if (eiStatus > 0) {
-                    toHit.addModifier(woodsLevel - 1, woodsText);
-                } else {
-                    toHit.addModifier(woodsLevel, woodsText);
+                    // EI reduces modifier by 1 per hex, minimum +1 per hex (IO p.69)
+                    // Track in ToHitData for combined EI modifier at the end
+                    toHit.addEiReduction(woodsLevel - 1);
                 }
             }
         }
@@ -3278,24 +3286,31 @@ public class Compute {
             case SmokeCloud.SMOKE_LI_HEAVY:
             case SmokeCloud.SMOKE_CHAFF_LIGHT:
             case SmokeCloud.SMOKE_GREEN:
+                // EI reduces modifier by 1 per hex, minimum +1 per hex (IO p.69)
+                // Light smoke is already +1, so EI provides no benefit
                 toHit.addModifier(1, "target in light smoke");
                 break;
             case SmokeCloud.SMOKE_HEAVY:
+                // Always add full heavy smoke modifier
+                toHit.addModifier(2, "target in heavy smoke");
                 if (eiStatus > 0) {
-                    toHit.addModifier(1, "target in heavy smoke");
-                } else {
-                    toHit.addModifier(2, "target in heavy smoke");
+                    // EI reduces modifier by 1 per hex (IO p.69)
+                    // Track in ToHitData for combined EI modifier at the end
+                    toHit.addEiReduction(1);
                 }
                 break;
         }
 
         if (hex.terrainLevel(Terrains.GEYSER) == 2) {
+            // Always add full geyser modifier
+            toHit.addModifier(2, "erupting geyser");
             if (eiStatus > 0) {
-                toHit.addModifier(1, "erupting geyser");
-            } else {
-                toHit.addModifier(2, "erupting geyser");
+                // EI reduces geyser modifier by 1 (IO p.69)
+                // Track in ToHitData for combined EI modifier at the end
+                toHit.addEiReduction(1);
             }
         }
+
         return toHit;
     }
 
@@ -3363,6 +3378,27 @@ public class Compute {
         return waaHighest;
     }
 
+    /**
+     * Returns the weapon attack out of a list that has the second highest expected damage
+     * Used for Playtest 3 AMS engaging multiple salvos
+     */
+    public static WeaponAttackAction getSecondHighestExpectedDamage(Game g,
+          List<WeaponAttackAction> vAttacks, boolean assumeHit) {
+        WeaponAttackAction waaHighest;
+        WeaponAttackAction waaSecondHighest;
+        
+        // Copy the list to a new list
+        List<WeaponAttackAction> attacksClone = new ArrayList<>(vAttacks);
+        // Find the highest damage
+        waaHighest = getHighestExpectedDamage(g, attacksClone, assumeHit);
+        // Remove that entry from the list
+        attacksClone.remove(waaHighest);
+        // Get the next highest damage
+        waaSecondHighest = getHighestExpectedDamage(g, attacksClone, assumeHit);
+        // Returns the second highest damage
+        return waaSecondHighest;
+    }
+
     // store these as constants since the tables will never change
     private static final float[] expectedHitsByRackSize = { 0.0f, 1.0f, 1.58f, 2.0f, 2.63f, 3.17f, 4.0f, 4.49f, 4.98f,
                                                             5.47f, 6.31f, 7.23f, 8.14f, 8.59f, 9.04f, 9.5f, 10.1f,
@@ -3423,6 +3459,14 @@ public class Compute {
      */
     public static float getExpectedDamage(Game game, WeaponAttackAction weaponAttackAction, boolean assumeHit,
           List<ECMInfo> allECMInfo) {
+
+        if (weaponAttackAction.getAssumedHit() == assumeHit && weaponAttackAction.getExpectedDamage() >= 0.0) {
+            // Reuse previous calc results
+            return weaponAttackAction.getExpectedDamage();
+        }
+
+        weaponAttackAction.setAssumedHit(assumeHit);
+
         boolean use_table = false;
 
         AmmoType loaded_ammo;
@@ -3431,6 +3475,7 @@ public class Compute {
         Entity target = game.getEntity(weaponAttackAction.getTargetId());
 
         if (attacker == null) {
+            weaponAttackAction.setExpectedDamage(0.0f);
             return 0.0f;
         }
 
@@ -3458,6 +3503,7 @@ public class Compute {
             fChance = 1.0f;
         } else {
             if ((hitData.getValue() == TargetRoll.IMPOSSIBLE) || (hitData.getValue() == TargetRoll.AUTOMATIC_FAIL)) {
+                weaponAttackAction.setExpectedDamage(0.0f);
                 return 0.0f;
             }
 
@@ -3515,6 +3561,7 @@ public class Compute {
         if (use_table) {
             if (!(attacker instanceof BattleArmor)) {
                 if (weapon.getLinked() == null) {
+                    weaponAttackAction.setExpectedDamage(0.0f);
                     return 0.0f;
                 }
             }
@@ -3855,6 +3902,7 @@ public class Compute {
                 fDamage = min(infShootingStrength, fDamage);
             }
         }
+        weaponAttackAction.setExpectedDamage(fDamage);
         return fDamage;
     }
 
@@ -4271,7 +4319,7 @@ public class Compute {
     /**
      * Returns true if the line between source Coords and target goes through the hex in front of the attacker
      */
-    public static boolean isThroughFrontHex(Game game, Coords src, Entity t) {
+    public static boolean isThroughFrontHex(Coords src, Entity t) {
         Coords dest = t.getPosition();
         int fa = dest.degree(src) - (t.getFacing() * 60);
         if (fa < 0) {
@@ -4354,7 +4402,7 @@ public class Compute {
             // check for camo and null sig on the target
             if (targetedEntity.isVoidSigActive()) {
                 visualRange = visualRange / 4;
-            } else if (targetedEntity.hasWorkingMisc(MiscType.F_VISUAL_CAMO, -1)) {
+            } else if (targetedEntity.hasWorkingMisc(MiscType.F_VISUAL_CAMO)) {
                 visualRange = visualRange / 2;
             } else if (targetedEntity.isChameleonShieldActive()) {
                 visualRange = visualRange / 2;
@@ -4456,11 +4504,10 @@ public class Compute {
     /**
      * Calculates the ECM effects in play between a detector and target pair
      *
-     * @param game            The current {@link Game}
      * @param attackingEntity - the entity making a sensor scan
      * @param target          - the entity we're trying to spot
      */
-    private static int calcSpaceECM(Game game, Entity attackingEntity, Targetable target) {
+    private static int calcSpaceECM(Entity attackingEntity, Targetable target) {
         int mod = 0;
         int ecm = ComputeECM.getLargeCraftECM(attackingEntity, attackingEntity.getPosition(), target.getPosition());
         if (!attackingEntity.isLargeCraft()) {
@@ -4693,7 +4740,7 @@ public class Compute {
 
         // Apply ECM/ECCM effects
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_AERO_RULES_STRATOPS_ECM)) {
-            tn += calcSpaceECM(game, ae, target);
+            tn += calcSpaceECM(ae, target);
         }
 
         // Apply large craft sensor shadows
@@ -4795,7 +4842,7 @@ public class Compute {
 
         // Apply ECM/ECCM effects
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_AERO_RULES_STRATOPS_ECM)) {
-            tn += calcSpaceECM(game, attacker, target);
+            tn += calcSpaceECM(attacker, target);
         }
 
         // Apply large craft sensor shadows
@@ -4904,7 +4951,7 @@ public class Compute {
 
         // Apply ECM/ECCM effects
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_AERO_RULES_STRATOPS_ECM)) {
-            tn += calcSpaceECM(game, ae, target);
+            tn += calcSpaceECM(ae, target);
         }
 
         // Apply large craft sensor shadows
@@ -5808,9 +5855,26 @@ public class Compute {
             data.addModifier(-1, "exposed actuators");
         }
 
-        // MD Infantry with grappler/magnets get bonus
-        if (attacker.hasAbility(OptionsConstants.MD_PL_ENHANCED)) {
-            data.addModifier(-2, "MD Grapple/Magnet");
+        // Prosthetic enhancement anti-Mek bonus (Grappler or Climbing Claws) - IO p.84
+        // Uses the best (most negative) modifier from either enhancement slot
+        // Only applies if the unit has the MD_PL_ENHANCED or MD_PL_I_ENHANCED ability
+        if (attacker.hasProstheticEnhancement()
+              && (attacker.hasAbility(OptionsConstants.MD_PL_ENHANCED)
+              || attacker.hasAbility(OptionsConstants.MD_PL_I_ENHANCED))) {
+            int antiMekMod = attacker.getBestProstheticAntiMekModifier();
+            if (antiMekMod != 0) {
+                String modName = attacker.getBestProstheticAntiMekName();
+                data.addModifier(antiMekMod,
+                      modName != null ? modName : Messages.getString("Compute.ProstheticEnhancement"));
+            }
+        }
+
+        // Enhanced Imaging bonus for anti-Mek attacks - IO p.69
+        // "All Piloting Skill rolls required for the EI-equipped unit receives a -1
+        // target number modifier. This includes checks made for physical attacks,
+        // as well as anti-Mek attacks by EI-equipped battle armor."
+        if (attacker.hasActiveEiCockpit()) {
+            data.addModifier(-1, Messages.getString("Compute.EnhancedImaging"));
         }
 
         // swarm/leg attacks take target movement mods into account
@@ -6994,15 +7058,14 @@ public class Compute {
         Hex hex = game.getHex(position, boardId);
         // Prohibited terrain is any that the unit cannot move into or through, or would cause a stacking violation, or
         // is not 0, 1, or 2 elevations up or down from the hex elevation - but ignore that last if the unloading unit
-        // has Jump MP or VTOL movement.
+        // has Jump MP, VTOL movement, or glider wings (IO p.85).
+        boolean canIgnoreElevation = unitToUnload.getMovementMode() == EntityMovementMode.VTOL ||
+              unitToUnload.getMovementMode() == EntityMovementMode.INF_JUMP ||
+              ((unitToUnload.getAnyTypeMaxJumpMP() > 0) && !unitToUnload.isImmobileForJump()) ||
+              (unitToUnload.isInfantry() && ((Infantry) unitToUnload).canExitVTOLWithGliderWings());
         return (hex != null) && !unitToUnload.isLocationProhibited(position, boardId, unitToUnload.getElevation())
               && (null == stackingViolation(game, unitToUnload.getId(), position, unitToUnload.climbMode()))
-              && ((Math.abs(hex.getLevel() - elev) < 3) ||
-              (unitToUnload.getMovementMode() == EntityMovementMode.VTOL ||
-                    unitToUnload.getMovementMode() == EntityMovementMode.INF_JUMP ||
-                    ((unitToUnload.getAnyTypeMaxJumpMP() > 0) && !unitToUnload.isImmobileForJump())
-              )
-        );
+              && ((Math.abs(hex.getLevel() - elev) < 3) || canIgnoreElevation);
     }
 
     /**
@@ -7074,36 +7137,14 @@ public class Compute {
                 }
 
                 switch (ammoType.getAmmoType()) {
-                    case SRM_STREAK:
-                    case LRM_STREAK:
-                    case LRM:
-                    case LRM_IMP:
-                    case LRM_TORPEDO:
-                    case SRM:
-                    case SRM_IMP:
-                    case SRM_TORPEDO:
-                    case MRM:
-                    case NARC:
-                    case INARC:
-                    case AMS:
-                    case ARROW_IV:
-                    case LONG_TOM:
-                    case SNIPER:
-                    case THUMPER:
-                    case SRM_ADVANCED:
-                    case LRM_TORPEDO_COMBO:
-                    case ATM:
-                    case IATM:
-                    case MML:
-                    case EXLRM:
-                    case NLRM:
-                    case TBOLT_5:
-                    case TBOLT_10:
-                    case TBOLT_15:
-                    case TBOLT_20:
-                    case HAG:
-                    case ROCKET_LAUNCHER:
+                    case SRM_STREAK, LRM_STREAK, LRM, LRM_IMP, LRM_TORPEDO, SRM, SRM_IMP, SRM_TORPEDO, MRM, NARC,
+                         INARC, AMS, ARROW_IV, LONG_TOM, SNIPER, THUMPER, SRM_ADVANCED, LRM_TORPEDO_COMBO, ATM, IATM,
+                         MML, EXLRM, NLRM, TBOLT_5, TBOLT_10, TBOLT_15, TBOLT_20, HAG, ROCKET_LAUNCHER -> {
                         return false;
+                    }
+                    default -> {
+                        // intentional fallthrough
+                    }
                 }
                 if (((ammoType.getAmmoType() == AmmoTypeEnum.AC_LBX_THB)
                       || (ammoType.getAmmoType() == AmmoTypeEnum.AC_LBX)
@@ -7869,7 +7910,7 @@ public class Compute {
      * @return ArrayList of Coords that the carrier entity can legally load units from
      */
     public static ArrayList<Coords> getLoadableCoords(Entity carrier, Coords position, int boardId) {
-        ArrayList<Coords> list = new ArrayList<Coords>();
+        ArrayList<Coords> list = new ArrayList<>();
         // No coords for no carrier
         if (carrier == null) {
             return list;

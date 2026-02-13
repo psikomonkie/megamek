@@ -60,6 +60,7 @@ import megamek.common.enums.MPBoosters;
 import megamek.common.enums.TechBase;
 import megamek.common.equipment.*;
 import megamek.common.equipment.enums.BombType;
+import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.exceptions.CeilNotProvidedForWeightException;
 import megamek.common.interfaces.ITechManager;
 import megamek.common.interfaces.ITechnology;
@@ -79,6 +80,15 @@ public abstract class TestEntity implements TestEntityOption {
     protected Engine engine;
     protected Structure structure;
     private final TestEntityOption options;
+
+    /**
+     * Optional game year to use for intro date validation instead of the unit's intro year.
+     * When set to a value > 0, {@link #hasIncorrectIntroYear(StringBuffer)} will compare equipment
+     * intro dates against this year instead of the entity's year. This supports the "Use Game Year"
+     * setting in MegaMekLab where equipment availability is determined by the configured game year
+     * rather than the unit's intro year.
+     */
+    private int gameYear = -1;
 
     public abstract Entity getEntity();
 
@@ -281,6 +291,28 @@ public abstract class TestEntity implements TestEntityOption {
     @Override
     public int getIntroYearMargin() {
         return options.getIntroYearMargin();
+    }
+
+    /**
+     * Gets the game year to use for intro date validation. When > 0, equipment intro dates are
+     * compared against this year instead of the entity's intro year.
+     *
+     * @return The game year, or -1 if not set (use entity year)
+     */
+    public int getGameYear() {
+        return gameYear;
+    }
+
+    /**
+     * Sets the game year to use for intro date validation. When set to a value > 0, equipment intro
+     * dates will be compared against this year instead of the entity's intro year. This supports
+     * scenarios where equipment availability is determined by a campaign's current year rather than
+     * the unit's original intro year.
+     *
+     * @param gameYear The game year to use, or -1 to use entity year
+     */
+    public void setGameYear(int gameYear) {
+        this.gameYear = gameYear;
     }
 
     @Override
@@ -781,24 +813,22 @@ public abstract class TestEntity implements TestEntityOption {
     }
 
     public int calcMiscCrits(MiscType mt, double size) {
-        if (mt.hasFlag(MiscType.F_CLUB)
-              && (mt.hasSubType(MiscType.S_HATCHET)
-              || mt.hasSubType(MiscType.S_SWORD)
-              || mt.hasSubType(MiscType.S_CHAIN_WHIP))) {
+        if (mt.hasFlag(MiscTypeFlag.F_CLUB)
+              && (mt.hasAnyFlag(MiscTypeFlag.S_HATCHET, MiscTypeFlag.S_SWORD, MiscTypeFlag.S_CHAIN_WHIP))) {
             return (int) Math.ceil(getWeight() / 15.0);
-        } else if (mt.hasFlag(MiscType.F_CLUB) && mt.hasSubType(MiscType.S_MACE)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_CLUB) && mt.hasFlag(MiscTypeFlag.S_MACE)) {
             return (int) Math.ceil(getWeight() / 10.0);
-        } else if (mt.hasFlag(MiscType.F_CLUB) && mt.hasSubType(MiscType.S_RETRACTABLE_BLADE)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_CLUB) && mt.hasFlag(MiscTypeFlag.S_RETRACTABLE_BLADE)) {
             return 1 + (int) Math.ceil(getWeight() / 20.0);
-        } else if (mt.hasFlag(MiscType.F_CLUB) && mt.hasSubType(MiscType.S_PILE_DRIVER)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_CLUB) && mt.hasFlag(MiscTypeFlag.S_PILE_DRIVER)) {
             return 8;
-        } else if (mt.hasFlag(MiscType.F_CLUB) && mt.hasSubType(MiscType.S_CHAINSAW)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_CLUB) && mt.hasFlag(MiscTypeFlag.S_CHAINSAW)) {
             return 5;
-        } else if (mt.hasFlag(MiscType.F_CLUB) && mt.hasSubType(MiscType.S_DUAL_SAW)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_CLUB) && mt.hasFlag(MiscTypeFlag.S_DUAL_SAW)) {
             return 7;
-        } else if (mt.hasFlag(MiscType.F_CLUB) && mt.hasSubType(MiscType.S_BACKHOE)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_CLUB) && mt.hasFlag(MiscTypeFlag.S_BACKHOE)) {
             return 6;
-        } else if (mt.hasFlag(MiscType.F_MASC)) {
+        } else if (mt.hasFlag(MiscTypeFlag.F_MASC)) {
             if (mt.getInternalName().equals("ISMASC")) {
                 return (int) Math.round(getWeight() / 20.0);
             } else if (mt.getInternalName().equals("CLMASC")) {
@@ -921,14 +951,14 @@ public abstract class TestEntity implements TestEntityOption {
             }
 
             if ((m.getLinkedBy() != null) && (m.getLinkedBy().getType() instanceof MiscType)
-                  && m.getLinkedBy().getType().hasFlag(MiscType.F_PPC_CAPACITOR)) {
+                  && m.getLinkedBy().getType().hasFlag(MiscTypeFlag.F_PPC_CAPACITOR)) {
                 heat += 5;
             }
         }
         for (Mounted<?> m : entity.getMisc()) {
             // Spot welders are treated as energy weapons on units that don't have a fusion
             // or fission engine
-            if (m.getType().hasFlag(MiscType.F_CLUB) && m.getType().hasSubType(MiscType.S_SPOT_WELDER)
+            if (m.getType().hasFlag(MiscTypeFlag.F_CLUB) && m.getType().hasFlag(MiscTypeFlag.S_SPOT_WELDER)
                   && entity.hasEngine() && (entity.getEngine().isFusion()
                   || (entity.getEngine().getEngineType() == Engine.FISSION))) {
                 continue;
@@ -1382,7 +1412,14 @@ public abstract class TestEntity implements TestEntityOption {
     }
 
     /**
-     * Compares intro dates of all components to the unit intro year.
+     * Compares intro dates of all components to the unit intro year (or game year if available).
+     * The year used for comparison is determined in order of priority:
+     * <ol>
+     *   <li>If {@link #setGameYear(int)} was called with a value > 0, use that year</li>
+     *   <li>Otherwise, use {@link Entity#getTechLevelYear()} which returns the game's ALLOWED_YEAR
+     *       if the entity is part of a game, or the entity's intro year if not</li>
+     * </ol>
+     * This supports both MegaMek gameplay (using game options) and MegaMekLab (using config settings).
      *
      * @param buff Descriptions of problems will be added to the buffer.
      *
@@ -1390,10 +1427,13 @@ public abstract class TestEntity implements TestEntityOption {
      */
     public boolean hasIncorrectIntroYear(StringBuffer buff) {
         boolean retVal = false;
-        if (getEntity().getEarliestTechDate() <= getEntity().getYear() + getIntroYearMargin()) {
+        // Use explicitly set game year if available, otherwise use entity's tech level year
+        // (which checks game options first, then falls back to entity year)
+        int baseYear = (gameYear > 0) ? gameYear : getEntity().getTechLevelYear();
+        if (getEntity().getEarliestTechDate() <= baseYear + getIntroYearMargin()) {
             return false;
         }
-        int useIntroYear = getEntity().getYear() + getIntroYearMargin();
+        int useIntroYear = baseYear + getIntroYearMargin();
         if (getEntity().isOmni()) {
             int introDate = Entity.getOmniAdvancement(getEntity()).getIntroductionDate(
                   getEntity().isClan() || getEntity().isMixedTech());
@@ -1408,6 +1448,12 @@ public abstract class TestEntity implements TestEntityOption {
         for (Mounted<?> mounted : getEntity().getEquipment()) {
             final EquipmentType nextE = mounted.getType();
             if (checked.contains(nextE) || (nextE instanceof AmmoType)) {
+                continue;
+            }
+            // Skip EI Interface and DNI - they're retrofittable equipment (IO p.69)
+            // Their intro year should not be compared against unit intro year
+            if ((nextE instanceof MiscType) && (nextE.hasFlag(MiscType.F_EI_INTERFACE)
+                  || nextE.hasFlag(MiscType.F_DNI_COCKPIT_MOD))) {
                 continue;
             }
             checked.add(nextE);

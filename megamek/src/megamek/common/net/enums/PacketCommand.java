@@ -178,6 +178,7 @@ public enum PacketCommand {
     ENTITY_TOW,
     ENTITY_NOVA_NETWORK_CHANGE,
     ENTITY_VARIABLE_RANGE_MODE_CHANGE,
+    ENTITY_ABANDON_ANNOUNCE,
     RESET_ROUND_DEPLOYMENT,
     SENDING_TAG_INFO,
     RESET_TAG_INFO,
@@ -197,7 +198,13 @@ public enum PacketCommand {
     ACTIONS,
 
     /** A packet containing other packets to be processed in the order they are stored. */
-    MULTI_PACKET;
+    MULTI_PACKET,
+
+    /** A packet adding a temporary ECM field (e.g., from EMP mines). */
+    ADD_TEMPORARY_ECM_FIELD,
+
+    /** A packet syncing all temporary ECM fields to clients (replaces existing list). */
+    SYNC_TEMPORARY_ECM_FIELDS;
     //endregion Enum Declarations
 
     //region Boolean Comparison Methods

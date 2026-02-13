@@ -287,6 +287,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
     public static final String FOV_DARKEN_ALPHA = "FovDarkenAlpha";
     public static final String FOV_STRIPES = "FoVFogStripes";
     public static final String FOV_GRAYSCALE = "FoVFogGrayscale";
+    public static final String FOV_SPOTTING_MODE = "FovSpottingMode";
     public static final String GUI_SCALE = "GUIScale";
     public static final String LOBBY_MEK_TABLE_UNIT_WIDTH = "LobbyMekTableUnitWidth";
     public static final String LOBBY_MEK_TABLE_PILOT_WIDTH = "LobbyMekTablePilotWidth";
@@ -422,6 +423,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
     public static final String BOARD_EDIT_LOAD_SIZE_HEIGHT = "BoardEditLoadSizeHeight";
     public static final String BOARD_EDIT_LOAD_SIZE_WIDTH = "BoardEditLoadSizeWidth";
     public static final String BOARD_EDIT_RANDOM_DIALOG_START = "BoardEditRandomDialogStart";
+    public static final String BOARD_SAVE_INCLUDE_LICENSE = "BoardSaveIncludeLicense";
     public static final String ALLY_UNIT_COLOR = "AllyUnitColor";
     public static final String MY_UNIT_COLOR = "MyUnitColor";
     public static final String ENEMY_UNIT_COLOR = "EnemyUnitColor";
@@ -518,6 +520,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
               .getPreferenceStore("GUIPreferences", getClass().getName(), "megamek.client.ui.swing.GUIPreferences");
 
         store.setDefault(BOARD_EDIT_RANDOM_DIALOG_START, false);
+        store.setDefault(BOARD_SAVE_INCLUDE_LICENSE, true);
         setDefault(ADVANCED_NO_SAVE_NAG, false);
         store.setDefault(ADVANCED_SAVE_LOBBY_ON_START, false);
         store.setDefault(ADVANCED_MOVE_STEP_DELAY, 50);
@@ -637,6 +640,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
         store.setDefault(FOV_DARKEN_ALPHA, 100);
         store.setDefault(FOV_STRIPES, 35);
         store.setDefault(FOV_GRAYSCALE, false);
+        store.setDefault(FOV_SPOTTING_MODE, false);
 
         store.setDefault(HIGH_QUALITY_GRAPHICS, true);
         store.setDefault(AO_HEX_SHADOWS, false);
@@ -1240,6 +1244,10 @@ public class GUIPreferences extends PreferenceStoreProxy {
         return store.getBoolean(FOV_GRAYSCALE);
     }
 
+    public boolean getFovSpottingMode() {
+        return store.getBoolean(FOV_SPOTTING_MODE);
+    }
+
     public int getMapZoomIndex() {
         return store.getInt(MAP_ZOOM_INDEX);
     }
@@ -1772,6 +1780,10 @@ public class GUIPreferences extends PreferenceStoreProxy {
         return store.getBoolean(BOARD_EDIT_RANDOM_DIALOG_START);
     }
 
+    public boolean getBoardSaveIncludeLicense() {
+        return store.getBoolean(BOARD_SAVE_INCLUDE_LICENSE);
+    }
+
     public void setShadowMap(boolean state) {
         store.setValue(SHADOW_MAP, state);
     }
@@ -2118,6 +2130,10 @@ public class GUIPreferences extends PreferenceStoreProxy {
 
     public void setFovGrayscale(boolean state) {
         store.setValue(FOV_GRAYSCALE, state);
+    }
+
+    public void setFovSpottingMode(boolean state) {
+        store.setValue(FOV_SPOTTING_MODE, state);
     }
 
     public void setMapZoomIndex(int zoomIndex) {
@@ -2700,6 +2716,10 @@ public class GUIPreferences extends PreferenceStoreProxy {
 
     public void setBoardEdRndStart(boolean b) {
         store.setValue(BOARD_EDIT_RANDOM_DIALOG_START, b);
+    }
+
+    public void setBoardSaveIncludeLicense(boolean includeLicense) {
+        store.setValue(BOARD_SAVE_INCLUDE_LICENSE, includeLicense);
     }
 
     // region Colours

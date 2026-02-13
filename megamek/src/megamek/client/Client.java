@@ -72,6 +72,7 @@ import megamek.common.Player;
 import megamek.common.Report;
 import megamek.common.SpecialHexDisplay;
 import megamek.common.TagInfo;
+import megamek.common.TemporaryECMField;
 import megamek.common.actions.ArtilleryAttackAction;
 import megamek.common.actions.AttackAction;
 import megamek.common.actions.ClubAttackAction;
@@ -156,6 +157,7 @@ public class Client extends AbstractClient {
         }
     }
 
+    @Override
     public Game getGame() {
         return game;
     }
@@ -951,6 +953,17 @@ public class Client extends AbstractClient {
         send(new Packet(PacketCommand.ENTITY_VARIABLE_RANGE_MODE_CHANGE, entityId, mode));
     }
 
+    /**
+     * Sends a unit abandonment announcement to the server. For Meks (TacOps:AR p.165): Must be prone and shutdown. For
+     * Vehicles (TacOps): Can be abandoned anytime. The abandonment will execute during the End Phase of the following
+     * turn.
+     *
+     * @param entityId the ID of the unit announcing abandonment
+     */
+    public void sendUnitAbandonmentAnnouncement(int entityId) {
+        send(new Packet(PacketCommand.ENTITY_ABANDON_ANNOUNCE, entityId));
+    }
+
     public void sendSpecialHexDisplayAppend(Coords c, int boardId, SpecialHexDisplay shd) {
         send(new Packet(PacketCommand.SPECIAL_HEX_DISPLAY_APPEND, c, boardId, shd));
     }
@@ -1019,6 +1032,24 @@ public class Client extends AbstractClient {
                     if (cloud != null) {
                         game.addSmokeCloud(cloud);
                     }
+
+                    break;
+                case ADD_TEMPORARY_ECM_FIELD:
+                    TemporaryECMField ecmField = packet.getTemporaryECMField(0);
+
+                    if (ecmField != null) {
+                        game.addTemporaryECMField(ecmField);
+                        // Trigger ECM list update in BoardView
+                        game.processGameEvent(new GameBoardChangeEvent(this));
+                    }
+
+                    break;
+                case SYNC_TEMPORARY_ECM_FIELDS:
+                    @SuppressWarnings("unchecked")
+                    List<TemporaryECMField> ecmFields = (List<TemporaryECMField>) packet.getObject(0);
+                    game.setTemporaryECMFields(ecmFields);
+                    // Trigger ECM list update in BoardView
+                    game.processGameEvent(new GameBoardChangeEvent(this));
 
                     break;
                 case CHANGE_HEX:
@@ -1270,7 +1301,7 @@ public class Client extends AbstractClient {
         send(new Packet(PacketCommand.CLIENT_FEEDBACK_REQUEST, PacketCommand.CFR_DOMINO_EFFECT, mp));
     }
 
-    public void sendAMSAssignCFRResponse(Integer waaIndex) {
+    public void sendAMSAssignCFRResponse(int[] waaIndex) {
         send(new Packet(PacketCommand.CLIENT_FEEDBACK_REQUEST, PacketCommand.CFR_AMS_ASSIGN, waaIndex));
     }
 
