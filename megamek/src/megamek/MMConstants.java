@@ -43,6 +43,7 @@ public final class MMConstants extends SuiteConstants {
         throw new IllegalStateException("MMConstants Utility Class");
     }
 
+    //TEST
     // region General Constants
     public static final String PROJECT_NAME = "MegaMek";
     public static final String MUL_URL_PREFIX = "http://www.masterunitlist.info/Unit/Details/";
