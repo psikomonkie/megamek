@@ -246,33 +246,77 @@ public class TestAero extends TestEntity {
         return availSpace;
     }
 
-    public static boolean usesWeaponSlot(Entity en, EquipmentType eq) {
-        if (eq instanceof WeaponType) {
-            return !(eq instanceof BayWeapon);
+    public static boolean hasFreeWeaponSlot(Aero aero, int location) {
+        return freeWeaponSlots(aero, location) > 0;
+    }
+
+    public static int freeWeaponSlots(Aero aero, int location) {
+        if (location < 0 || location >= aero.locations() - 2) {
+            return 0;
+        } else {
+            return freeWeaponSlots(aero)[location];
         }
-        if (eq instanceof MiscType) {
-            // Equipment that takes up a slot on fighters and small craft, but not large
-            // craft.
-            if (!en.hasETypeFlag(Entity.ETYPE_DROPSHIP) && !en.hasETypeFlag(Entity.ETYPE_JUMPSHIP)
-                  && (eq.hasFlag(MiscType.F_BAP)
-                  || eq.hasFlag(MiscType.F_WATCHDOG)
-                  || eq.hasFlag(MiscType.F_ECM)
-                  || eq.hasFlag(MiscType.F_ANGEL_ECM)
-                  || eq.hasFlag(MiscType.F_EW_EQUIPMENT)
-                  || eq.hasFlag(MiscType.F_BOOBY_TRAP)
-                  || eq.hasFlag(MiscType.F_SENSOR_DISPENSER))) {
+    }
+
+    public static int usedWeaponSlots(Aero aero, int location) {
+        if (location < 0 || location >= aero.locations() - 2) {
+            return 0;
+        } else {
+            return availableSpace(aero)[location] - freeWeaponSlots(aero)[location];
+        }
+    }
+
+    public static int[] freeWeaponSlots(Aero aero) {
+        int locations = aero.locations() - 2;
+        int[] numWeapons = new int[locations];
+        for (Mounted<?> mounted : aero.getEquipment()) {
+            if ((mounted.getLocation() != Aero.LOC_NONE) && usesWeaponSlot(aero, mounted.getType())) {
+                numWeapons[mounted.getLocation()]++;
+            }
+        }
+
+        int[] freeSlots = availableSpace(aero);
+        for (int location = 0; location < freeSlots.length; location++) {
+            freeSlots[location] -= numWeapons[location];
+        }
+        return freeSlots;
+    }
+
+    /**
+     * Returns true when the given equipment type uses a weapon slot on the given Aero entity. See TM p.341 ff, F
+     * column.
+     *
+     * @param aero The unit
+     * @param equipmentType The type of equipment
+     *
+     * @return True when the equipment occupies a weapon slot, false otherwise
+     */
+    public static boolean usesWeaponSlot(Entity aero, EquipmentType equipmentType) {
+        if (equipmentType instanceof WeaponType) {
+            return !(equipmentType instanceof BayWeapon);
+        }
+        if (equipmentType instanceof MiscType) {
+            // Equipment that takes up a slot on fighters and small craft, but not large craft
+            if (!aero.hasETypeFlag(Entity.ETYPE_DROPSHIP) && !aero.hasETypeFlag(Entity.ETYPE_JUMPSHIP)
+                  && (equipmentType.hasFlag(MiscType.F_BAP)
+                  || equipmentType.hasFlag(MiscType.F_WATCHDOG)
+                  || equipmentType.hasFlag(MiscType.F_ECM)
+                  || equipmentType.hasFlag(MiscType.F_ANGEL_ECM)
+                  || equipmentType.hasFlag(MiscType.F_EW_EQUIPMENT)
+                  || equipmentType.hasFlag(MiscType.F_BOOBY_TRAP)
+                  || equipmentType.hasFlag(MiscType.F_SENSOR_DISPENSER))) {
                 return true;
 
             }
             // Equipment that takes a slot on all aerospace units
-            return eq.hasFlag(MiscType.F_CHAFF_POD)
-                  || eq.hasFlag(MiscType.F_SPACE_MINE_DISPENSER)
-                  || eq.hasFlag(MiscType.F_MOBILE_HPG)
-                  || eq.hasFlag(MiscType.F_RECON_CAMERA)
-                  || eq.hasFlag(MiscType.F_HIRES_IMAGER)
-                  || eq.hasFlag(MiscType.F_HYPERSPECTRAL_IMAGER)
-                  || eq.hasFlag(MiscType.F_INFRARED_IMAGER)
-                  || eq.hasFlag(MiscType.F_LOOKDOWN_RADAR);
+            return equipmentType.hasFlag(MiscType.F_CHAFF_POD)
+                  || equipmentType.hasFlag(MiscType.F_SPACE_MINE_DISPENSER)
+                  || equipmentType.hasFlag(MiscType.F_MOBILE_HPG)
+                  || equipmentType.hasFlag(MiscType.F_RECON_CAMERA)
+                  || equipmentType.hasFlag(MiscType.F_HIRES_IMAGER)
+                  || equipmentType.hasFlag(MiscType.F_HYPERSPECTRAL_IMAGER)
+                  || equipmentType.hasFlag(MiscType.F_INFRARED_IMAGER)
+                  || equipmentType.hasFlag(MiscType.F_LOOKDOWN_RADAR);
         }
         return false;
     }
