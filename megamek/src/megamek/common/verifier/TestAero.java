@@ -246,10 +246,28 @@ public class TestAero extends TestEntity {
         return availSpace;
     }
 
+    /**
+     * Returns true if the given aero unit has at least one free "weapon" slot; weapon slots denote slots for those
+     * types of equipment that require a slot; see TM p.341 ff, F column. Returns false for invalid locations
+     *
+     * @param aero     The aero unit
+     * @param location The location to check
+     *
+     * @return True when there is room left for equipment that requires a slot
+     */
     public static boolean hasFreeWeaponSlot(Aero aero, int location) {
         return freeWeaponSlots(aero, location) > 0;
     }
 
+    /**
+     * Returns the number of free "weapon" slots of the given location; weapon slots denote slots for those types of
+     * equipment that require a slot; see TM p.341 ff, F column. Returns 0 for invalid locations and for the fuselage.
+     *
+     * @param aero     The aero unit
+     * @param location The location to check
+     *
+     * @return The number of remaining weapon slots
+     */
     public static int freeWeaponSlots(Aero aero, int location) {
         if (location < 0 || location >= aero.locations() - 2) {
             return 0;
@@ -258,6 +276,16 @@ public class TestAero extends TestEntity {
         }
     }
 
+    /**
+     * Returns the number of used (filled) "weapon" slots of the given location; weapon slots denote slots for those
+     * types of equipment that require a slot; see TM p.341 ff, F column. Returns 0 for invalid locations and for the
+     * fuselage.
+     *
+     * @param aero     The aero unit
+     * @param location The location to check
+     *
+     * @return The number of used weapon slots
+     */
     public static int usedWeaponSlots(Aero aero, int location) {
         if (location < 0 || location >= aero.locations() - 2) {
             return 0;
@@ -266,6 +294,14 @@ public class TestAero extends TestEntity {
         }
     }
 
+    /**
+     * Returns the number of free "weapon" slots of the locations Nose, L/R Wing and Aft; weapon slots denote slots for
+     * those types of equipment that require a slot; see TM p.341 ff, F column.
+     *
+     * @param aero The aero unit
+     *
+     * @return The number of used weapon slots
+     */
     public static int[] freeWeaponSlots(Aero aero) {
         int locations = aero.locations() - 2;
         int[] numWeapons = new int[locations];
