@@ -190,6 +190,27 @@ public enum BayType implements ITechnologyDelegator {
     }
 
     /**
+     * Determines the most specific bay type required to transport the given entity. Returns the first matching
+     * non-cargo BayType based on the enum declaration order, which places more specific types before more general ones
+     * (e.g. {@link #VEHICLE_LIGHT} before {@link #VEHICLE_HEAVY}).
+     *
+     * <p>Returns {@code null} for entities that are not transported in bays, such as DropShips (which use docking
+     * collars), JumpShips, WarShips, SpaceStations, and GunEmplacements.</p>
+     *
+     * @param entity The entity to find a bay type for
+     *
+     * @return The most specific BayType that can transport this entity, or {@code null} if no bay type applies
+     */
+    public static @Nullable BayType getTypeForEntity(Entity entity) {
+        for (BayType bayType : values()) {
+            if (bayType.getCategory() != CATEGORY_CARGO && bayType.canLoad(entity)) {
+                return bayType;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Finds the BayType that matches an existing bay.
      *
      * @param bay A transport bay object
