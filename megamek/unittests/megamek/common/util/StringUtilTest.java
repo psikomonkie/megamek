@@ -59,10 +59,11 @@ public class StringUtilTest {
         String s = StringUtil.wrapLines(
               "This tooltip has a very long word. hippopotomonstrosesquippedaliophobia.",
               20);
-        assertEquals("This tooltip has a\n"
-              + "very long word.\n"
-              + "hippopotomonstrosesq\n"
-              + "ippedaliophobia.", s);
+        assertEquals("""
+              This tooltip has a
+              very long word.
+              hippopotomonstrosesq
+              uippedaliophobia.""", s);
     }
 
     @Test
@@ -70,10 +71,11 @@ public class StringUtilTest {
         String s = StringUtil.wrapLines(
               "This tooltip has\nextra\nhippopotomonstrosesquippedaliophobia\nnewlines.",
               20);
-        assertEquals("This tooltip has\n"
-              + "extra\n"
-              + "hippopotomonstrosesq\n"
-              + "ippedaliophobia\n"
-              + "newlines.", s);
+        assertEquals("""
+              This tooltip has
+              extra
+              hippopotomonstrosesq
+              uippedaliophobia
+              newlines.""", s);
     }
 }

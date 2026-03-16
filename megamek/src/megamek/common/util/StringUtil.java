@@ -234,25 +234,34 @@ public class StringUtil {
         StringBuilder sb = new StringBuilder();
 
         while (length < in.length()) {
+            // Skip over any lines shorter than the line length and append them verbatim
             int nextLineBreak = in.indexOf('\n');
-            while (nextLineBreak != -1 && nextLineBreak<length) {
-                sb.append(in, 0, nextLineBreak+1);
-                in = in.substring(nextLineBreak+1);
+            while (nextLineBreak != -1 && nextLineBreak < length) {
+                // Append this whole line, including the newline.
+                sb.append(in, 0, nextLineBreak + 1);
+                // Skip over the newline while we continue
+                in = in.substring(nextLineBreak + 1);
                 nextLineBreak = in.indexOf('\n');
             }
             if (in.length() < length) {
+                // What's left after skipping lines that are too short isn't long enough to wrap.
                 break;
             }
 
-            String chunk = in.substring(0, length);
-            int lastBreak = chunk.lastIndexOf(' ');
-            if (lastBreak==-1) {
-                lastBreak = length;
+            // find the last space in the range of [0-length]
+            int lastBreak = in.lastIndexOf(' ', length);
+            if (lastBreak == -1) {
+                // We're in the middle of a word longer than the line length.
+                // Break it at the line length. Could put in a hyphen, too...
+                sb.append(in, 0, length);
+                in = in.substring(length);
+            } else {
+                // Break at the space
+                sb.append(in, 0, lastBreak);
+                // Skip over the space as we continue
+                in = in.substring(lastBreak + 1);
             }
-            sb.append(in, 0, lastBreak);
             sb.append('\n');
-
-            in = in.substring(lastBreak+1);
         }
         sb.append(in);
 
