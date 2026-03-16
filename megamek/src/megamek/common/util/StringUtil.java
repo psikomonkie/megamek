@@ -236,7 +236,7 @@ public class StringUtil {
         while (length < in.length()) {
             // Skip over any lines shorter than the line length and append them verbatim
             int nextLineBreak = in.indexOf('\n');
-            while (nextLineBreak != -1 && nextLineBreak < length) {
+            while ((nextLineBreak != -1) && (nextLineBreak < length)) {
                 // Append this whole line, including the newline.
                 sb.append(in, 0, nextLineBreak + 1);
                 // Skip over the newline while we continue
