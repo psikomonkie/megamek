@@ -45,6 +45,11 @@ import megamek.common.units.*;
 class BayTypeTest {
 
     @Test
+    void getTypeForEntityReturnsNullForNullEntity() {
+        assertNull(BayType.getTypeForEntity(null));
+    }
+
+    @Test
     void getTypeForEntityReturnsFighterForAeroSpaceFighter() {
         AeroSpaceFighter entity = mock(AeroSpaceFighter.class);
         when(entity.isFighter()).thenReturn(true);
@@ -166,6 +171,15 @@ class BayTypeTest {
     @Test
     void getTypeForEntityReturnsNullForSpaceStation() {
         SpaceStation entity = mock(SpaceStation.class);
+        assertNull(BayType.getTypeForEntity(entity));
+    }
+
+    @Test
+    void getTypeForEntityReturnsNullForGunEmplacement() {
+        Entity entity = mock(Entity.class);
+        when(entity.isBuildingEntityOrGunEmplacement()).thenReturn(true);
+        when(entity.hasETypeFlag(Entity.ETYPE_TANK)).thenReturn(true);
+        when(entity.getWeight()).thenReturn(30.0);
         assertNull(BayType.getTypeForEntity(entity));
     }
 

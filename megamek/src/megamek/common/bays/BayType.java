@@ -195,13 +195,22 @@ public enum BayType implements ITechnologyDelegator {
      * (e.g. {@link #VEHICLE_LIGHT} before {@link #VEHICLE_HEAVY}).
      *
      * <p>Returns {@code null} for entities that are not transported in bays, such as DropShips (which use docking
-     * collars), JumpShips, WarShips, SpaceStations, and GunEmplacements.</p>
+     * collars), JumpShips, WarShips, SpaceStations, and GunEmplacements, or when {@code entity} is {@code null}.</p>
      *
      * @param entity The entity to find a bay type for
      *
      * @return The most specific BayType that can transport this entity, or {@code null} if no bay type applies
      */
-    public static @Nullable BayType getTypeForEntity(Entity entity) {
+    public static @Nullable BayType getTypeForEntity(@Nullable Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        // GunEmplacements and BuildingEntities have ETYPE_TANK set but are not transportable units
+        if (entity.isBuildingEntityOrGunEmplacement()) {
+            return null;
+        }
+
         for (BayType bayType : values()) {
             if (bayType.getCategory() != CATEGORY_CARGO && bayType.canLoad(entity)) {
                 return bayType;
