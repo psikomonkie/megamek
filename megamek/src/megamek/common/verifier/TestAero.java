@@ -205,7 +205,7 @@ public class TestAero extends TestEntity {
      *       the Aero can have in that location. Returns null if the space cannot be determined due to illegal armor
      *       type value.
      */
-    public static @Nullable int[] availableSpace(Aero a) {
+    public static int[] availableSpace(Aero a) {
         // Keep track of the max space we have in each arc
         int slots = slotsPerArc(a);
         int[] availSpace = { slots, slots, slots, slots };
@@ -306,7 +306,11 @@ public class TestAero extends TestEntity {
         int locations = aero.locations() - 2;
         int[] numWeapons = new int[locations];
         for (Mounted<?> mounted : aero.getEquipment()) {
-            if ((mounted.getLocation() != Aero.LOC_NONE) && usesWeaponSlot(aero, mounted.getType())) {
+            // equipment that uses weapon slots should only be in weapon locations; guarding against invalid locations
+            // so this method does not fail
+            if ((mounted.getLocation() >= 0)
+                  && (mounted.getLocation() < locations)
+                  && usesWeaponSlot(aero, mounted.getType())) {
                 numWeapons[mounted.getLocation()]++;
             }
         }
