@@ -76,7 +76,13 @@ public enum BayType implements ITechnologyDelegator {
           BattleArmorBay.techAdvancement()),
     MEK(BayType.CATEGORY_NON_INFANTRY, 150.0, 1.0, 2, 20000,
           e -> e.hasETypeFlag(Entity.ETYPE_MEK), MekBay.techAdvancement()),
-    FIGHTER(BayType.CATEGORY_NON_INFANTRY, 150.0, 1.0, 2, 20000, Entity::isFighter, ASFBay.techAdvancement()),
+    // FixedWingSupport over 100 tons (e.g. Longhaul Cargo Aircraft FB-335 at 200t) are too large for
+    // fighter bays and must use small craft bays instead. Since FixedWingSupport extends ConvFighter,
+    // isFighter() returns true for all of them, so we explicitly exclude the heavy ones here to let
+    // them fall through to SMALL_CRAFT below.
+    FIGHTER(BayType.CATEGORY_NON_INFANTRY, 150.0, 1.0, 2, 20000,
+          e -> e.isFighter() && !(e.hasETypeFlag(Entity.ETYPE_FIXED_WING_SUPPORT) && e.getWeight() > 100),
+          ASFBay.techAdvancement()),
     PROTOMEK(BayType.CATEGORY_NON_INFANTRY, 50.0, 5.0, 6, 10000, e -> e.hasETypeFlag(Entity.ETYPE_PROTOMEK),
           ProtoMekBay.techAdvancement()),
     SMALL_CRAFT(BayType.CATEGORY_NON_INFANTRY, 200.0, 1.0, 5, 20000, e -> e.hasETypeFlag(Entity.ETYPE_AERO)

@@ -67,7 +67,18 @@ class BayTypeTest {
     void getTypeForEntityReturnsFighterForFixedWingSupport() {
         FixedWingSupport entity = mock(FixedWingSupport.class);
         when(entity.isFighter()).thenReturn(true);
+        when(entity.getWeight()).thenReturn(50.0);
         assertEquals(BayType.FIGHTER, BayType.getTypeForEntity(entity));
+    }
+
+    @Test
+    void getTypeForEntityReturnsSmallCraftForHeavyFixedWingSupport() {
+        FixedWingSupport entity = mock(FixedWingSupport.class);
+        when(entity.isFighter()).thenReturn(true);
+        when(entity.hasETypeFlag(Entity.ETYPE_FIXED_WING_SUPPORT)).thenReturn(true);
+        when(entity.hasETypeFlag(Entity.ETYPE_AERO)).thenReturn(true);
+        when(entity.getWeight()).thenReturn(200.0);
+        assertEquals(BayType.SMALL_CRAFT, BayType.getTypeForEntity(entity));
     }
 
     @Test
