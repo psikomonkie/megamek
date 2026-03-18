@@ -39,15 +39,7 @@ import static megamek.common.bays.Bay.UNSET_BAY;
 import java.io.PrintWriter;
 import java.io.Serial;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.Vector;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import megamek.SuiteConstants;
@@ -287,6 +279,13 @@ public abstract class Mek extends Entity {
     private boolean fullHeadEject = false;
 
     private boolean riscHeatSinkKit = false;
+
+    /**
+     * Tracks locations where the user has explicitly opted out of automatic Clan CASE. Only relevant for Clan and Clan
+     * Mixed units. When a Clan unit's user removes Clan CASE from a location, that location is recorded here so it
+     * won't be auto-added back.
+     */
+    private final Set<Integer> clanCaseOptOutLocations = new HashSet<>();
 
     /**
      * Tracks whether the Damage Interrupt Circuit is disabled. DIC is disabled by Life Support critical hit or any hit
@@ -2605,9 +2604,59 @@ public abstract class Mek extends Entity {
         }
     }
 
+    /**
+     * Returns true if this Mek has any Clan CASE equipment mounted.
+     */
+    public boolean hasClanCaseEquipped() {
+        return getMisc().stream()
+              .anyMatch(m -> m.getType().is(EquipmentTypeLookup.CLAN_CASE));
+    }
+
+    /**
+     * Returns true if the given location has been opted out of automatic Clan CASE.
+     */
+    public boolean isClanCaseOptedOut(int location) {
+        return clanCaseOptOutLocations.contains(location);
+    }
+
+    /**
+     * Opts out of automatic Clan CASE for the given location.
+     */
+    public void addClanCaseOptOut(int location) {
+        clanCaseOptOutLocations.add(location);
+    }
+
+    /**
+     * Removes the Clan CASE opt-out for the given location.
+     */
+    public void removeClanCaseOptOut(int location) {
+        clanCaseOptOutLocations.remove(location);
+    }
+
+    /**
+     * Clears all Clan CASE opt-out locations.
+     */
+    public void clearClanCaseOptOut() {
+        clanCaseOptOutLocations.clear();
+    }
+
+    /**
+     * Returns true if any location is opted out of automatic Clan CASE.
+     */
+    public boolean hasAnyClanCaseOptOut() {
+        return !clanCaseOptOutLocations.isEmpty();
+    }
+
+    /**
+     * Returns an unmodifiable view of the set of locations opted out of automatic Clan CASE.
+     */
+    public Set<Integer> getClanCaseOptOutLocations() {
+        return Collections.unmodifiableSet(clanCaseOptOutLocations);
+    }
+
     @Override
     public void addClanCase() {
-        if (!isClan()) {
+        if (!isClan() && !hasClanCaseEquipped()) {
             return;
         }
         boolean explosiveFound;
@@ -2615,6 +2664,10 @@ public abstract class Mek extends Entity {
         for (int i = 0; i < locations(); i++) {
             // Skip location if it already contains CASE
             if (locationHasCase(i) || hasCASEII(i)) {
+                continue;
+            }
+            // Skip location if user has opted out of auto Clan CASE
+            if (isClanCaseOptedOut(i)) {
                 continue;
             }
 
@@ -3256,7 +3309,7 @@ public abstract class Mek extends Entity {
 
     @Override
     public int implicitClanCASE() {
-        if (!isClan()) {
+        if (!isClan() && !hasClanCaseEquipped()) {
             return 0;
         }
         int explicit = 0;
@@ -3265,9 +3318,13 @@ public abstract class Mek extends Entity {
             if ((m.getType() instanceof MiscType) && (m.getType().hasFlag(MiscType.F_CASE))) {
                 explicit++;
             } else if (m.getType().isExplosive(m)) {
-                caseLocations.add(m.getLocation());
-                if (m.getSecondLocation() >= 0) {
-                    caseLocations.add(m.getSecondLocation());
+                int loc = m.getLocation();
+                if (loc >= 0 && !isClanCaseOptedOut(loc)) {
+                    caseLocations.add(loc);
+                }
+                int secLoc = m.getSecondLocation();
+                if (secLoc >= 0 && !isClanCaseOptedOut(secLoc)) {
+                    caseLocations.add(secLoc);
                 }
             }
         }
@@ -4327,6 +4384,10 @@ public abstract class Mek extends Entity {
             sb.append(MtfFile.ROLE).append(getRole().toString());
             sb.append(newLine);
         }
+        if (techFaction != null && techFaction != Faction.NONE) {
+            sb.append(MtfFile.FACTION).append(techFaction.getCode());
+            sb.append(newLine);
+        }
         sb.append(newLine);
 
         for (IOption quirk : getQuirks().getOptionsList()) {
@@ -4414,6 +4475,14 @@ public abstract class Mek extends Entity {
             sb.append(Mek.RISC_HEAT_SINK_OVERRIDE_KIT);
             sb.append(newLine);
         }
+        if (hasAnyClanCaseOptOut()) {
+            sb.append(MtfFile.CLAN_CASE_OPT_OUT);
+            sb.append(clanCaseOptOutLocations.stream()
+                  .sorted()
+                  .map(this::getLocationAbbr)
+                  .collect(Collectors.joining(",")));
+            sb.append(newLine);
+        }
         sb.append(newLine);
 
         sb.append(MtfFile.HEAT_SINKS).append(heatSinks()).append(" ");
@@ -4447,7 +4516,7 @@ public abstract class Mek extends Entity {
         }
         for (Mounted<?> mounted : getMisc()) {
             if ((mounted.getNumCriticalSlots() == 0)
-                  && !mounted.getType().hasFlag(MiscType.F_CASE)
+                  && !(isClan() && mounted.getType().hasFlag(MiscType.F_CASE))
                   && !EquipmentType.isArmorType(mounted.getType())
                   && !EquipmentType.isStructureType(mounted.getType())) {
                 sb.append(MtfFile.NO_CRIT).append(mounted.getType().getInternalName())
@@ -4515,11 +4584,13 @@ public abstract class Mek extends Entity {
             sb.append(MtfFile.OVERVIEW);
             sb.append(getFluff().getOverview());
             sb.append(newLine);
+            sb.append(newLine);
         }
 
         if (!getFluff().getCapabilities().isBlank()) {
             sb.append(MtfFile.CAPABILITIES);
             sb.append(getFluff().getCapabilities());
+            sb.append(newLine);
             sb.append(newLine);
         }
 
@@ -4527,11 +4598,13 @@ public abstract class Mek extends Entity {
             sb.append(MtfFile.DEPLOYMENT);
             sb.append(getFluff().getDeployment());
             sb.append(newLine);
+            sb.append(newLine);
         }
 
         if (!getFluff().getHistory().isBlank()) {
             sb.append(MtfFile.HISTORY);
             sb.append(getFluff().getHistory());
+            sb.append(newLine);
             sb.append(newLine);
         }
 
@@ -4539,17 +4612,27 @@ public abstract class Mek extends Entity {
             sb.append(MtfFile.MANUFACTURER);
             sb.append(getFluff().getManufacturer());
             sb.append(newLine);
+            sb.append(newLine);
         }
 
         if (!getFluff().getPrimaryFactory().isBlank()) {
             sb.append(MtfFile.PRIMARY_FACTORY);
             sb.append(getFluff().getPrimaryFactory());
             sb.append(newLine);
+            sb.append(newLine);
         }
 
         if (!getFluff().getNotes().isBlank()) {
             sb.append(MtfFile.NOTES);
             sb.append(getFluff().getNotes());
+            sb.append(newLine);
+            sb.append(newLine);
+        }
+
+        if (!getFluff().getFluffDate().isBlank()) {
+            sb.append(MtfFile.FLUFF_DATE);
+            sb.append(getFluff().getFluffDate());
+            sb.append(newLine);
             sb.append(newLine);
         }
 
@@ -4880,8 +4963,17 @@ public abstract class Mek extends Entity {
         if ((getEmptyCriticalSlots(LOC_LEFT_TORSO) < 1) || (getEmptyCriticalSlots(LOC_RIGHT_TORSO) < 1) || !success) {
             success = false;
         } else {
-            addCritical(LOC_LEFT_TORSO, 0, new CriticalSlot(CriticalSlot.TYPE_SYSTEM, SYSTEM_LIFE_SUPPORT));
-            addCritical(LOC_RIGHT_TORSO, 0, new CriticalSlot(CriticalSlot.TYPE_SYSTEM, SYSTEM_LIFE_SUPPORT));
+            // Life Support must be at slot 0 in each side torso. If engine crits
+            // were placed first (e.g. XL engine at slots 0-2), shift them down by 1
+            // to make room. Using addCritical would silently skip the occupied slot.
+            for (int loc : new int[] { LOC_LEFT_TORSO, LOC_RIGHT_TORSO }) {
+                if (getCritical(loc, 0) != null) {
+                    for (int i = getNumberOfCriticalSlots(loc) - 2; i >= 0; i--) {
+                        setCritical(loc, i + 1, getCritical(loc, i));
+                    }
+                }
+                setCritical(loc, 0, new CriticalSlot(CriticalSlot.TYPE_SYSTEM, SYSTEM_LIFE_SUPPORT));
+            }
         }
 
         if (success) {

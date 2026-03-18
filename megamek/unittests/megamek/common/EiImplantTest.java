@@ -56,7 +56,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for Enhanced Imaging (EI) Interface and Implant functionality.
  * <p>
- * TableTop Rules (IO p.77):
+ * TableTop Rules (IO:AE p.69):
  * <ul>
  *     <li>EI Interface: Equipment that provides neural connection to unit</li>
  *     <li>EI Implant: Pilot augmentation that activates full EI benefits</li>
@@ -236,7 +236,7 @@ public class EiImplantTest {
             enableTracking();
             ProtoMek proto = createProtoMek();
             assertTrue(proto.hasEiCockpit(),
-                  "ProtoMeks should have EI cockpit when tracking is enabled (per IO p.77)");
+                  "ProtoMeks should have EI cockpit when tracking is enabled (per IO:AE p.69)");
         }
 
         @Test
@@ -244,7 +244,7 @@ public class EiImplantTest {
         void protoMekAlwaysHasEiCockpit() {
             ProtoMek proto = createProtoMek();
             assertTrue(proto.hasEiCockpit(),
-                  "ProtoMeks should always have EI cockpit per IO p.77, regardless of tracking");
+                  "ProtoMeks should always have EI cockpit per IO:AE p.69, regardless of tracking");
         }
 
         @Test
@@ -269,12 +269,12 @@ public class EiImplantTest {
     class HasActiveEiCockpitTests {
 
         @Test
-        @DisplayName("ProtoMek has active EI cockpit when tracking enabled (built-in per IO p.77)")
+        @DisplayName("ProtoMek has active EI cockpit when tracking enabled (built-in per IO:AE p.69)")
         void protoMekHasActiveEiCockpitWhenTrackingOn() {
             enableTracking();
             ProtoMek proto = createProtoMek();
             // ProtoMeks have built-in EI that doesn't require crew implant option
-            // per IO p.77 - they are neurally connected by design
+            // per IO:AE p.69 - they are neurally connected by design
             assertTrue(proto.hasActiveEiCockpit(),
                   "ProtoMek should have active EI cockpit when tracking is enabled");
         }
@@ -284,7 +284,7 @@ public class EiImplantTest {
         void protoMekAlwaysHasActiveEi() {
             ProtoMek proto = createProtoMek();
             assertTrue(proto.hasActiveEiCockpit(),
-                  "ProtoMek should always have active EI per IO p.77, regardless of tracking");
+                  "ProtoMek should always have active EI per IO:AE p.69, regardless of tracking");
         }
 
         @Test
@@ -374,7 +374,7 @@ public class EiImplantTest {
         void eiProbeHasOneHexRange() {
             Sensor eiProbe = new Sensor(Sensor.TYPE_EI_PROBE);
             assertEquals(1, eiProbe.getRangeByBracket(),
-                  "EI Probe should have 1-hex range per IO p.77");
+                  "EI Probe should have 1-hex range per IO:AE p.69");
         }
 
         @Test
@@ -393,7 +393,7 @@ public class EiImplantTest {
             enableTracking();
             ProtoMek proto = createProtoMek();
             assertEquals(1, proto.getBAPRange(),
-                  "ProtoMek EI should provide 1-hex BAP range per IO p.77 when tracking is ON");
+                  "ProtoMek EI should provide 1-hex BAP range per IO:AE p.69 when tracking is ON");
         }
     }
 }

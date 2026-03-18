@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for ProtoMek Enhanced Imaging (EI) implementation per IO p.77. ProtoMeks always have EI
+ * Tests for ProtoMek Enhanced Imaging (EI) implementation per IO:AE p.69. ProtoMeks always have EI
  * built-in. The {@code track_neural_interface_hardware} game option only affects whether the EI
  * equipment counts toward tech level (making ProtoMeks Experimental when enabled).
  */
@@ -74,8 +74,8 @@ class ProtoMekEITest extends GameBoardTestCase {
           hex 0303 0 "" ""
           end""";
 
-    private static GameOptions mockGameOptions;
     private static Player player;
+    private GameOptions mockGameOptions;
     private Game game;
     private ProtoMek protoMek;
 
@@ -86,12 +86,12 @@ class ProtoMekEITest extends GameBoardTestCase {
     @BeforeAll
     static void setUpAll() {
         EquipmentType.initializeTypes();
-        mockGameOptions = mock(GameOptions.class);
         player = new Player(0, "TestPlayer");
     }
 
     @BeforeEach
     void setUp() {
+        mockGameOptions = mock(GameOptions.class);
         game = getGame();
         game.setOptions(mockGameOptions);
 
@@ -146,11 +146,11 @@ class ProtoMekEITest extends GameBoardTestCase {
     class BuiltInEITests {
 
         @Test
-        @DisplayName("ProtoMek has EI cockpit when tracking enabled (per IO p.77)")
+        @DisplayName("ProtoMek has EI cockpit when tracking enabled (per IO:AE p.69)")
         void protoMekHasEiCockpitWhenTrackingOn() {
             enableTracking();
             assertTrue(protoMek.hasEiCockpit(),
-                  "ProtoMeks should have EI cockpit when tracking is enabled per IO p.77");
+                  "ProtoMeks should have EI cockpit when tracking is enabled per IO:AE p.69");
         }
 
         @Test
@@ -247,9 +247,9 @@ class ProtoMekEITest extends GameBoardTestCase {
         @DisplayName("ProtoMek always has EI cockpit regardless of tracking")
         void protoMekAlwaysHasEiCockpit() {
             // Tracking is OFF by default (all mock options return false)
-            // ProtoMeks always have EI built-in per IO p.77
+            // ProtoMeks always have EI built-in per IO:AE p.69
             assertTrue(protoMek.hasEiCockpit(),
-                  "ProtoMek should always have EI cockpit per IO p.77, regardless of tracking");
+                  "ProtoMek should always have EI cockpit per IO:AE p.69, regardless of tracking");
         }
 
         @Test
@@ -258,7 +258,7 @@ class ProtoMekEITest extends GameBoardTestCase {
             // Tracking is OFF by default (all mock options return false)
             // ProtoMeks always have active EI when head is undamaged
             assertTrue(protoMek.hasActiveEiCockpit(),
-                  "ProtoMek should always have active EI per IO p.77, regardless of tracking");
+                  "ProtoMek should always have active EI per IO:AE p.69, regardless of tracking");
         }
     }
 }

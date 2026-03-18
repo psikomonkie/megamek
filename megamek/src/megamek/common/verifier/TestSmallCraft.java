@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2017-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -91,10 +91,36 @@ public class TestSmallCraft extends TestAero {
               .collect(Collectors.toList());
     }
 
-    public static int maxArmorPoints(SmallCraft sc) {
-        ArmorType a = ArmorType.forEntity(sc);
-        return (int) Math.floor(a.getPointsPerTon(sc) * maxArmorWeight(sc) +
-              sc.getOSI() * (sc.isPrimitive() ? 2.64 : 4));
+    /**
+     * Returns the maximum number of total (all locations summed) armor points that the given vessel (DS/SC) can have,
+     * including free armor points it receives from its SI and modified for primitive armor, if appropriate. See TM
+     * p.191, IO:AE p.119-122.
+     *
+     * @param vessel The SC/DS to compute bonus armor for
+     *
+     * @return The total number of armor points allowed to the vessel
+     */
+    public static int maxArmorPoints(SmallCraft vessel) {
+        double pointsPerTon = ArmorType.forEntity(vessel).getPointsPerTon();
+        int baseArmor = (int) (pointsPerTon * maxArmorWeight(vessel) + getSIBonusArmorPoints(vessel));
+        if (vessel.isPrimitive()) {
+            return (int) (baseArmor * 0.66);
+        } else {
+            return baseArmor;
+        }
+    }
+
+    /**
+     * Returns the number of free additional armor points provided for SmallCraft and DropShips based on their
+     * structural integrity (for primitive craft, *without* the 0.66 primitive adjustment factor). See TM p.191, IO:AE
+     * p.119-125.
+     *
+     * @param smallCraft The SC/DS to compute free armor for
+     *
+     * @return The total number of extra armor points received for SI (disregarding primitive adjustment)
+     */
+    static int getSIBonusArmorPointsForSC(SmallCraft smallCraft) {
+        return (smallCraft.locations() - 1) * smallCraft.getOSI();
     }
 
     /**
@@ -743,7 +769,7 @@ public class TestSmallCraft extends TestAero {
         buff.append("Intro year: ").append(getEntity().getYear()).append("\n");
         buff.append(printSource());
         buff.append(printShortMovement());
-        if (correctWeight(buff, true, true)) {
+        if (correctWeight(buff, false, false)) {
             buff.append("Weight: ").append(getWeight()).append(" (").append(calculateWeight()).append(")\n");
         }
         buff.append(printWeightCalculation()).append("\n");

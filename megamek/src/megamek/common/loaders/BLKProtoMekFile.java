@@ -148,7 +148,7 @@ public class BLKProtoMekFile extends BLKFile implements IMekLoader {
 
         loadQuirks(t);
 
-        // ProtoMeks cannot shut down EI per IO p.77 -- set mode to "On" (index 1)
+        // ProtoMeks cannot shut down EI per IO:AE p.69 -- set mode to "On" (index 1)
         for (Mounted<?> m : t.getEquipment()) {
             if ((m.getType() instanceof MiscType) && m.getType().hasFlag(MiscType.F_EI_INTERFACE)) {
                 m.setMode(1);

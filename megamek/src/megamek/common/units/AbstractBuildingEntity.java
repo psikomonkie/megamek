@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000-2002 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2003-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2003-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -34,16 +34,7 @@
 
 package megamek.common.units;
 
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.Vector;
+import java.util.*;
 
 import megamek.client.ui.clientGUI.calculationReport.CalculationReport;
 import megamek.common.CriticalSlot;
@@ -843,23 +834,6 @@ public abstract class AbstractBuildingEntity extends Entity implements IBuilding
         return "";
     }
 
-    /**
-     * Returns TRUE if the entity meets the requirements for crippling damage as detailed in TW pg 258.
-     *
-     * @return boolean
-     */
-    /**
-     * Buildings are destroyed if their crew is dead, like Meks and Tanks.
-     */
-    @Override
-    public boolean isDestroyed() {
-        // Check crew death first (like Meks/Tanks)
-        if (getCrew() != null && !getCrew().isActive()) {
-            return true;
-        }
-        // Otherwise use standard destroyed flag
-        return super.isDestroyed();
-    }
 
     /**
      * Buildings are salvageable unless they have completely collapsed. A building has completely collapsed when all
@@ -887,7 +861,6 @@ public abstract class AbstractBuildingEntity extends Entity implements IBuilding
     @Override
     public boolean isCrippled(boolean checkCrew) {
         // Building is crippled if it's military and all weapons are disabled
-        // (crew death is handled by isDestroyed(), not isCrippled())
         return isMilitary() && !hasViableWeapons();
     }
 
@@ -1432,5 +1405,93 @@ public abstract class AbstractBuildingEntity extends Entity implements IBuilding
                 }
             }
         }
+    }
+
+    /**
+     * Calculate building crew based on Advanced Building Minimum Crew Table (TO:AUE). Crew = Non-Gunners + Gunners +
+     * Officers
+     *
+     * @return total crew count
+     */
+    @Override
+    public int getNCrew() {
+        int nonGunners = calculateNonGunnerCrew();
+        int gunners = calculateGunnerCrew();
+        int officers = calculateOfficerCrew(nonGunners + gunners);
+
+        return nonGunners + gunners + officers;
+    }
+
+    /**
+     * Calculate non-gunner crew based on building equipment. Does NOT include bay personnel - those are counted
+     * separately via getBayPersonnel().
+     *
+     * @return non-gunner crew count
+     */
+    private int calculateNonGunnerCrew() {
+        int crew = 0;
+
+        // TODO: Implement equipment-based crew calculation when equipment system is available
+        // (Field Kitchens, Helipads, Landing Decks, etc.)
+        // For now, return 0 - bay personnel are counted separately
+
+        return crew;
+    }
+
+    /**
+     * Calculate gunner crew based on mounted weapons. - Light Weapon: 1 gunner - Medium Weapon: 1 gunner - Heavy
+     * Weapon: Weapon Tons ÷ 5 (round up) - Capital Weapon: 7 gunners
+     *
+     * @return gunner crew count
+     */
+    private int calculateGunnerCrew() {
+        int gunners = 0;
+
+        for (megamek.common.equipment.Mounted<?> mounted : getWeaponList()) {
+            if (mounted.getType() instanceof megamek.common.equipment.WeaponType weapon) {
+                // Determine weapon size and calculate gunners
+                double weaponTonnage = weapon.getTonnage(this);
+
+                if (weapon.isCapital()) {
+                    gunners += 7;  // Capital weapon
+                } else if (weaponTonnage >= 10) {
+                    gunners += (int) Math.ceil(weaponTonnage / 5.0);  // Heavy weapon
+                } else {
+                    gunners += 1;  // Light or Medium weapon
+                }
+            }
+        }
+
+        return gunners;
+    }
+
+    /**
+     * Calculate officer crew based on total non-officer crew. - 1-9 crew: 1 officer - 10+ crew: Total Crew ÷ 10 (round
+     * up)
+     *
+     * @param nonOfficerCrew total non-officer crew
+     *
+     * @return officer crew count
+     */
+    private int calculateOfficerCrew(int nonOfficerCrew) {
+        if (nonOfficerCrew == 0) {
+            return 0;
+        } else if (nonOfficerCrew <= 9) {
+            return 1;
+        } else {
+            return (int) Math.ceil(nonOfficerCrew / 10.0);
+        }
+    }
+
+    @Override
+    public boolean isBoardable() {
+        return true;
+    }
+
+    @Override
+    public boolean canReinforceInfantryVsInfantry() {
+        // AbstractBuildingEntity can reinforce if it's the target of ongoing combat
+        return getGame().getEntitiesVector(getBoardLocation()).stream()
+              .anyMatch(e -> e.getInfantryCombatTargetId() == this.getId());
     }
 }

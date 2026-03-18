@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000-2005 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2013-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2013-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -959,7 +959,7 @@ public class TestAero extends TestEntity {
         buff.append("Intro year: ").append(aero.getYear()).append("\n");
         buff.append(printSource());
         buff.append(printShortMovement());
-        if (correctWeight(buff, true, true)) {
+        if (correctWeight(buff, false, false)) {
             buff.append("Weight: ").append(getWeight()).append(" (")
                   .append(calculateWeight()).append(")\n");
         }
@@ -1113,7 +1113,7 @@ public class TestAero extends TestEntity {
     public static int getMaxTonnage(Aero aero, Faction faction) {
         if (aero.hasETypeFlag(Entity.ETYPE_SPACE_STATION)) {
             return 2500000;
-        } else if (aero.hasETypeFlag(Entity.ETYPE_WARSHIP)) {
+        } else if (aero.hasETypeFlag(Entity.ETYPE_WARSHIP) && !aero.isPrimitive()) {
             if (((Jumpship) aero).getDriveCoreType() == Jumpship.DRIVE_CORE_SUBCOMPACT) {
                 return 25000;
             }

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000-2005 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2005-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2005-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -1027,24 +1027,53 @@ public abstract class TestEntity implements TestEntityOption {
               + printMiscEquip() + printWeapon() + printAmmo();
     }
 
-    public boolean correctWeight(StringBuffer buff) {
-        return correctWeight(buff, showOverweightedEntity(),
-              showUnderweightEntity());
+    /**
+     * Tests the calculated weight of the unit (the sum of the weights of all its components) and the assumed weight
+     * (the fixed tonnage it is constructed with). Returns false if there are errors with the values (e.g. overweight,
+     * underweight if the unit type does not allow it, mek weight must be a multiple of 5t).
+     *
+     * @return true if there are no problems with the unit's assumed and calculated weight values
+     */
+    public final boolean isWeightCorrect() {
+        return correctWeight(new StringBuffer());
     }
 
-    public boolean correctWeight(StringBuffer buff, boolean showO, boolean showU) {
+    /**
+     * Tests the calculated weight of the unit (the sum of the weights of all its components) and the assumed weight
+     * (the fixed tonnage it is constructed with). Returns false if there are errors with the values (e.g. overweight,
+     * underweight if the unit type does not allow it, mek weight must be a multiple of 5t). Any error reports are
+     * appended to the given StringBuffer.
+     *
+     * @return true if there are no problems with the unit's assumed and calculated weight values
+     */
+    public final boolean correctWeight(StringBuffer buff) {
+        return correctWeight(buff, !showOverweightedEntity(), !showUnderweightEntity());
+    }
+
+    /**
+     * Tests the calculated weight of the unit (the sum of the weights of all its components) and the assumed weight
+     * (the fixed tonnage it is constructed with). Returns false if there are errors with the values (e.g. overweight,
+     * underweight if the unit type does not allow it, mek weight must be a multiple of 5t).
+     *
+     * @param buff              The StringBuffer to append error messages to
+     * @param ignoreOverweight  When true, ignore overweight
+     * @param ignoreUnderweight When true, ignore underweight
+     *
+     * @return true if there are no problems with the unit's assumed and calculated weight values
+     */
+    public boolean correctWeight(StringBuffer buff, boolean ignoreOverweight, boolean ignoreUnderweight) {
         double weightSum = calculateWeight();
         double weight = getWeight();
+        boolean useKg = usesKgStandard();
 
-        if (showO && ((weight + getMaxOverweight()) < weightSum)) {
-            buff.append("Weight: ").append(calculateWeight())
-                  .append(" is greater than ").append(getWeight())
-                  .append("\n");
+        if (!ignoreOverweight && ((weight + getMaxOverweight()) < weightSum)) {
+            buff.append("Weight: %s is greater than %s\n"
+                  .formatted(makeWeightString(weightSum, useKg), makeWeightString(weight, useKg)));
             return false;
         }
-        if (showU && ((weight - getMinUnderweight()) > weightSum)) {
-            buff.append("Weight: ").append(calculateWeight())
-                  .append(" is less than ").append(getWeight()).append("\n");
+        if (!ignoreUnderweight && ((weight - getMinUnderweight()) > weightSum)) {
+            buff.append("Weight: %s is less than %s\n"
+                  .formatted(makeWeightString(weightSum, useKg), makeWeightString(weight, useKg)));
             return false;
         }
         return true;
@@ -1072,27 +1101,23 @@ public abstract class TestEntity implements TestEntityOption {
     }
 
     /**
-     * Returns the total number of armor points available to the unit for a given tonnage of armor. This does not round
-     * down the calculation or take into account any maximum number of armor points or tonnage allowed to the unit. It
-     * also does not include any free armor points due to SI on aerospace units.
+     * Returns the total number of armor points available to the unit for a given tonnage of armor -- NOT including the
+     * downgrade of primitive aerospace armor which cannot be factored into this number correctly (see IO:AE p.125).
+     * This does not round down the calculation or take into account any maximum number of armor points or tonnage
+     * allowed to the unit. It also does not include any free armor points due to SI on aerospace units.
      * <p>
      * NOTE: only use for non-patchwork armor
      *
      * @return the number of armor points available for the armor tonnage
      */
     public static double getRawArmorPoints(Entity unit, double armorTons) {
-        if (unit.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
+        if (unit.isProtoMek()) {
             return Math.round(armorTons / ArmorType.forEntity(unit).getWeightPerPoint());
         } else if (unit.isSupportVehicle()) {
             return Math.floor(armorTons / TestSupportVehicle.armorWeightPerPoint(unit));
-        } else if ((unit instanceof Jumpship)
-              && unit.getArmorType(unit.firstArmorIndex()) == EquipmentType.T_ARMOR_PRIMITIVE_AERO) {
-            // Because primitive JumpShip armor has an extra step of rounding we have to give it special treatment.
-            // Standard armor value is computed first, rounded down, then the primitive armor mod is applied.
-            return Math.floor(Math.floor(armorTons * TestAdvancedAerospace.armorPointsPerTon((Jumpship) unit,
-                  EquipmentType.T_ARMOR_AEROSPACE, false)) * 0.66);
+        } else {
+            return armorTons * getArmorPointsPerTon(unit);
         }
-        return armorTons * getArmorPointsPerTon(unit);
     }
 
     /**
@@ -1108,6 +1133,9 @@ public abstract class TestEntity implements TestEntityOption {
      */
     public static int getArmorPoints(Entity unit, double armorTons) {
         int raw = (int) Math.floor(getRawArmorPoints(unit, armorTons) + TestEntity.getSIBonusArmorPoints(unit));
+        if (unit.isPrimitive() && (unit instanceof Jumpship || unit instanceof SmallCraft)) {
+            raw = (int) (raw * 0.66);
+        }
         return Math.min(raw, getMaximumArmorPoints(unit));
     }
 
@@ -1170,26 +1198,21 @@ public abstract class TestEntity implements TestEntityOption {
     }
 
     /**
-     * Returns the number of free additional armor points provided for aerospace vessels based on their SI. This is
-     * usually a whole number but may be a fractional amount for primitive JumpShips. It is the total number, which is
-     * usually divided evenly among armor facings. For units other than SC/DS and capital craft, this is 0. See TM
-     * p.191, SO:AA p.140, IO:AE p.119-125
+     * Returns the number of free additional armor points provided for aerospace vessels based on their structural
+     * integrity (for primitive capital craft, *without* the 0.66 primitive adjustment factor). For units other than
+     * SC/DS and capital craft, this is 0. See TM p.191, SO:AA p.140, IO:AE p.119-125.
      *
      * @param entity The unit to compute bonus armor for
      *
      * @return The total number of extra armor points received for SI
      */
-    public static double getSIBonusArmorPoints(Entity entity) {
-        double points = 0;
+    public static int getSIBonusArmorPoints(Entity entity) {
         if (entity instanceof SmallCraft smallCraft) {
-            points = smallCraft.getSI() * (entity.locations() - 1);
+            return TestSmallCraft.getSIBonusArmorPointsForSC(smallCraft);
         } else if (entity instanceof Jumpship jumpship) {
-            points = Math.round(jumpship.getSI() / 10.0) * 6;
-        }
-        if (entity.isPrimitive()) {
-            return points * ArmorType.of(EquipmentType.T_ARMOR_PRIMITIVE_AERO, false).getArmorPointsMultiplier();
+            return TestAdvancedAerospace.getSIBonusArmorPointsForJS(jumpship);
         } else {
-            return points;
+            return 0;
         }
     }
 
