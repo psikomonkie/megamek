@@ -82,6 +82,7 @@ class LOSElevationDiagramPanel extends JPanel {
     private static final int TOP_MARGIN = 20;
     private static final int BOTTOM_MARGIN = 30;
     private static final int LEVEL_PADDING = 2;
+    private static final int MAX_DISPLAY_RANGE = 40;
 
 
     private static final Color COLOR_GROUND = new Color(139, 119, 101);
@@ -107,7 +108,9 @@ class LOSElevationDiagramPanel extends JPanel {
     private static final Color COLOR_LOS_BLOCKED = new Color(240, 50, 50);
     private static final Color COLOR_SPLIT_MARKER = new Color(255, 165, 0, 120);
 
-    private static final Stroke STROKE_LOS = new BasicStroke(2.0f);
+    private static final float[] LOS_DASH_PATTERN = { 8.0f, 5.0f };
+    private static final Stroke STROKE_LOS = new BasicStroke(
+          2.0f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10.0f, LOS_DASH_PATTERN, 0.0f);
     private static final Stroke STROKE_GRID = new BasicStroke(0.5f);
     private static final Stroke STROKE_DEFAULT = new BasicStroke(1.0f);
     private static final float[] DASH_PATTERN = { 6.0f, 4.0f };
@@ -237,6 +240,9 @@ class LOSElevationDiagramPanel extends JPanel {
             drawGrid(g2d, metrics);
             drawTerrain(g2d, metrics, hexPath);
             drawTerrainLabels(g2d, metrics, hexPath);
+            if (metrics.clippedTop || metrics.clippedBottom) {
+                drawBreakIndicators(g2d, metrics);
+            }
             drawUnitBars(g2d, metrics, hexPath);
             drawLosLine(g2d, metrics, hexPath);
             drawLabels(g2d, metrics, hexPath);
@@ -304,6 +310,41 @@ class LOSElevationDiagramPanel extends JPanel {
         minLevel -= LEVEL_PADDING;
         maxLevel += LEVEL_PADDING;
 
+        // Track actual extremes before capping
+        int actualMinLevel = minLevel;
+        int actualMaxLevel = maxLevel;
+        boolean clippedTop = false;
+        boolean clippedBottom = false;
+
+        // Cap display range at MAX_DISPLAY_RANGE levels for readability
+        int naturalRange = maxLevel - minLevel;
+        if (naturalRange > MAX_DISPLAY_RANGE) {
+            // Center the visible window on the midpoint between attacker and target
+            int center = (diagramData.attackerAbsHeight() + diagramData.targetAbsHeight()) / 2;
+            int cappedMin = center - MAX_DISPLAY_RANGE / 2;
+            int cappedMax = center + MAX_DISPLAY_RANGE / 2;
+
+            // Adjust to ensure both attacker and target heights are visible
+            int highestUnit = Math.max(diagramData.attackerAbsHeight(), diagramData.targetAbsHeight());
+            int lowestUnit = Math.min(attackerBottom, targetBottom);
+
+            if (highestUnit > cappedMax - LEVEL_PADDING) {
+                int shift = highestUnit - (cappedMax - LEVEL_PADDING);
+                cappedMax += shift;
+                cappedMin += shift;
+            }
+            if (lowestUnit < cappedMin + LEVEL_PADDING) {
+                int shift = (cappedMin + LEVEL_PADDING) - lowestUnit;
+                cappedMin -= shift;
+                cappedMax -= shift;
+            }
+
+            clippedTop = actualMaxLevel > cappedMax;
+            clippedBottom = actualMinLevel < cappedMin;
+            minLevel = cappedMin;
+            maxLevel = cappedMax;
+        }
+
         int levelRange = Math.max(maxLevel - minLevel, 1);
         double levelHeight = (double) drawAreaHeight / levelRange;
 
@@ -311,7 +352,9 @@ class LOSElevationDiagramPanel extends JPanel {
               scaledLeftMargin, scaledTopMargin,
               drawAreaWidth, drawAreaHeight,
               hexColumnWidth, levelHeight,
-              minLevel, maxLevel, hexCount
+              minLevel, maxLevel, hexCount,
+              clippedTop, clippedBottom,
+              actualMinLevel, actualMaxLevel
         );
     }
 
@@ -940,13 +983,15 @@ class LOSElevationDiagramPanel extends JPanel {
                   drawMekSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
             case QUAD_MEK ->
                   drawQuadMekSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case SUPERHEAVY_MEK -> drawSuperHeavyMekSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
+            case SUPERHEAVY_MEK -> {
+                // Draw the silhouette at 2 levels (bottom 2/3 of the 3-level span),
+                // with a T-bar turret marker extending up to the actual top level
+                int bodyHeight = Math.max(yBottom - metrics.levelToY(bottomLevel + 2), 2);
+                int yBodyTop = yBottom - bodyHeight;
+                drawSuperHeavyMekSilhouette(g2d, xCenter, yBodyTop, silhouetteWidth, bodyHeight,
+                      barColor, facingRight);
+                drawTurretMarker(g2d, xCenter, yBodyTop, yTop, barColor);
+            }
             case INDUSTRIAL_MEK -> drawIndustrialMekSilhouette(g2d,
                   xCenter,
                   yTop,
@@ -1100,6 +1145,25 @@ class LOSElevationDiagramPanel extends JPanel {
 
         // Fallback: use regular mek
         drawMekSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+    }
+
+    /**
+     * Draws a T-bar turret marker extending from the top of the superheavy silhouette up to the actual top level. A
+     * vertical stem rises from the body top to the turret top, with a horizontal crossbar at the top.
+     */
+    private void drawTurretMarker(Graphics2D g2d, int xCenter, int yBodyTop, int yTurretTop, Color color) {
+        int crossbarWidth = UIUtil.scaleForGUI(16);
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(Math.max(2.0f, UIUtil.scaleForGUI(2.0f))));
+        g2d.setColor(color);
+
+        // Vertical stem from body top to turret top
+        g2d.drawLine(xCenter, yBodyTop, xCenter, yTurretTop);
+
+        // Horizontal crossbar at the top
+        g2d.drawLine(xCenter - crossbarWidth / 2, yTurretTop, xCenter + crossbarWidth / 2, yTurretTop);
+
+        g2d.setStroke(oldStroke);
     }
 
     /**
@@ -1777,21 +1841,12 @@ class LOSElevationDiagramPanel extends JPanel {
           int maxWidth, int maxHeight, Color color, boolean facingRight) {
         BufferedImage tinted = tintSilhouette(image, color);
 
-        // Scale to fill the full height (TW levels), but cap width to avoid spilling
-        // far beyond the column. Uses the larger of maxWidth or 1.5x maxWidth as the cap.
+        // Always scale to fill the full TW height -- height accuracy is critical for the diagram.
+        // Width is allowed to overflow the column since silhouettes (especially Meks) are typically
+        // wider than a single column and the visual prominence helps readability.
         int imgWidth = tinted.getWidth();
         int imgHeight = tinted.getHeight();
-        double scaleByHeight = (double) maxHeight / imgHeight;
-        int widthIfFullHeight = (int) (imgWidth * scaleByHeight);
-
-        // If width would exceed 1.5x the column width, constrain by width instead
-        int maxAllowedWidth = (int) (maxWidth * 1.5);
-        double scale;
-        if (widthIfFullHeight > maxAllowedWidth) {
-            scale = (double) maxAllowedWidth / imgWidth;
-        } else {
-            scale = scaleByHeight;
-        }
+        double scale = (double) maxHeight / imgHeight;
 
         int drawWidth = (int) (imgWidth * scale);
         int drawHeight = (int) (imgHeight * scale);
@@ -1858,6 +1913,81 @@ class LOSElevationDiagramPanel extends JPanel {
     /**
      * Draws the LOS line from attacker to target.
      */
+    /**
+     * Draws zigzag "break" indicators at the top and/or bottom edges when the elevation range has been capped. This is
+     * a standard engineering diagram convention indicating that the axis has been truncated. A small label shows the
+     * actual extreme elevation beyond the visible range.
+     */
+    private void drawBreakIndicators(Graphics2D g2d, DiagramMetrics metrics) {
+        int diagramLeft = metrics.leftMargin;
+        int diagramRight = metrics.leftMargin + metrics.hexCount * metrics.hexColumnWidth;
+        int diagramWidth = diagramRight - diagramLeft;
+
+        int zigzagHeight = UIUtil.scaleForGUI(8);
+        int peakCount = Math.max(4, diagramWidth / UIUtil.scaleForGUI(40));
+        float segmentWidth = (float) diagramWidth / (peakCount * 2);
+
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(UIUtil.scaleForGUI(2.0f)));
+
+        if (metrics.clippedBottom) {
+            int baseY = metrics.topMargin + metrics.drawAreaHeight;
+            drawZigzag(g2d, diagramLeft, baseY, segmentWidth, zigzagHeight, peakCount);
+            drawBreakLabel(g2d, metrics, diagramRight, baseY, metrics.actualMinLevel + LEVEL_PADDING, false);
+        }
+
+        if (metrics.clippedTop) {
+            int baseY = metrics.topMargin;
+            drawZigzag(g2d, diagramLeft, baseY, segmentWidth, zigzagHeight, peakCount);
+            drawBreakLabel(g2d, metrics, diagramRight, baseY, metrics.actualMaxLevel - LEVEL_PADDING, true);
+        }
+
+        g2d.setStroke(oldStroke);
+    }
+
+    /**
+     * Draws a horizontal zigzag line at the given Y position.
+     */
+    private void drawZigzag(Graphics2D g2d, int xStart, int baseY, float segmentWidth,
+          int amplitude, int peakCount) {
+        GeneralPath path = new GeneralPath();
+        path.moveTo(xStart, baseY);
+
+        for (int i = 0; i < peakCount * 2; i++) {
+            float x = xStart + (i + 1) * segmentWidth;
+            int yOffset = (i % 2 == 0) ? -amplitude : amplitude;
+            path.lineTo(x, baseY + yOffset);
+        }
+
+        g2d.setColor(getLabelColor());
+        g2d.draw(path);
+    }
+
+    /**
+     * Draws a label showing the actual extreme elevation at a break indicator.
+     */
+    private void drawBreakLabel(Graphics2D g2d, DiagramMetrics metrics, int xRight, int baseY,
+          int actualLevel, boolean isTop) {
+        Font labelFont = g2d.getFont().deriveFont(Font.BOLD, UIUtil.scaleForGUI(9.0f));
+        g2d.setFont(labelFont);
+        FontMetrics fontMetrics = g2d.getFontMetrics();
+
+        String label = "...(" + actualLevel + ")";
+        int labelWidth = fontMetrics.stringWidth(label);
+        int labelHeight = fontMetrics.getHeight();
+
+        int labelX = xRight - labelWidth - UIUtil.scaleForGUI(4);
+        int labelY = isTop ? baseY + labelHeight + UIUtil.scaleForGUI(2) : baseY - UIUtil.scaleForGUI(4);
+
+        // Semi-transparent background for readability
+        Color bgColor = getBackground();
+        g2d.setColor(new Color(bgColor.getRed(), bgColor.getGreen(), bgColor.getBlue(), 200));
+        g2d.fillRect(labelX - 2, labelY - fontMetrics.getAscent() - 1, labelWidth + 4, labelHeight + 2);
+
+        g2d.setColor(getLabelColor());
+        g2d.drawString(label, labelX, labelY);
+    }
+
     private void drawLosLine(Graphics2D g2d, DiagramMetrics metrics, List<HexRow> hexPath) {
         if (hexPath.size() < 2) {
             return;
@@ -2048,7 +2178,11 @@ class LOSElevationDiagramPanel extends JPanel {
           double levelHeight,
           int minLevel,
           int maxLevel,
-          int hexCount
+          int hexCount,
+          boolean clippedTop,
+          boolean clippedBottom,
+          int actualMinLevel,
+          int actualMaxLevel
     ) {
         /**
          * Converts an elevation level to a Y pixel coordinate. Higher levels have lower Y values (screen coordinates

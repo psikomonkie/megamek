@@ -1244,12 +1244,10 @@ public final class BoardView extends AbstractBoardView
                 graphics2D.setColor(Color.yellow);
                 graphics2D.drawLine(start.x, start.y, end.x, end.y);
 
-                graphics2D.setColor(rulerEndColor);
-                graphics2D.fillRect(end.x - 1, end.y - 1, 2, 2);
+                drawRulerCrosshair(graphics2D, end, rulerEndColor);
             }
 
-            graphics2D.setColor(rulerStartColor);
-            graphics2D.fillRect(start.x - 1, start.y - 1, 2, 2);
+            drawRulerCrosshair(graphics2D, start, rulerStartColor);
         }
 
         // Undo the previous translation
@@ -3008,6 +3006,32 @@ public final class BoardView extends AbstractBoardView
 
     public Point getCentreHexLocation(Coords coords, boolean ignoreElevation) {
         return getCentreHexLocation(coords.getX(), coords.getY(), ignoreElevation);
+    }
+
+    /**
+     * Draws a crosshair-with-circle (bullseye) marker at the given point for the ruler tool. The marker scales with the
+     * current board zoom level so it remains visible at all zoom levels.
+     */
+    private void drawRulerCrosshair(Graphics2D g2d, Point center, Color color) {
+        // Scale crosshair size to ~20% of hex width, with a minimum of 4px
+        int radius = Math.max(4, (int) (HEX_W * scale * 0.10f));
+        int crossLen = Math.max(6, (int) (HEX_W * scale * 0.15f));
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(Math.max(1.5f, scale * 1.5f)));
+
+        // Outer circle
+        g2d.setColor(color);
+        g2d.drawOval(center.x - radius, center.y - radius, radius * 2, radius * 2);
+
+        // Crosshair lines extending beyond the circle
+        g2d.drawLine(center.x - crossLen, center.y, center.x + crossLen, center.y);
+        g2d.drawLine(center.x, center.y - crossLen, center.x, center.y + crossLen);
+
+        // Center dot
+        int dotRadius = Math.max(1, (int) (scale * 1.5f));
+        g2d.fillOval(center.x - dotRadius, center.y - dotRadius, dotRadius * 2, dotRadius * 2);
+
+        g2d.setStroke(oldStroke);
     }
 
     public void drawRuler(Coords startCoords, Coords endCoords, Color startColor, Color endColor) {
