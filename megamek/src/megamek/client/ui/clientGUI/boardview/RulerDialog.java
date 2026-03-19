@@ -47,6 +47,8 @@ import java.awt.event.WindowEvent;
 import java.io.Serial;
 import java.util.List;
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 
 import megamek.client.event.BoardViewEvent;
 import megamek.client.event.BoardViewListener;
@@ -55,17 +57,12 @@ import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.util.UIUtil;
 import megamek.common.Hex;
 import megamek.common.LosEffects;
-import megamek.common.ToHitData;
 import megamek.common.board.Coords;
 import megamek.common.game.Game;
 import megamek.common.options.OptionsConstants;
-import megamek.common.rolls.TargetRoll;
 import megamek.common.units.Entity;
-import megamek.common.units.Mek;
-import megamek.common.units.Terrain;
 import megamek.common.units.Terrains;
 import megamek.logging.MMLogger;
-import megamek.server.SmokeCloud;
 
 /**
  * @author Ken Nguyen (kenn)
@@ -75,8 +72,16 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
     @Serial
     private static final long serialVersionUID = -4820402626782115601L;
-    public static Color color1 = Color.cyan;
-    public static Color color2 = Color.magenta;
+    // Dark theme: bright, saturated colors for contrast against dark backgrounds
+    private static final Color DARK_COLOR_1 = new Color(0x4D, 0xD0, 0xE1);  // soft cyan
+    private static final Color DARK_COLOR_2 = new Color(0xF4, 0x8F, 0xB1);  // soft pink
+
+    // Light theme: vivid, medium-dark colors for readability on white/light gray backgrounds
+    private static final Color LIGHT_COLOR_1 = new Color(0x00, 0x7B, 0xB8);  // strong blue
+    private static final Color LIGHT_COLOR_2 = new Color(0xC6, 0x28, 0x28);  // strong red
+
+    public static Color color1 = DARK_COLOR_1;
+    public static Color color2 = DARK_COLOR_2;
 
     private Coords start;
     private Coords end;
@@ -87,7 +92,6 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     private final Game game;
     private boolean flip;
 
-    private final GridBagLayout gridBagLayout1 = new GridBagLayout();
     private final JButton butFlip = new JButton();
     private final JTextField tf_start = new JTextField();
     private final JTextField tf_end = new JTextField();
@@ -97,16 +101,22 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     private final JButton butClose = new JButton();
     private JLabel heightLabel1;
     private final JSpinner height1 = new JSpinner(new SpinnerNumberModel(1, -100, 200, 1));
+    private final JLabel effectiveHeight1 = new JLabel();
     private final JLabel heightInfo1 = new JLabel();
     private JLabel heightLabel2;
     private final JSpinner height2 = new JSpinner(new SpinnerNumberModel(1, -100, 200, 1));
+    private final JLabel effectiveHeight2 = new JLabel();
     private final JLabel heightInfo2 = new JLabel();
 
-    private static final String HEIGHT_TOOLTIP = "<html>TW unit height in levels:<br>"
-          + "Mek: 2 | Superheavy Mek: 3<br>"
-          + "Vehicle/Infantry/BA: 1<br>"
-          + "VTOL: 1 (+ elevation)</html>";
-    private static final int MAX_NAME_LENGTH = 20;
+    private JPanel unitPanel1;
+    private JPanel unitPanel2;
+    private JLabel attackerPovLabel;
+    private JLabel targetPovLabel;
+
+    private static final String HEIGHT_TOOLTIP = "<html>TW unit height (p.43):<br>"
+          + "<b>Height</b> (ground units): Mek 2, Superheavy 3, Vehicle/Inf 1<br>"
+          + "<b>Elevation</b> (VTOL/WiGE): levels above hex terrain<br>"
+          + "<b>Altitude</b> (aerospace): fixed value (1-10)</html>";
     private final JComboBox<EntityItem> cboEntity1 = new JComboBox<>();
     private final JComboBox<EntityItem> cboEntity2 = new JComboBox<>();
     private String entityName1 = "";
@@ -121,6 +131,25 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     private final JScrollPane diagramScrollPane = new JScrollPane(diagramPanel);
     private boolean diagramExpanded;
 
+    private final JButton butCompare = new JButton();
+    private final DefaultTableModel compareTableModel = new DefaultTableModel(
+          new String[] {
+                Messages.getString("Ruler.compareMode"),
+                Messages.getString("Ruler.compareAttacker"),
+                Messages.getString("Ruler.compareTarget")
+          }, 0) {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+    private final JTable compareTable = new JTable(compareTableModel);
+    private final JScrollPane compareScrollPane = new JScrollPane(compareTable);
+    private boolean compareExpanded;
+
     public RulerDialog(JFrame frame, BoardView boardView, Game game) {
         super(frame, getRulerTitle(game), false);
         enableEvents(AWTEvent.WINDOW_EVENT_MASK);
@@ -128,6 +157,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         start = null;
         end = null;
         flip = true;
+        updateThemeColors();
         startColor = color1;
         endColor = color2;
 
@@ -155,29 +185,11 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     }
 
     private void jbInit() {
-        JPanel buttonPanel = new JPanel();
         butFlip.setText(Messages.getString("Ruler.flip"));
         butFlip.addActionListener(e -> butFlip_actionPerformed());
-        JPanel panelMain = new JPanel(gridBagLayout1);
-        JLabel jLabel1 = new JLabel(Messages.getString("Ruler.Start"), SwingConstants.RIGHT);
-        tf_start.setEditable(false);
-        tf_start.setColumns(16);
-        JLabel jLabel2 = new JLabel(Messages.getString("Ruler.End"), SwingConstants.RIGHT);
-        tf_end.setEditable(false);
-        tf_end.setColumns(16);
-        JLabel jLabel3 = new JLabel(Messages.getString("Ruler.Distance"), SwingConstants.RIGHT);
-        tf_distance.setEditable(false);
-        tf_distance.setColumns(5);
-        JLabel jLabel4 = new JLabel(Messages.getString("Ruler.attackerPOV") + ":", SwingConstants.RIGHT);
-        jLabel4.setForeground(startColor);
-        tf_los1.setEditable(false);
-        tf_los1.setColumns(30);
-        JLabel jLabel5 = new JLabel(Messages.getString("Ruler.targetPOV") + ":", SwingConstants.RIGHT);
-        jLabel5.setForeground(endColor);
-        tf_los2.setEditable(false);
-        tf_los2.setColumns(30);
         butClose.setText(Messages.getString("Ruler.Close"));
         butClose.addActionListener(e -> butClose_actionPerformed());
+
         heightLabel1 = new JLabel(Messages.getString("Ruler.Height"), SwingConstants.RIGHT);
         heightLabel1.setForeground(startColor);
         height1.setToolTipText(HEIGHT_TOOLTIP);
@@ -193,185 +205,229 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         cboEntity2.setVisible(false);
         cboEntity2.addActionListener(e -> entityComboChanged(cboEntity2, false));
 
-        GridBagConstraints c = new GridBagConstraints();
+        // --- Side-by-side unit panels ---
+        unitPanel1 = buildUnitPanel(heightLabel1, height1, effectiveHeight1,
+              heightInfo1, cboEntity1, color1);
+        unitPanel2 = buildUnitPanel(heightLabel2, height2, effectiveHeight2,
+              heightInfo2, cboEntity2, color2);
 
-        c.anchor = GridBagConstraints.EAST;
-        c.fill = GridBagConstraints.NONE;
-        c.gridx = 0;
-        c.gridy = 0;
-        gridBagLayout1.setConstraints(heightLabel1, c);
-        panelMain.add(heightLabel1);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridx = 1;
-        gridBagLayout1.setConstraints(height1, c);
-        panelMain.add(height1);
+        JPanel unitsRow = new JPanel(new GridBagLayout());
+        GridBagConstraints uc = new GridBagConstraints();
+        uc.gridx = 0;
+        uc.gridy = 0;
+        uc.weightx = 1.0;
+        uc.fill = GridBagConstraints.BOTH;
+        uc.insets = new Insets(0, 0, 0, 2);
+        unitsRow.add(unitPanel1, uc);
+        uc.gridx = 1;
+        uc.insets = new Insets(0, 2, 0, 0);
+        unitsRow.add(unitPanel2, uc);
 
-        // Info line for point 1 (ground level, top elevation, status)
-        heightInfo1.setFont(heightInfo1.getFont().deriveFont(Font.ITALIC, UIUtil.scaleForGUI(10.0f)));
-        heightInfo1.setForeground(startColor);
-        c.gridx = 1;
-        c.gridy = 1;
-        c.gridwidth = 2;
-        c.anchor = GridBagConstraints.WEST;
-        c.insets = new Insets(0, 0, UIUtil.scaleForGUI(2), 0);
-        gridBagLayout1.setConstraints(heightInfo1, c);
-        panelMain.add(heightInfo1);
-        c.gridwidth = 1;
-        c.insets = new Insets(0, 0, 0, 0);
+        // --- Details panel (Start/End/Distance/LOS) ---
+        JPanel detailsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints dc = new GridBagConstraints();
+        int detailRow = 0;
 
-        // Entity selector for point 1 (hidden until hex has multiple entities)
-        c.gridx = 1;
-        c.gridy = 2;
-        c.gridwidth = 2;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        gridBagLayout1.setConstraints(cboEntity1, c);
-        panelMain.add(cboEntity1);
-        c.gridwidth = 1;
-        c.fill = GridBagConstraints.NONE;
+        tf_start.setEditable(false);
+        tf_end.setEditable(false);
+        tf_distance.setEditable(false);
+        tf_los1.setEditable(false);
+        tf_los2.setEditable(false);
 
-        c.gridx = 0;
-        c.gridy = 3;
-        c.anchor = GridBagConstraints.EAST;
-        gridBagLayout1.setConstraints(heightLabel2, c);
-        panelMain.add(heightLabel2);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridx = 1;
-        gridBagLayout1.setConstraints(height2, c);
-        panelMain.add(height2);
+        // Start / End / Distance on one row
+        dc.gridy = detailRow;
+        dc.anchor = GridBagConstraints.EAST;
+        dc.fill = GridBagConstraints.NONE;
+        dc.insets = new Insets(2, 4, 0, 2);
+        dc.gridx = 0;
+        detailsPanel.add(new JLabel(Messages.getString("Ruler.Start"), SwingConstants.RIGHT), dc);
+        dc.gridx = 1;
+        dc.anchor = GridBagConstraints.WEST;
+        dc.fill = GridBagConstraints.HORIZONTAL;
+        dc.weightx = 0.4;
+        detailsPanel.add(tf_start, dc);
+        dc.gridx = 2;
+        dc.anchor = GridBagConstraints.EAST;
+        dc.fill = GridBagConstraints.NONE;
+        dc.weightx = 0;
+        detailsPanel.add(new JLabel(Messages.getString("Ruler.End"), SwingConstants.RIGHT), dc);
+        dc.gridx = 3;
+        dc.anchor = GridBagConstraints.WEST;
+        dc.fill = GridBagConstraints.HORIZONTAL;
+        dc.weightx = 0.4;
+        detailsPanel.add(tf_end, dc);
+        dc.gridx = 4;
+        dc.anchor = GridBagConstraints.EAST;
+        dc.fill = GridBagConstraints.NONE;
+        dc.weightx = 0;
+        detailsPanel.add(new JLabel(Messages.getString("Ruler.Distance"), SwingConstants.RIGHT), dc);
+        dc.gridx = 5;
+        dc.anchor = GridBagConstraints.WEST;
+        detailsPanel.add(tf_distance, dc);
+        detailRow++;
 
-        // Info line for point 2
-        heightInfo2.setFont(heightInfo2.getFont().deriveFont(Font.ITALIC, UIUtil.scaleForGUI(10.0f)));
-        heightInfo2.setForeground(endColor);
-        c.gridx = 1;
-        c.gridy = 4;
-        c.gridwidth = 2;
-        c.anchor = GridBagConstraints.WEST;
-        c.insets = new Insets(0, 0, UIUtil.scaleForGUI(2), 0);
-        gridBagLayout1.setConstraints(heightInfo2, c);
-        panelMain.add(heightInfo2);
-        c.gridwidth = 1;
-        c.insets = new Insets(0, 0, 0, 0);
+        // Attacker POV
+        attackerPovLabel = new JLabel(Messages.getString("Ruler.attackerPOV") + ":", SwingConstants.RIGHT);
+        attackerPovLabel.setForeground(startColor);
+        dc.gridy = detailRow;
+        dc.gridx = 0;
+        dc.anchor = GridBagConstraints.EAST;
+        dc.fill = GridBagConstraints.NONE;
+        dc.weightx = 0;
+        detailsPanel.add(attackerPovLabel, dc);
+        dc.gridx = 1;
+        dc.gridwidth = 5;
+        dc.anchor = GridBagConstraints.WEST;
+        dc.fill = GridBagConstraints.HORIZONTAL;
+        dc.weightx = 1.0;
+        detailsPanel.add(tf_los1, dc);
+        dc.gridwidth = 1;
+        dc.weightx = 0;
+        detailRow++;
 
-        // Entity selector for point 2 (hidden until hex has multiple entities)
-        c.gridx = 1;
-        c.gridy = 5;
-        c.gridwidth = 2;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        gridBagLayout1.setConstraints(cboEntity2, c);
-        panelMain.add(cboEntity2);
-        c.gridwidth = 1;
-        c.fill = GridBagConstraints.NONE;
+        // Target POV
+        targetPovLabel = new JLabel(Messages.getString("Ruler.targetPOV") + ":", SwingConstants.RIGHT);
+        targetPovLabel.setForeground(endColor);
+        dc.gridy = detailRow;
+        dc.gridx = 0;
+        dc.anchor = GridBagConstraints.EAST;
+        dc.fill = GridBagConstraints.NONE;
+        detailsPanel.add(targetPovLabel, dc);
+        dc.gridx = 1;
+        dc.gridwidth = 5;
+        dc.anchor = GridBagConstraints.WEST;
+        dc.fill = GridBagConstraints.HORIZONTAL;
+        dc.weightx = 1.0;
+        detailsPanel.add(tf_los2, dc);
+        dc.gridwidth = 1;
+        dc.weightx = 0;
+        detailRow++;
 
-        c.gridx = 0;
-        c.gridy = 6;
-        c.anchor = GridBagConstraints.EAST;
-        gridBagLayout1.setConstraints(jLabel1, c);
-        panelMain.add(jLabel1);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridx = 1;
-        c.gridwidth = 2;
-        gridBagLayout1.setConstraints(tf_start, c);
-        c.gridwidth = 1;
-        panelMain.add(tf_start);
-
-        c.gridx = 0;
-        c.gridy = 7;
-        c.anchor = GridBagConstraints.EAST;
-        gridBagLayout1.setConstraints(jLabel2, c);
-        panelMain.add(jLabel2);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridwidth = 2;
-        c.gridx = 1;
-        gridBagLayout1.setConstraints(tf_end, c);
-        c.gridwidth = 1;
-        panelMain.add(tf_end);
-
-        c.gridx = 0;
-        c.gridy = 8;
-        c.anchor = GridBagConstraints.EAST;
-        gridBagLayout1.setConstraints(jLabel3, c);
-        panelMain.add(jLabel3);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridx = 1;
-        gridBagLayout1.setConstraints(tf_distance, c);
-        panelMain.add(tf_distance);
-
-        c.gridx = 0;
-        c.gridy = 9;
-        c.anchor = GridBagConstraints.EAST;
-        gridBagLayout1.setConstraints(jLabel4, c);
-        panelMain.add(jLabel4);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridwidth = 2;
-        gridBagLayout1.setConstraints(tf_los1, c);
-        c.gridwidth = 1;
-        panelMain.add(tf_los1);
-
-        c.gridx = 0;
-        c.gridy = 10;
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.EAST;
-        gridBagLayout1.setConstraints(jLabel5, c);
-        panelMain.add(jLabel5);
-        c.anchor = GridBagConstraints.WEST;
-        c.gridx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridwidth = 2;
-        gridBagLayout1.setConstraints(tf_los2, c);
-        c.gridwidth = 1;
-        panelMain.add(tf_los2);
-
-        buttonPanel.add(butFlip);
-        buttonPanel.add(butClose);
-        c.gridx = 0;
-        c.gridy = 11;
-        c.gridwidth = 3;
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.CENTER;
-        gridBagLayout1.setConstraints(buttonPanel, c);
-        panelMain.add(buttonPanel);
-
-        // Diagram controls panel (toggle button + all terrain checkbox)
+        // Buttons: Diagram toggle, Compare toggle, Flip, Close - all on one row
         GUIPreferences guiPreferences = GUIPreferences.getInstance();
         diagramExpanded = guiPreferences.getRulerDiagramVisible();
         updateDiagramButtonText();
         butDiagram.addActionListener(e -> toggleDiagram());
 
-        JPanel diagramControlsPanel = new JPanel();
-        diagramControlsPanel.add(butDiagram);
-        c.gridx = 0;
-        c.gridy = 12;
-        c.gridwidth = 3;
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.CENTER;
-        c.insets = new Insets(4, 0, 4, 0);
-        gridBagLayout1.setConstraints(diagramControlsPanel, c);
-        panelMain.add(diagramControlsPanel);
+        compareExpanded = guiPreferences.getRulerCompareVisible();
+        updateCompareButtonText();
+        butCompare.addActionListener(e -> toggleCompare());
 
-        // Diagram panel (collapsible)
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(butDiagram);
+        buttonPanel.add(butCompare);
+        buttonPanel.add(butFlip);
+        buttonPanel.add(butClose);
+        dc.gridy = detailRow;
+        dc.gridx = 0;
+        dc.gridwidth = 6;
+        dc.anchor = GridBagConstraints.CENTER;
+        dc.fill = GridBagConstraints.NONE;
+        dc.insets = new Insets(4, 0, 0, 0);
+        detailsPanel.add(buttonPanel, dc);
+
+        // --- Main layout assembly ---
+        JPanel panelMain = new JPanel(new GridBagLayout());
+        GridBagConstraints mc = new GridBagConstraints();
+        int mainRow = 0;
+
+        mc.gridx = 0;
+        mc.gridy = mainRow++;
+        mc.fill = GridBagConstraints.HORIZONTAL;
+        mc.weightx = 1.0;
+        mc.insets = new Insets(0, 0, 0, 0);
+        panelMain.add(unitsRow, mc);
+
+        mc.gridy = mainRow++;
+        panelMain.add(detailsPanel, mc);
+
         diagramScrollPane.setVisible(diagramExpanded);
         diagramScrollPane.setMinimumSize(UIUtil.scaleForGUI(200, 150));
         diagramScrollPane.setPreferredSize(UIUtil.scaleForGUI(500, 200));
-        c.gridx = 0;
-        c.gridy = 13;
-        c.gridwidth = 3;
-        c.fill = GridBagConstraints.BOTH;
-        c.weightx = 1.0;
-        c.weighty = 1.0;
-        c.insets = new Insets(0, 0, 0, 0);
-        gridBagLayout1.setConstraints(diagramScrollPane, c);
-        panelMain.add(diagramScrollPane);
+        mc.gridy = mainRow++;
+        mc.fill = GridBagConstraints.BOTH;
+        mc.weighty = 1.0;
+        mc.insets = new Insets(0, 0, 0, 0);
+        panelMain.add(diagramScrollPane, mc);
+
+        // Compare table setup
+        compareTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        compareTable.setRowSelectionAllowed(false);
+        compareTable.setFillsViewportHeight(true);
+        compareTable.getTableHeader().setReorderingAllowed(false);
+        compareTable.setDefaultRenderer(Object.class, new CompareTableRenderer());
+
+        compareScrollPane.setVisible(compareExpanded);
+        compareScrollPane.setMinimumSize(UIUtil.scaleForGUI(200, 80));
+        compareScrollPane.setPreferredSize(UIUtil.scaleForGUI(500, 90));
+        mc.gridy = mainRow;
+        mc.weighty = 0.3;
+        panelMain.add(compareScrollPane, mc);
 
         JScrollPane sp = new JScrollPane(panelMain);
         setLayout(new BorderLayout());
         add(sp);
 
         setResizable(true);
-        setMinimumSize(UIUtil.scaleForGUI(350, 250));
+        setMinimumSize(UIUtil.scaleForGUI(450, 250));
         validate();
         setVisible(false);
+    }
+
+    /**
+     * Builds one of the two side-by-side unit panels containing height label, spinner, effective height, info line, and
+     * entity combo.
+     */
+    private JPanel buildUnitPanel(JLabel heightLabel, JSpinner heightSpinner,
+          JLabel effectiveLabel, JLabel infoLabel, JComboBox<EntityItem> entityCombo, Color color) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createLineBorder(color.darker(), 1));
+
+        effectiveLabel.setForeground(color);
+        effectiveLabel.setFont(effectiveLabel.getFont().deriveFont(Font.ITALIC));
+        infoLabel.setFont(infoLabel.getFont().deriveFont(Font.ITALIC));
+        infoLabel.setForeground(color);
+
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(2, 4, 0, 4);
+        int row = 0;
+
+        // Row 0: Height label + spinner + effective height
+        gc.gridy = row;
+        gc.gridx = 0;
+        gc.anchor = GridBagConstraints.EAST;
+        gc.fill = GridBagConstraints.NONE;
+        panel.add(heightLabel, gc);
+        gc.gridx = 1;
+        gc.anchor = GridBagConstraints.WEST;
+        panel.add(heightSpinner, gc);
+        gc.gridx = 2;
+        gc.weightx = 1.0;
+        panel.add(effectiveLabel, gc);
+        gc.weightx = 0;
+        row++;
+
+        // Row 1: Info line (Hex + Height = LOS)
+        gc.gridy = row;
+        gc.gridx = 0;
+        gc.gridwidth = 3;
+        gc.anchor = GridBagConstraints.WEST;
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.insets = new Insets(0, 4, 2, 4);
+        panel.add(infoLabel, gc);
+        gc.gridwidth = 1;
+        gc.fill = GridBagConstraints.NONE;
+        row++;
+
+        // Row 2: Entity combo (hidden until hex has multiple entities)
+        gc.gridy = row;
+        gc.gridx = 0;
+        gc.gridwidth = 3;
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.insets = new Insets(0, 4, 2, 4);
+        panel.add(entityCombo, gc);
+
+        return panel;
     }
 
     @Override
@@ -393,6 +449,8 @@ public class RulerDialog extends JDialog implements BoardViewListener {
      * interact with it (e.g., height fields, combo boxes).
      */
     private void showWithoutFocus() {
+        updateThemeColors();
+        applyColorsToUI();
         if (!isVisible()) {
             setFocusableWindowState(false);
             setVisible(true);
@@ -411,6 +469,8 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         unitType2 = DiagramUnitType.OTHER;
         heightLabel1.setText(Messages.getString("Ruler.Height"));
         heightLabel2.setText(Messages.getString("Ruler.Height"));
+        effectiveHeight1.setText("");
+        effectiveHeight2.setText("");
         heightInfo1.setText("");
         heightInfo2.setText("");
         updatingCombo = true;
@@ -421,6 +481,51 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             cboEntity2.setVisible(false);
         } finally {
             updatingCombo = false;
+        }
+    }
+
+    /**
+     * Detects whether the current L&amp;F is dark or light and sets color1/color2 accordingly. Dark themes get brighter
+     * colors for contrast; light themes get deeper colors.
+     */
+    private static void updateThemeColors() {
+        Color panelBg = UIManager.getColor("Panel.background");
+        boolean isDark = (panelBg != null)
+              && ((panelBg.getRed() + panelBg.getGreen() + panelBg.getBlue()) / 3 < 128);
+        color1 = isDark ? DARK_COLOR_1 : LIGHT_COLOR_1;
+        color2 = isDark ? DARK_COLOR_2 : LIGHT_COLOR_2;
+    }
+
+    /**
+     * Applies the current color1/color2 to all color-dependent UI elements: panel borders, labels, info text, effective
+     * height, and POV labels.
+     */
+    private void applyColorsToUI() {
+        startColor = flip ? color1 : color2;
+        endColor = flip ? color2 : color1;
+
+        // Unit panel borders
+        if (unitPanel1 != null) {
+            unitPanel1.setBorder(BorderFactory.createLineBorder(color1.darker(), 1));
+        }
+        if (unitPanel2 != null) {
+            unitPanel2.setBorder(BorderFactory.createLineBorder(color2.darker(), 1));
+        }
+
+        // Height labels, info lines, effective height labels
+        heightLabel1.setForeground(color1);
+        heightLabel2.setForeground(color2);
+        heightInfo1.setForeground(color1);
+        heightInfo2.setForeground(color2);
+        effectiveHeight1.setForeground(color1);
+        effectiveHeight2.setForeground(color2);
+
+        // POV labels
+        if (attackerPovLabel != null) {
+            attackerPovLabel.setForeground(startColor);
+        }
+        if (targetPovLabel != null) {
+            targetPovLabel.setForeground(endColor);
         }
     }
 
@@ -435,14 +540,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             start = c;
             Entity tallest = populateEntityCombo(c, cboEntity1);
             if (tallest != null) {
-                int twHeight = tallest.relHeight() + 1;
-                if ((tallest instanceof Mek) && tallest.isHullDown()) {
-                    twHeight -= 1;
-                }
-                height1.setValue(twHeight);
-                entityName1 = tallest.getDisplayName();
-                unitType1 = DiagramUnitType.fromEntity(tallest);
-                heightLabel1.setText(truncateName(tallest.getShortName()) + " Height:");
+                applyEntitySelection(tallest, true);
             }
         } else if (start.equals(c)) {
             clear();
@@ -452,18 +550,54 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             distance = start.distance(end);
             Entity tallest = populateEntityCombo(c, cboEntity2);
             if (tallest != null) {
-                int twHeight = tallest.relHeight() + 1;
-                if ((tallest instanceof Mek) && tallest.isHullDown()) {
-                    twHeight -= 1;
-                }
-                height2.setValue(twHeight);
-                entityName2 = tallest.getDisplayName();
-                unitType2 = DiagramUnitType.fromEntity(tallest);
-                heightLabel2.setText(truncateName(tallest.getShortName()) + " Height:");
+                applyEntitySelection(tallest, false);
             }
             setText();
             showWithoutFocus();
         }
+    }
+
+    /**
+     * Applies an entity selection to the appropriate point's UI fields: sets the height spinner, entity name, unit
+     * type, and height label.
+     *
+     * @param entity       the selected entity
+     * @param isFirstPoint true for attacker (point 1), false for target (point 2)
+     */
+    private void applyEntitySelection(Entity entity, boolean isFirstPoint) {
+        int twHeight = LOSHeightCalculation.twHeightFromEntity(entity);
+        DiagramUnitType unitType = DiagramUnitType.fromEntity(entity);
+        String heightTerm = getHeightLabelSuffix(entity, unitType);
+        String label = entity.getShortName() + " " + heightTerm;
+        JSpinner heightSpinner = isFirstPoint ? height1 : height2;
+        heightSpinner.setValue(twHeight);
+        if (isFirstPoint) {
+            entityName1 = entity.getDisplayName();
+            unitType1 = unitType;
+            heightLabel1.setText(label);
+        } else {
+            entityName2 = entity.getDisplayName();
+            unitType2 = unitType;
+            heightLabel2.setText(label);
+        }
+    }
+
+    /**
+     * Returns the appropriate height label suffix based on TW terminology (TW p.43):
+     * <ul>
+     *   <li>"Altitude:" for airborne aerospace units (fixed values, independent of hex level)</li>
+     *   <li>"Elevation:" for airborne non-aerospace units (VTOLs, WiGE - relative to hex level)</li>
+     *   <li>"Height:" for ground units (levels above hex terrain)</li>
+     * </ul>
+     */
+    private static String getHeightLabelSuffix(Entity entity, DiagramUnitType unitType) {
+        if (entity.isAirborne() && unitType.isAltitudeUnit()) {
+            return Messages.getString("Ruler.Altitude");
+        }
+        if (unitType.isElevationUnit() && entity.getElevation() > 0) {
+            return Messages.getString("Ruler.Elevation");
+        }
+        return Messages.getString("Ruler.Height");
     }
 
     private void setText() {
@@ -476,6 +610,8 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
         boolean isMek1 = unitType1.isMek();
         boolean isMek2 = unitType2.isMek();
+        boolean isAlt1 = unitType1.isAltitudeUnit();
+        boolean isAlt2 = unitType2.isAltitudeUnit();
 
         // Attacker POV: attacker shoots at target
         Coords attackerPos = flip ? start : end;
@@ -484,13 +620,17 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         int targetHeight = flip ? h2 : h1;
         boolean attackerIsMek = flip ? isMek1 : isMek2;
         boolean targetIsMek = flip ? isMek2 : isMek1;
+        boolean attackerIsAlt = flip ? isAlt1 : isAlt2;
+        boolean targetIsAlt = flip ? isAlt2 : isAlt1;
 
-        String toHit1 = computeFullModifiers(attackerPos, targetPos,
-              attackerHeight, targetHeight, attackerIsMek, targetIsMek);
+        String toHit1 = LOSModifierCalculator.computeFullModifiers(game, attackerPos, targetPos,
+              attackerHeight, targetHeight, attackerIsMek, targetIsMek,
+              attackerIsAlt, targetIsAlt);
 
         // Target POV: target shoots back at attacker (swap roles)
-        String toHit2 = computeFullModifiers(targetPos, attackerPos,
-              targetHeight, attackerHeight, targetIsMek, attackerIsMek);
+        String toHit2 = LOSModifierCalculator.computeFullModifiers(game, targetPos, attackerPos,
+              targetHeight, attackerHeight, targetIsMek, attackerIsMek,
+              targetIsAlt, attackerIsAlt);
 
         tf_start.setText(start.toString());
         tf_end.setText(end.toString());
@@ -500,6 +640,9 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
         updateHeightInfo();
         updateDiagram();
+        if (compareExpanded) {
+            updateCompareTable();
+        }
     }
 
     /**
@@ -507,11 +650,31 @@ public class RulerDialog extends JDialog implements BoardViewListener {
      */
     private void updateHeightInfo() {
         if (start != null && game.getBoard().contains(start)) {
-            heightInfo1.setText(buildHeightInfoText(start, (int) height1.getValue(), unitType1));
+            int twHeight = (int) height1.getValue();
+            heightInfo1.setText(buildHeightInfoText(start, twHeight, unitType1));
+            effectiveHeight1.setText(buildEffectiveHeightText(start, twHeight, unitType1));
         }
         if (end != null && game.getBoard().contains(end)) {
-            heightInfo2.setText(buildHeightInfoText(end, (int) height2.getValue(), unitType2));
+            int twHeight = (int) height2.getValue();
+            heightInfo2.setText(buildHeightInfoText(end, twHeight, unitType2));
+            effectiveHeight2.setText(buildEffectiveHeightText(end, twHeight, unitType2));
         }
+    }
+
+    /**
+     * Builds the "(Effective Height: X)" text shown next to the spinner. This is the absolute LOS height that matters
+     * for line-of-sight calculations.
+     */
+    private String buildEffectiveHeightText(Coords coords, int twHeight, DiagramUnitType unitType) {
+        Hex hex = game.getBoard().getHex(coords);
+        if (hex == null) {
+            return "";
+        }
+        if (unitType.isAltitudeUnit()) {
+            return "(Eff. Alt. for LOS: " + twHeight + ")";
+        }
+        int effectiveHeight = hex.getLevel() + twHeight;
+        return "(Eff. Height for LOS: " + effectiveHeight + ")";
     }
 
     private String buildHeightInfoText(Coords coords, int twHeight, DiagramUnitType unitType) {
@@ -521,20 +684,33 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         }
 
         int groundLevel = hex.getLevel();
-        // LOS level = spinner value + hex ground level (matches diagram label)
-        int losLevel = twHeight + groundLevel;
+        boolean isAltitude = unitType.isAltitudeUnit();
+        boolean isElevation = unitType.isElevationUnit() && twHeight > 1;
 
         StringBuilder info = new StringBuilder();
-        info.append("Hex: ").append(groundLevel);
-        info.append(" + Height: ").append(twHeight);
-        info.append(" = LOS: ").append(losLevel);
+        if (isAltitude) {
+            // Altitude: fixed value independent of hex level (TW p.43)
+            info.append("Effective Altitude for LOS: ").append(twHeight);
+        } else if (isElevation) {
+            // Elevation: airborne non-aero (VTOL/WiGE), relative to hex level (TW p.43)
+            int effectiveHeight = twHeight + groundLevel;
+            info.append("Hex: ").append(groundLevel);
+            info.append(" + Elev: ").append(twHeight);
+            info.append(" = Effective Height for LOS: ").append(effectiveHeight);
+        } else {
+            // Level/Height: ground units (TW p.43)
+            int effectiveHeight = twHeight + groundLevel;
+            info.append("Hex: ").append(groundLevel);
+            info.append(" + Height: ").append(twHeight);
+            info.append(" = Effective Height for LOS: ").append(effectiveHeight);
+        }
 
         // Status flags
-        if (unitType.isMek() && isMekHullDownAt(coords)) {
+        if (unitType.isMek() && LOSModifierCalculator.isMekHullDownAt(game, coords)) {
             info.append(" | Hull Down");
         }
 
-        int absTop = (twHeight - 1) + groundLevel;
+        int absTop = LOSHeightCalculation.toAbsoluteHeight(twHeight, groundLevel, isAltitude);
         if (hex.containsTerrain(Terrains.WATER) && hex.depth() > 0) {
             if (absTop < groundLevel) {
                 info.append(" | Underwater");
@@ -544,255 +720,6 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         }
 
         return info.toString();
-    }
-
-    /**
-     * Computes the combined to-hit modifiers for a hypothetical attack, including LOS modifiers (intervening terrain),
-     * attacker hex terrain, target hex terrain, and water partial cover. Mirrors the fire phase calculation from
-     * {@code ComputeTerrainMods} but without requiring actual Entity objects. Movement TMMs are excluded.
-     *
-     * <p>Heights are dynamically adjusted for entity state (hull-down, prone) by checking actual
-     * entities at each hex, so the calculation stays accurate even if state changed after the Ruler was opened.</p>
-     */
-    private String computeFullModifiers(Coords attackerPos, Coords targetPos,
-          int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek) {
-        // LosEffects needs the physical (non-hull-down) heights to correctly detect partial
-        // cover, matching the real game where Mek.height() doesn't change for hull-down.
-        // The hull-down modifier (+2) is applied separately via addTargetEntityStateModifiers.
-        int losAttackerHeight = attackerHeight;
-        int losTargetHeight = targetHeight;
-        if (attackerIsMek && isMekHullDownAt(attackerPos)) {
-            losAttackerHeight += 1;
-        }
-        if (targetIsMek && isMekHullDownAt(targetPos)) {
-            losTargetHeight += 1;
-        }
-
-        LosEffects.AttackInfo attackInfo = buildAttackInfo(attackerPos, targetPos,
-              losAttackerHeight, losTargetHeight, attackerIsMek, targetIsMek);
-        LosEffects losEffects = LosEffects.calculateLos(game, attackInfo);
-        ToHitData thd = losEffects.losModifiers(game);
-
-        // If LOS is blocked, no point adding terrain modifiers
-        if (thd.getValue() == TargetRoll.IMPOSSIBLE) {
-            return thd.getDesc();
-        }
-
-        // Attacker hex terrain modifiers (matching Compute.getAttackerTerrainModifier)
-        Hex attackerHex = game.getBoard().getHex(attackerPos);
-        if (attackerHex != null) {
-            addAttackerTerrainModifiers(thd, attackerHex);
-        }
-
-        // Target hex terrain modifiers (matching Compute.getTargetTerrainModifier)
-        Hex targetHex = game.getBoard().getHex(targetPos);
-        if (targetHex != null) {
-            addTargetTerrainModifiers(thd, targetHex, targetHeight);
-        }
-
-        // Water partial cover (matching ComputeTerrainMods lines 167-180)
-        if ((targetHex != null) && targetIsMek) {
-            addWaterPartialCover(thd, losEffects, targetHex, targetHeight);
-        }
-
-        // Target entity state modifiers (prone, immobile, hull down) from actual
-        // entities on the board at the target hex
-        int hexDistance = attackerPos.distance(targetPos);
-        addTargetEntityStateModifiers(thd, losEffects, targetPos, hexDistance);
-
-        String result = "";
-        if (thd.getValue() != TargetRoll.IMPOSSIBLE) {
-            result = thd.getValue() + " = ";
-        }
-        result += thd.getDesc();
-        return result;
-    }
-
-    /**
-     * Adds attacker hex terrain modifiers. Mirrors {@code Compute.getAttackerTerrainModifier()}.
-     */
-    private void addAttackerTerrainModifiers(ToHitData thd, Hex attackerHex) {
-        int screenLevel = attackerHex.terrainLevel(Terrains.SCREEN);
-        if (screenLevel > 0) {
-            thd.addModifier(screenLevel + 1, "attacker in screen(s)");
-        }
-    }
-
-    /**
-     * Adds target hex terrain modifiers. Mirrors {@code Compute.getTargetTerrainModifier()} for the subset of modifiers
-     * computable without an Entity object.
-     *
-     * @param thd             the to-hit data to append modifiers to
-     * @param targetHex       the target's hex
-     * @param targetRelHeight the target's relative height (elevation + unit height)
-     */
-    private void addTargetTerrainModifiers(ToHitData thd, Hex targetHex,
-          int targetRelHeight) {
-        // Woods/Jungle in target hex
-        boolean hasWoods = targetHex.containsTerrain(Terrains.WOODS)
-              || targetHex.containsTerrain(Terrains.JUNGLE);
-        int foliageElev = targetHex.terrainLevel(Terrains.FOLIAGE_ELEV);
-        if (foliageElev == Terrain.LEVEL_NONE) {
-            foliageElev = 0;
-        }
-
-        // Target is above woods if relHeight + 1 > foliage_elev
-        boolean isAboveWoods = !hasWoods || (targetRelHeight + 1 > foliageElev);
-
-        if (!isAboveWoods
-              && !game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_WOODS_COVER)) {
-            int woodsLevel = targetHex.terrainLevel(Terrains.WOODS);
-            int jungleLevel = targetHex.terrainLevel(Terrains.JUNGLE);
-            String foliageType = "woods";
-            int effectiveLevel = woodsLevel;
-            if (jungleLevel > woodsLevel) {
-                effectiveLevel = jungleLevel;
-                foliageType = "jungle";
-            }
-            if (effectiveLevel == 1) {
-                thd.addModifier(1, "target in light " + foliageType);
-            } else if (effectiveLevel >= 2) {
-                thd.addModifier(effectiveLevel, "target in heavy " + foliageType);
-            }
-        }
-
-        // Smoke in target hex
-        boolean isAboveSmoke = (targetRelHeight + 1 > 2)
-              || !targetHex.containsTerrain(Terrains.SMOKE);
-        if (!isAboveSmoke) {
-            int smokeLevel = targetHex.terrainLevel(Terrains.SMOKE);
-            switch (smokeLevel) {
-                case SmokeCloud.SMOKE_LIGHT:
-                case SmokeCloud.SMOKE_LI_LIGHT:
-                case SmokeCloud.SMOKE_LI_HEAVY:
-                case SmokeCloud.SMOKE_CHAFF_LIGHT:
-                case SmokeCloud.SMOKE_GREEN:
-                    thd.addModifier(1, "target in light smoke");
-                    break;
-                case SmokeCloud.SMOKE_HEAVY:
-                    thd.addModifier(2, "target in heavy smoke");
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        // Erupting geyser
-        if (targetHex.terrainLevel(Terrains.GEYSER) == 2) {
-            thd.addModifier(2, "target in erupting geyser");
-        }
-
-        // Heavy industrial zone (target not above structures)
-        if (targetHex.containsTerrain(Terrains.INDUSTRIAL)) {
-            int ceiling = targetHex.ceiling();
-            if (targetRelHeight <= ceiling) {
-                thd.addModifier(1, "target in heavy industrial zone");
-            }
-        }
-
-        // Screen in target hex
-        int screenLevel = targetHex.terrainLevel(Terrains.SCREEN);
-        if (screenLevel > 0) {
-            thd.addModifier(screenLevel + 1, "target in screen(s)");
-        }
-    }
-
-    /**
-     * Adds water partial cover for a Mek target standing in depth 1 water. Mirrors {@code ComputeTerrainMods} lines
-     * 167-180. In the fire phase, water partial cover is OR'd into existing target cover. The +1 modifier comes from
-     * {@code losModifiers()} if any partial cover is already set from terrain. We only add it here when water is the
-     * sole source of partial cover.
-     *
-     * @param thd             the to-hit data to append modifiers to
-     * @param losEffects      the LOS effects (checked for existing terrain partial cover)
-     * @param targetHex       the target's hex
-     * @param targetRelHeight the target's relative height (elevation + unit height)
-     */
-    private void addWaterPartialCover(ToHitData thd, LosEffects losEffects,
-          Hex targetHex, int targetRelHeight) {
-        if (!targetHex.containsTerrain(Terrains.WATER)) {
-            return;
-        }
-
-        int waterDepth = targetHex.terrainLevel(Terrains.WATER);
-        if (waterDepth == Terrain.LEVEL_NONE) {
-            return;
-        }
-
-        // ComputeTerrainMods checks: waterLevel == 1, targEl == 0, height > 0
-        // targEl = entity.relHeight() = elevation + height
-        // For a Mek (height=1) in depth 1 water: elevation=-1, relHeight=0
-        // targetIsMek is guaranteed by the caller's guard (Mek has height > 0)
-        if ((waterDepth == 1) && (targetRelHeight == 0)) {
-            boolean terrainCoverAlreadyApplied = losEffects.getTargetCover() != LosEffects.COVER_NONE;
-            if (!terrainCoverAlreadyApplied) {
-                thd.addModifier(1, "target has partial cover (water)");
-            }
-        }
-    }
-
-    /**
-     * Checks if a Mek at the given hex is hull-down.
-     *
-     * @param hexPos the hex coordinates to check
-     *
-     * @return true if a Mek at the hex is hull-down
-     */
-    private boolean isMekHullDownAt(Coords hexPos) {
-        List<Entity> entities = game.getEntitiesVector(hexPos);
-        for (Entity entity : entities) {
-            if ((entity instanceof Mek) && entity.isHullDown()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Adds target entity state modifiers (prone, immobile, hull down, stuck) from actual entities present on the board
-     * at the target hex. If multiple entities are present, applies the state of the first one found. These mirror the
-     * fire phase modifiers from {@code ComputeTargetToHitMods} and {@code ComputeTerrainMods}.
-     *
-     * @param thd        the to-hit data to append modifiers to
-     * @param losEffects the LOS effects (used for hull down partial cover check)
-     * @param targetPos  the target hex coordinates
-     * @param distance   the hex distance between attacker and target
-     */
-    private void addTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
-          Coords targetPos, int distance) {
-        List<Entity> entitiesAtTarget = game.getEntitiesVector(targetPos);
-        if (entitiesAtTarget.isEmpty()) {
-            return;
-        }
-
-        // Use the first entity at the target hex for state checks
-        Entity targetEntity = entitiesAtTarget.get(0);
-
-        // Prone: -2 if adjacent (distance <= 1), +1 at range (distance > 1)
-        if (targetEntity.isProne()) {
-            if (distance <= 1) {
-                thd.addModifier(-2, "target prone (adjacent)");
-            } else {
-                thd.addModifier(1, "target prone (range)");
-            }
-        }
-
-        // Immobile: -4
-        if (targetEntity.isImmobile()) {
-            thd.addModifier(-4, "target immobile");
-        }
-
-        // Hull Down: +2 for Meks with partial cover
-        if (targetEntity.isHullDown() && (targetEntity instanceof Mek)) {
-            if (losEffects.getTargetCover() > LosEffects.COVER_NONE) {
-                thd.addModifier(2, "target hull down");
-            }
-        }
-
-        // Stuck in swamp: -2
-        if (targetEntity.isStuck()) {
-            thd.addModifier(-2, "target stuck in swamp");
-        }
     }
 
     /**
@@ -812,17 +739,19 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
         LosEffects.AttackInfo attackInfo;
         if (flip) {
-            attackInfo = buildAttackInfo(start, end, h1, h2,
-                  unitType1.isMek(), unitType2.isMek());
+            attackInfo = LOSModifierCalculator.buildAttackInfo(game, start, end, h1, h2,
+                  unitType1.isMek(), unitType2.isMek(),
+                  unitType1.isAltitudeUnit(), unitType2.isAltitudeUnit());
         } else {
-            attackInfo = buildAttackInfo(end, start, h2, h1,
-                  unitType2.isMek(), unitType1.isMek());
+            attackInfo = LOSModifierCalculator.buildAttackInfo(game, end, start, h2, h1,
+                  unitType2.isMek(), unitType1.isMek(),
+                  unitType2.isAltitudeUnit(), unitType1.isAltitudeUnit());
         }
 
         Coords attackerPos = flip ? start : end;
         Coords targetPos = flip ? end : start;
-        boolean attackerHullDown = isMekHullDownAt(attackerPos);
-        boolean targetHullDown = isMekHullDownAt(targetPos);
+        boolean attackerHullDown = LOSModifierCalculator.isMekHullDownAt(game, attackerPos);
+        boolean targetHullDown = LOSModifierCalculator.isMekHullDownAt(game, targetPos);
 
         String attackerName = flip ? entityName1 : entityName2;
         String targetName = flip ? entityName2 : entityName1;
@@ -853,6 +782,143 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         butDiagram.setText(diagramExpanded
               ? Messages.getString("Ruler.hideDiagram")
               : Messages.getString("Ruler.showDiagram"));
+    }
+
+    private void toggleCompare() {
+        compareExpanded = !compareExpanded;
+        updateCompareButtonText();
+        compareScrollPane.setVisible(compareExpanded);
+        GUIPreferences.getInstance().setRulerCompareVisible(compareExpanded);
+
+        if (compareExpanded && start != null && end != null) {
+            updateCompareTable();
+        }
+
+        revalidate();
+        repaint();
+    }
+
+    private void updateCompareButtonText() {
+        butCompare.setText(compareExpanded
+              ? Messages.getString("Ruler.hideCompare")
+              : Messages.getString("Ruler.showCompare"));
+    }
+
+    /**
+     * Computes LOS under all three rule modes and populates the comparison table. Highlights the row matching the
+     * currently active mode.
+     */
+    private void updateCompareTable() {
+        if (start == null || end == null) {
+            return;
+        }
+        if (!game.getBoard().contains(start) || !game.getBoard().contains(end)) {
+            return;
+        }
+
+        int h1 = (int) height1.getValue();
+        int h2 = (int) height2.getValue();
+        boolean isMek1 = unitType1.isMek();
+        boolean isMek2 = unitType2.isMek();
+        boolean isAlt1 = unitType1.isAltitudeUnit();
+        boolean isAlt2 = unitType2.isAltitudeUnit();
+
+        Coords attackerPos = flip ? start : end;
+        Coords targetPos = flip ? end : start;
+        int attackerHeight = flip ? h1 : h2;
+        int targetHeight = flip ? h2 : h1;
+        boolean attackerIsMek = flip ? isMek1 : isMek2;
+        boolean targetIsMek = flip ? isMek2 : isMek1;
+        boolean attackerIsAlt = flip ? isAlt1 : isAlt2;
+        boolean targetIsAlt = flip ? isAlt2 : isAlt1;
+
+        LOSModifierCalculator.LOSComparison comparison = LOSModifierCalculator.computeAllModes(
+              game, attackerPos, targetPos,
+              attackerHeight, targetHeight, attackerIsMek, targetIsMek,
+              attackerIsAlt, targetIsAlt);
+
+        compareTableModel.setRowCount(0);
+        compareTableModel.addRow(new Object[] {
+              Messages.getString("Ruler.modeStandard"),
+              comparison.standardAttacker(),
+              comparison.standardTarget()
+        });
+        compareTableModel.addRow(new Object[] {
+              Messages.getString("Ruler.modeDiagrammed"),
+              comparison.diagrammedAttacker(),
+              comparison.diagrammedTarget()
+        });
+        compareTableModel.addRow(new Object[] {
+              Messages.getString("Ruler.modeDeadZone"),
+              comparison.deadZoneAttacker(),
+              comparison.deadZoneTarget()
+        });
+
+        compareTable.repaint();
+    }
+
+    /**
+     * Returns the row index (0-2) of the currently active LOS mode: 0 = Standard, 1 = Diagrammed, 2 = Dead Zone.
+     */
+    private int getActiveModeRow() {
+        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_LOS1)) {
+            return 1;
+        }
+        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_DEAD_ZONES)) {
+            return 2;
+        }
+        return 0;
+    }
+
+    /**
+     * Custom cell renderer for the comparison table. Highlights the active mode row with bold text, and rows that
+     * differ from the active mode with a subtle background.
+     */
+    private class CompareTableRenderer extends DefaultTableCellRenderer {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+              boolean isSelected, boolean hasFocus, int row, int column) {
+            java.awt.Component component = super.getTableCellRendererComponent(
+                  table, value, isSelected, hasFocus, row, column);
+
+            int activeModeRow = getActiveModeRow();
+
+            if (row == activeModeRow) {
+                // Active mode: bold text
+                component.setFont(component.getFont().deriveFont(Font.BOLD));
+                component.setBackground(table.getBackground());
+            } else {
+                component.setFont(component.getFont().deriveFont(Font.PLAIN));
+                // Check if this row's results differ from active mode row
+                boolean differs = false;
+                if (table.getModel().getRowCount() > Math.max(row, activeModeRow)) {
+                    for (int col = 1; col <= 2; col++) {
+                        Object activeValue = table.getModel().getValueAt(activeModeRow, col);
+                        Object rowValue = table.getModel().getValueAt(row, col);
+                        if ((activeValue != null) && !activeValue.equals(rowValue)) {
+                            differs = true;
+                            break;
+                        }
+                    }
+                }
+                if (differs) {
+                    // Subtle highlight for differing rows
+                    Color background = table.getBackground();
+                    boolean isDark = (background.getRed() + background.getGreen()
+                          + background.getBlue()) / 3 < 128;
+                    component.setBackground(isDark
+                          ? background.brighter()
+                          : new Color(255, 255, 220));
+                } else {
+                    component.setBackground(table.getBackground());
+                }
+            }
+            component.setForeground(table.getForeground());
+            return component;
+        }
     }
 
     private void restoreSavedBounds() {
@@ -899,57 +965,6 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         return Messages.getString("Ruler.title");
     }
 
-    /**
-     * Builds an AttackInfo for the Ruler tool, matching the calculation in
-     * {@code LosEffects.calculateLOS()}.
-     *
-     * <p>The height parameters (h1, h2) are TW unit heights from the height text fields,
-     * auto-populated from entity state (e.g., Mek = 2, hull-down Mek = 1, VTOL at elev 5 = 6).
-     * These are converted to code-internal absHeight by subtracting 1 (TW to code conversion)
-     * and adding the hex ground level.</p>
-     */
-    private LosEffects.AttackInfo buildAttackInfo(Coords c1, Coords c2, int h1, int h2, boolean attackerIsMek,
-          boolean targetIsMek) {
-        LosEffects.AttackInfo attackInfo = new LosEffects.AttackInfo();
-        attackInfo.attackPos = c1;
-        attackInfo.targetPos = c2;
-        attackInfo.attackerIsMek = attackerIsMek;
-        attackInfo.targetIsMek = targetIsMek;
-
-        // attackHeight/targetHeight = intrinsic unit height (how tall, not position)
-        // Mek.height() = 1 (code 0-indexed; TW = 2 levels), non-Mek = 0 (TW = 1 level)
-        attackInfo.attackHeight = attackerIsMek ? 1 : 0;
-        attackInfo.targetHeight = targetIsMek ? 1 : 0;
-
-        Hex attackerHex = game.getBoard().getHex(c1);
-        Hex targetHex = game.getBoard().getHex(c2);
-
-        // h1/h2 are TW heights (1-indexed). Subtract 1 to convert to code units (0-indexed),
-        // then add hexLevel to get absolute height matching LosEffects formula.
-        attackInfo.attackAbsHeight = (h1 - 1) + attackerHex.getLevel();
-        attackInfo.targetAbsHeight = (h2 - 1) + targetHex.getLevel();
-
-        // Set water state flags (matching LosEffects.calculateLOS entity-based logic)
-        boolean attackerHasWater = attackerHex.containsTerrain(Terrains.WATER)
-              && (attackerHex.depth() > 0);
-        boolean targetHasWater = targetHex.containsTerrain(Terrains.WATER)
-              && (targetHex.depth() > 0);
-
-        attackInfo.attUnderWater = attackerHasWater
-              && (attackInfo.attackAbsHeight < attackerHex.getLevel());
-        attackInfo.attInWater = attackerHasWater
-              && (attackInfo.attackAbsHeight == attackerHex.getLevel());
-        attackInfo.attOnLand = !(attackInfo.attUnderWater || attackInfo.attInWater);
-
-        attackInfo.targetUnderWater = targetHasWater
-              && (attackInfo.targetAbsHeight < targetHex.getLevel());
-        attackInfo.targetInWater = targetHasWater
-              && (attackInfo.targetAbsHeight == targetHex.getLevel());
-        attackInfo.targetOnLand = !(attackInfo.targetUnderWater || attackInfo.targetInWater);
-
-        return attackInfo;
-    }
-
     @Override
     public void hexMoused(BoardViewEvent b) {
         // ALT+click triggers the ruler/LOS tool via BOARD_HEX_CLICKED.
@@ -993,17 +1008,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
     void butFlip_actionPerformed() {
         flip = !flip;
-
-        if (startColor.equals(color1)) {
-            startColor = color2;
-            endColor = color1;
-        } else {
-            startColor = color1;
-            endColor = color2;
-        }
-
-        heightLabel1.setForeground(startColor);
-        heightLabel2.setForeground(endColor);
+        applyColorsToUI();
 
         setText();
         setVisible(true);
@@ -1040,21 +1045,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
         Entity entity = selected.entity();
         if (entity != null) {
-            int twHeight = entity.relHeight() + 1;
-            if ((entity instanceof Mek) && entity.isHullDown()) {
-                twHeight -= 1;
-            }
-            JSpinner heightSpinner = isFirstPoint ? height1 : height2;
-            heightSpinner.setValue(twHeight);
-            if (isFirstPoint) {
-                entityName1 = entity.getDisplayName();
-                unitType1 = DiagramUnitType.fromEntity(entity);
-                heightLabel1.setText(truncateName(entity.getShortName()) + " Height:");
-            } else {
-                entityName2 = entity.getDisplayName();
-                unitType2 = DiagramUnitType.fromEntity(entity);
-                heightLabel2.setText(truncateName(entity.getShortName()) + " Height:");
-            }
+            applyEntitySelection(entity, isFirstPoint);
         } else {
             // "None" selected - reset to manual defaults
             JSpinner heightSpinner = isFirstPoint ? height1 : height2;
@@ -1097,10 +1088,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
             for (Entity entity : entities) {
                 model.addElement(new EntityItem(entity));
-                int twHeight = entity.relHeight() + 1;
-                if ((entity instanceof Mek) && entity.isHullDown()) {
-                    twHeight -= 1;
-                }
+                int twHeight = LOSHeightCalculation.twHeightFromEntity(entity);
                 if (twHeight > tallestHeight) {
                     tallestHeight = twHeight;
                     tallestEntity = entity;
@@ -1127,16 +1115,6 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     @Override
     public void unitSelected(BoardViewEvent b) {
         // ignored
-    }
-
-    /**
-     * Truncates a name to {@link #MAX_NAME_LENGTH} characters for display in the height label.
-     */
-    private static String truncateName(String name) {
-        if (name.length() <= MAX_NAME_LENGTH) {
-            return name;
-        }
-        return name.substring(0, MAX_NAME_LENGTH - 2) + "..";
     }
 
     record EntityItem(Entity entity) {

@@ -206,4 +206,29 @@ enum DiagramUnitType {
     public boolean isMek() {
         return (this == BATTLE_MEK) || (this == QUAD_MEK) || (this == SUPERHEAVY_MEK) || (this == INDUSTRIAL_MEK);
     }
+
+    /**
+     * Returns whether this unit type uses altitude (TW p.43) when airborne. Altitude refers to airborne aerospace units
+     * and has fixed, unchanging values independent of hex terrain level.
+     *
+     * @return true if this unit type uses altitude when airborne
+     */
+    public boolean isAltitudeUnit() {
+        return switch (this) {
+            case AEROSPACE_FIGHTER, CONVENTIONAL_FIGHTER, DROPSHIP, SMALL_CRAFT,
+                 JUMPSHIP, WARSHIP, SPACE_STATION -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Returns whether this unit type uses elevation (TW p.43) when airborne. Elevation refers to non-aerospace airborne
+     * units (VTOLs, WiGE) and is relative to the underlying hex level, synonymous with level but used for such airborne
+     * units.
+     *
+     * @return true if this unit type uses elevation when airborne
+     */
+    public boolean isElevationUnit() {
+        return (this == VTOL_TYPE) || (this == WIGE_VEHICLE);
+    }
 }

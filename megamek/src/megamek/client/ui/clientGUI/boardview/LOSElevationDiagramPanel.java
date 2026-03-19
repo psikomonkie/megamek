@@ -48,9 +48,9 @@ import java.awt.geom.GeneralPath;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.Serial;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import javax.swing.JPanel;
 import javax.swing.JViewport;
@@ -107,6 +107,8 @@ class LOSElevationDiagramPanel extends JPanel {
     private static final Color COLOR_LOS_CLEAR = new Color(60, 220, 60);
     private static final Color COLOR_LOS_BLOCKED = new Color(240, 50, 50);
     private static final Color COLOR_SPLIT_MARKER = new Color(255, 165, 0, 120);
+    private static final Color COLOR_SKY_TOP = new Color(135, 190, 235, 50);
+    private static final Color COLOR_SKY_BOTTOM = new Color(180, 215, 245, 25);
 
     private static final float[] LOS_DASH_PATTERN = { 8.0f, 5.0f };
     private static final Stroke STROKE_LOS = new BasicStroke(
@@ -117,10 +119,34 @@ class LOSElevationDiagramPanel extends JPanel {
     private static final Stroke STROKE_SPLIT = new BasicStroke(
           1.0f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10.0f, DASH_PATTERN, 0.0f);
 
+    /** Width of the unit silhouette as a fraction of the hex column width. */
+    private static final float SILHOUETTE_WIDTH_FACTOR = 0.7f;
+
+    /** Minimum width of the smoke plume at the base, as a fraction of the column width. */
+    private static final double SMOKE_PLUME_BASE_WIDTH = 0.3;
+
+    /** Exponent controlling how quickly the smoke plume widens toward the top. */
+    private static final double SMOKE_PLUME_WIDTH_EXPONENT = 0.6;
+
+    /** Fraction of column width that smoke overflows at the top of the plume. */
+    private static final double SMOKE_OVERFLOW_FACTOR = 0.3;
+
+    /** Fraction of puff size to add as a boost toward the top of the plume. */
+    private static final double SMOKE_PUFF_SIZE_BOOST = 0.6;
+
+    /** Aspect ratio (height/width) for individual smoke puffs in the plume. */
+    private static final double SMOKE_PUFF_ASPECT_RATIO = 0.7;
+
+    /** Aspect ratio (height/width) for the larger crown puffs at the plume top. */
+    private static final double SMOKE_CROWN_ASPECT_RATIO = 0.65;
+
     private static final String LOS_SILHOUETTE_DIR = "units" + File.separator + "LOS" + File.separator;
 
-    /** Cache of loaded silhouette images keyed by filename. Null values mean load was attempted but failed. */
-    private static final Map<String, BufferedImage> silhouetteCache = new HashMap<>();
+    /** Cache of loaded silhouette images keyed by filename. Uses {@link #MISSING_IMAGE} as sentinel for failed loads. */
+    private static final Map<String, BufferedImage> silhouetteCache = new ConcurrentHashMap<>();
+
+    /** Sentinel value for failed image loads (ConcurrentHashMap does not allow null values). */
+    private static final BufferedImage MISSING_IMAGE = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 
     private LOSDiagramData diagramData;
     private int dragStartX;
@@ -238,6 +264,7 @@ class LOSElevationDiagramPanel extends JPanel {
             DiagramMetrics metrics = calculateMetrics(hexPath);
 
             drawGrid(g2d, metrics);
+            drawSkyGradient(g2d, metrics, hexPath);
             drawTerrain(g2d, metrics, hexPath);
             drawTerrainLabels(g2d, metrics, hexPath);
             if (metrics.clippedTop || metrics.clippedBottom) {
@@ -295,6 +322,12 @@ class LOSElevationDiagramPanel extends JPanel {
 
         // Include unit positions in the range. absHeight is the unit top (TW height).
         // Unit bottom = absHeight - TW height (accounts for elevation, e.g., VTOLs).
+        // Airborne aero (altitude) units are excluded - they are drawn above the break line.
+        boolean attackerIsAltitude = diagramData.attackerUnitType().isAltitudeUnit()
+              && (diagramData.attackerAbsHeight() > maxLevel);
+        boolean targetIsAltitude = diagramData.targetUnitType().isAltitudeUnit()
+              && (diagramData.targetAbsHeight() > maxLevel);
+
         int attackerTwHeight = diagramData.attackerUnitType().twHeight()
               - (diagramData.attackerIsHullDown() ? 1 : 0);
         int targetTwHeight = diagramData.targetUnitType().twHeight()
@@ -302,9 +335,14 @@ class LOSElevationDiagramPanel extends JPanel {
         int attackerBottom = diagramData.attackerAbsHeight() - attackerTwHeight;
         int targetBottom = diagramData.targetAbsHeight() - targetTwHeight;
 
-        minLevel = Math.min(minLevel, Math.min(attackerBottom, targetBottom));
-        maxLevel = Math.max(maxLevel, Math.max(diagramData.attackerAbsHeight(),
-              diagramData.targetAbsHeight()));
+        if (!attackerIsAltitude) {
+            minLevel = Math.min(minLevel, attackerBottom);
+            maxLevel = Math.max(maxLevel, diagramData.attackerAbsHeight());
+        }
+        if (!targetIsAltitude) {
+            minLevel = Math.min(minLevel, targetBottom);
+            maxLevel = Math.max(maxLevel, diagramData.targetAbsHeight());
+        }
 
         // Add padding so units and terrain don't touch the edges
         minLevel -= LEVEL_PADDING;
@@ -319,21 +357,27 @@ class LOSElevationDiagramPanel extends JPanel {
         // Cap display range at MAX_DISPLAY_RANGE levels for readability
         int naturalRange = maxLevel - minLevel;
         if (naturalRange > MAX_DISPLAY_RANGE) {
-            // Center the visible window on the midpoint between attacker and target
-            int center = (diagramData.attackerAbsHeight() + diagramData.targetAbsHeight()) / 2;
+            // Center the visible window on ground-relevant units only (altitude units are above break)
+            int groundAttackerHeight = attackerIsAltitude ? 0 : diagramData.attackerAbsHeight();
+            int groundTargetHeight = targetIsAltitude ? 0 : diagramData.targetAbsHeight();
+            int center = (groundAttackerHeight + groundTargetHeight) / 2;
             int cappedMin = center - MAX_DISPLAY_RANGE / 2;
             int cappedMax = center + MAX_DISPLAY_RANGE / 2;
 
-            // Adjust to ensure both attacker and target heights are visible
-            int highestUnit = Math.max(diagramData.attackerAbsHeight(), diagramData.targetAbsHeight());
-            int lowestUnit = Math.min(attackerBottom, targetBottom);
+            // Adjust to ensure ground units are visible (altitude units are excluded)
+            int highestUnit = Math.max(
+                  attackerIsAltitude ? Integer.MIN_VALUE : diagramData.attackerAbsHeight(),
+                  targetIsAltitude ? Integer.MIN_VALUE : diagramData.targetAbsHeight());
+            int lowestUnit = Math.min(
+                  attackerIsAltitude ? Integer.MAX_VALUE : attackerBottom,
+                  targetIsAltitude ? Integer.MAX_VALUE : targetBottom);
 
-            if (highestUnit > cappedMax - LEVEL_PADDING) {
+            if ((highestUnit != Integer.MIN_VALUE) && (highestUnit > cappedMax - LEVEL_PADDING)) {
                 int shift = highestUnit - (cappedMax - LEVEL_PADDING);
                 cappedMax += shift;
                 cappedMin += shift;
             }
-            if (lowestUnit < cappedMin + LEVEL_PADDING) {
+            if ((lowestUnit != Integer.MAX_VALUE) && (lowestUnit < cappedMin + LEVEL_PADDING)) {
                 int shift = (cappedMin + LEVEL_PADDING) - lowestUnit;
                 cappedMin -= shift;
                 cappedMax -= shift;
@@ -345,6 +389,11 @@ class LOSElevationDiagramPanel extends JPanel {
             maxLevel = cappedMax;
         }
 
+        // Force break indicator when altitude units are above the visible range
+        if (attackerIsAltitude || targetIsAltitude) {
+            clippedTop = true;
+        }
+
         int levelRange = Math.max(maxLevel - minLevel, 1);
         double levelHeight = (double) drawAreaHeight / levelRange;
 
@@ -354,7 +403,8 @@ class LOSElevationDiagramPanel extends JPanel {
               hexColumnWidth, levelHeight,
               minLevel, maxLevel, hexCount,
               clippedTop, clippedBottom,
-              actualMinLevel, actualMaxLevel
+              actualMinLevel, actualMaxLevel,
+              attackerIsAltitude, targetIsAltitude
         );
     }
 
@@ -406,6 +456,35 @@ class LOSElevationDiagramPanel extends JPanel {
             int xPos = metrics.leftMargin + (i * metrics.hexColumnWidth);
             g2d.drawLine(xPos, metrics.topMargin, xPos,
                   metrics.topMargin + metrics.drawAreaHeight);
+        }
+    }
+
+    /**
+     * Draws a subtle sky gradient above ground level in each hex column. The gradient fades from a stronger sky blue at
+     * the top of the diagram to a softer tint near ground level, giving visual context that the area above ground is
+     * airspace. This is especially helpful when aerospace units are at high altitude.
+     */
+    private void drawSkyGradient(Graphics2D g2d, DiagramMetrics metrics, List<HexRow> hexPath) {
+        int yTop = metrics.topMargin;
+        for (int i = 0; i < hexPath.size(); i++) {
+            HexRow hex = hexPath.get(i);
+            int xLeft = metrics.leftMargin + (i * metrics.hexColumnWidth);
+            int columnWidth = metrics.hexColumnWidth;
+            int yGround = metrics.levelToY(hex.groundElevation());
+
+            int skyHeight = yGround - yTop;
+            if (skyHeight <= 0) {
+                continue;
+            }
+
+            // Draw a vertical gradient from sky-top color at the diagram top to sky-bottom color at ground level
+            java.awt.GradientPaint skyGradient = new java.awt.GradientPaint(
+                  0, yTop, COLOR_SKY_TOP,
+                  0, yGround, COLOR_SKY_BOTTOM);
+            java.awt.Paint oldPaint = g2d.getPaint();
+            g2d.setPaint(skyGradient);
+            g2d.fillRect(xLeft, yTop, columnWidth, skyHeight);
+            g2d.setPaint(oldPaint);
         }
     }
 
@@ -759,11 +838,12 @@ class LOSElevationDiagramPanel extends JPanel {
 
             // Plume width: narrow at base (~30%), expands to full + overflow at top
             // Use a curve so it expands gradually then billows out
-            double widthFactor = 0.3 + 0.7 * Math.pow(progress, 0.6);
+            double widthFactor = SMOKE_PLUME_BASE_WIDTH
+                  + (1.0 - SMOKE_PLUME_BASE_WIDTH) * Math.pow(progress, SMOKE_PLUME_WIDTH_EXPONENT);
             int layerWidth = (int) (width * widthFactor);
 
             // Allow overflow beyond column at top
-            int overflow = (int) (width * 0.3 * progress);
+            int overflow = (int) (width * SMOKE_OVERFLOW_FACTOR * progress);
             layerWidth += overflow;
 
             int layerX = centerX - layerWidth / 2;
@@ -784,9 +864,9 @@ class LOSElevationDiagramPanel extends JPanel {
                 int py = layerY + jitterY;
 
                 // Puff size grows toward the top
-                int sizeBoost = (int) (puffSize * 0.6 * progress);
+                int sizeBoost = (int) (puffSize * SMOKE_PUFF_SIZE_BOOST * progress);
                 int puffW = puffSize + sizeBoost + (hash % 3) * puffSize / 5;
-                int puffH = (int) (puffW * 0.7);
+                int puffH = (int) (puffW * SMOKE_PUFF_ASPECT_RATIO);
 
                 // Opacity: dense in the middle column, fading at edges and very top
                 double edgeFade = 1.0 - 0.4 * Math.abs(puffProgress - 0.5) * 2;
@@ -816,7 +896,7 @@ class LOSElevationDiagramPanel extends JPanel {
             int jitterX = (hash - 3) * crownPuffSize / 4;
             int jitterY = (hash % 3 - 1) * crownPuffSize / 3;
             int puffW = crownPuffSize + (hash % 3) * crownPuffSize / 3;
-            int puffH = (int) (puffW * 0.65);
+            int puffH = (int) (puffW * SMOKE_CROWN_ASPECT_RATIO);
             g2d.setColor(new Color(crownGray, crownGray, crownGray, crownAlpha));
             g2d.fillOval(px + jitterX, y - crownPuffSize / 3 + jitterY, puffW, puffH);
         }
@@ -930,36 +1010,79 @@ class LOSElevationDiagramPanel extends JPanel {
         g2d.drawString(label, xCenter - labelWidth / 2, y);
     }
 
+    /** Height in pixels reserved above the break line for altitude unit silhouettes. */
+    private static final int ALTITUDE_SILHOUETTE_HEIGHT = 24;
+
     /**
      * Draws unit silhouettes at attacker and target hexes. The absHeight values from LOSDiagramData already include the
      * +1 TW correction, so a Mek at code height 1 on level 4 has absHeight=6, giving a 2-level silhouette (4 to 6).
+     * Airborne altitude units (aerospace) are drawn above the break indicator line.
      */
     private void drawUnitBars(Graphics2D g2d, DiagramMetrics metrics, List<HexRow> hexPath) {
         if (hexPath.isEmpty()) {
             return;
         }
 
-        // Attacker silhouette - hull-down reduces height by 1 level
-        int attackerTwHeight = diagramData.attackerUnitType().twHeight();
-        if (diagramData.attackerIsHullDown()) {
-            attackerTwHeight = Math.max(1, attackerTwHeight - 1);
+        // Attacker silhouette
+        if (metrics.attackerIsAltitude) {
+            drawAltitudeUnitAboveBreak(g2d, metrics, 0, RulerDialog.color1,
+                  diagramData.attackerUnitType(), diagramData.attackerAbsHeight(), true);
+        } else {
+            int attackerTwHeight = diagramData.attackerUnitType().twHeight();
+            if (diagramData.attackerIsHullDown()) {
+                attackerTwHeight = Math.max(1, attackerTwHeight - 1);
+            }
+            int attackerTop = diagramData.attackerAbsHeight();
+            int attackerBottom = attackerTop - attackerTwHeight;
+            drawUnitSilhouette(g2d, metrics, 0, attackerBottom, attackerTop,
+                  RulerDialog.color1,
+                  diagramData.attackerUnitType(), true);
         }
-        int attackerTop = diagramData.attackerAbsHeight();
-        int attackerBottom = attackerTop - attackerTwHeight;
-        drawUnitSilhouette(g2d, metrics, 0, attackerBottom, attackerTop,
-              RulerDialog.color1,
-              diagramData.attackerUnitType(), true);
 
-        // Target silhouette - hull-down reduces height by 1 level
-        int targetTwHeight = diagramData.targetUnitType().twHeight();
-        if (diagramData.targetIsHullDown()) {
-            targetTwHeight = Math.max(1, targetTwHeight - 1);
+        // Target silhouette
+        if (metrics.targetIsAltitude) {
+            drawAltitudeUnitAboveBreak(g2d, metrics, hexPath.size() - 1, RulerDialog.color2,
+                  diagramData.targetUnitType(), diagramData.targetAbsHeight(), false);
+        } else {
+            int targetTwHeight = diagramData.targetUnitType().twHeight();
+            if (diagramData.targetIsHullDown()) {
+                targetTwHeight = Math.max(1, targetTwHeight - 1);
+            }
+            int targetTop = diagramData.targetAbsHeight();
+            int targetBottom = targetTop - targetTwHeight;
+            drawUnitSilhouette(g2d, metrics, hexPath.size() - 1, targetBottom, targetTop,
+                  RulerDialog.color2,
+                  diagramData.targetUnitType(), false);
         }
-        int targetTop = diagramData.targetAbsHeight();
-        int targetBottom = targetTop - targetTwHeight;
-        drawUnitSilhouette(g2d, metrics, hexPath.size() - 1, targetBottom, targetTop,
-              RulerDialog.color2,
-              diagramData.targetUnitType(), false);
+    }
+
+    /**
+     * Draws an altitude unit's silhouette above the break indicator line, with an altitude label. This is used for
+     * airborne aerospace units whose altitude is independent of hex terrain.
+     */
+    private void drawAltitudeUnitAboveBreak(Graphics2D g2d, DiagramMetrics metrics,
+          int hexIndex, Color color, DiagramUnitType unitType, int altitude, boolean facingRight) {
+        int xCenter = metrics.leftMargin + (hexIndex * metrics.hexColumnWidth)
+              + (metrics.hexColumnWidth / 2);
+        int scaledHeight = UIUtil.scaleForGUI(ALTITUDE_SILHOUETTE_HEIGHT);
+        int silhouetteWidth = (int) (metrics.hexColumnWidth * SILHOUETTE_WIDTH_FACTOR);
+
+        // Position above the top margin (above the break indicator)
+        int yBottom = metrics.topMargin - UIUtil.scaleForGUI(2);
+        int yTop = yBottom - scaledHeight;
+
+        // Draw the silhouette using the existing rendering infrastructure
+        drawUnitShape(g2d, unitType, xCenter, yTop, silhouetteWidth, scaledHeight,
+              color, facingRight);
+
+        // Draw altitude label below the silhouette
+        Font labelFont = g2d.getFont().deriveFont(Font.BOLD, UIUtil.scaleForGUI(9.0f));
+        g2d.setFont(labelFont);
+        g2d.setColor(color);
+        String altLabel = "Alt " + altitude;
+        FontMetrics fontMetrics = g2d.getFontMetrics();
+        int labelWidth = fontMetrics.stringWidth(altLabel);
+        g2d.drawString(altLabel, xCenter - labelWidth / 2, yBottom + fontMetrics.getHeight());
     }
 
     private void drawUnitSilhouette(Graphics2D g2d, DiagramMetrics metrics,
@@ -970,7 +1093,7 @@ class LOSElevationDiagramPanel extends JPanel {
         int yBottom = metrics.levelToY(bottomLevel);
 
         // Use column width as the silhouette width basis instead of the tiny barWidth
-        int silhouetteWidth = (int) (metrics.hexColumnWidth * 0.7f);
+        int silhouetteWidth = (int) (metrics.hexColumnWidth * SILHOUETTE_WIDTH_FACTOR);
 
         // The silhouette must fit within its TW level height (e.g. 2 levels for Meks, 1 for vehicles).
         // It anchors at the bottom (feet on ground) and extends upward.
@@ -978,106 +1101,17 @@ class LOSElevationDiagramPanel extends JPanel {
         int silhouetteHeight = levelBasedHeight;
         int yTop = yBottom - silhouetteHeight;
 
-        switch (unitType) {
-            case BATTLE_MEK ->
-                  drawMekSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case QUAD_MEK ->
-                  drawQuadMekSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case SUPERHEAVY_MEK -> {
-                // Draw the silhouette at 2 levels (bottom 2/3 of the 3-level span),
-                // with a T-bar turret marker extending up to the actual top level
-                int bodyHeight = Math.max(yBottom - metrics.levelToY(bottomLevel + 2), 2);
-                int yBodyTop = yBottom - bodyHeight;
-                drawSuperHeavyMekSilhouette(g2d, xCenter, yBodyTop, silhouetteWidth, bodyHeight,
-                      barColor, facingRight);
-                drawTurretMarker(g2d, xCenter, yBodyTop, yTop, barColor);
-            }
-            case INDUSTRIAL_MEK -> drawIndustrialMekSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case TRACKED_VEHICLE -> drawTrackedVehicleSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case HOVER_VEHICLE -> drawHoverVehicleSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case WHEELED_VEHICLE -> drawWheeledVehicleSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case WIGE_VEHICLE ->
-                  drawWigeSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case SUPPORT_VEHICLE ->
-                  drawSupportVehicleSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case VTOL_TYPE ->
-                  drawVtolSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case NAVAL -> drawNavalSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case SUBMARINE ->
-                  drawSubmarineSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case INFANTRY ->
-                  drawInfantrySilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case JUMP_INFANTRY -> drawJumpInfantrySilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case MOTORIZED_INFANTRY -> drawMotorizedInfantrySilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case MECHANIZED_INFANTRY -> drawMechanizedInfantrySilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case BATTLE_ARMOR -> drawBattleArmorSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case PROTO_MEK ->
-                  drawProtoMekSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor, facingRight);
-            case AEROSPACE_FIGHTER -> drawAeroFighterSilhouette(g2d,
-                  xCenter,
-                  yTop,
-                  silhouetteWidth,
-                  silhouetteHeight,
-                  barColor,
-                  facingRight);
-            case CONVENTIONAL_FIGHTER ->
-                  drawConvFighterSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case DROPSHIP -> drawDropShipSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case SMALL_CRAFT ->
-                  drawSmallCraftSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case JUMPSHIP -> drawJumpShipSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case WARSHIP -> drawWarShipSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            case SPACE_STATION ->
-                  drawSpaceStationSilhouette(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
-            default -> drawDefaultBar(g2d, xCenter, yTop, silhouetteWidth, silhouetteHeight, barColor);
+        if (unitType == DiagramUnitType.SUPERHEAVY_MEK) {
+            // Draw the silhouette at 2 levels (bottom 2/3 of the 3-level span),
+            // with a T-bar turret marker extending up to the actual top level
+            int bodyHeight = Math.max(yBottom - metrics.levelToY(bottomLevel + 2), 2);
+            int yBodyTop = yBottom - bodyHeight;
+            drawSuperHeavyMekSilhouette(g2d, xCenter, yBodyTop, silhouetteWidth, bodyHeight,
+                  barColor, facingRight);
+            drawTurretMarker(g2d, xCenter, yBodyTop, yTop, barColor);
+        } else {
+            drawUnitShape(g2d, unitType, xCenter, yTop, silhouetteWidth, silhouetteHeight,
+                  barColor, facingRight);
         }
 
         // Draw height label above the silhouette
@@ -1088,6 +1122,44 @@ class LOSElevationDiagramPanel extends JPanel {
         FontMetrics fontMetrics = g2d.getFontMetrics();
         int labelWidth = fontMetrics.stringWidth(heightStr);
         g2d.drawString(heightStr, xCenter - labelWidth / 2, yTop - 3);
+    }
+
+    /**
+     * Draws a unit shape at the given pixel position. This is the shape-only rendering, separated from the
+     * level-to-pixel positioning logic in {@link #drawUnitSilhouette} so it can also be used by
+     * {@link #drawAltitudeUnitAboveBreak} for airborne aero units.
+     */
+    private void drawUnitShape(Graphics2D g2d, DiagramUnitType unitType, int xCenter, int yTop,
+          int width, int height, Color color, boolean facingRight) {
+        switch (unitType) {
+            case BATTLE_MEK -> drawMekSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case QUAD_MEK -> drawQuadMekSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case INDUSTRIAL_MEK -> drawIndustrialMekSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case TRACKED_VEHICLE -> drawTrackedVehicleSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case HOVER_VEHICLE -> drawHoverVehicleSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case WHEELED_VEHICLE -> drawWheeledVehicleSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case WIGE_VEHICLE -> drawWigeSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case SUPPORT_VEHICLE -> drawSupportVehicleSilhouette(g2d, xCenter, yTop, width, height, color);
+            case VTOL_TYPE -> drawVtolSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case NAVAL -> drawNavalSilhouette(g2d, xCenter, yTop, width, height, color);
+            case SUBMARINE -> drawSubmarineSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case INFANTRY -> drawInfantrySilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case JUMP_INFANTRY -> drawJumpInfantrySilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case MOTORIZED_INFANTRY ->
+                  drawMotorizedInfantrySilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case MECHANIZED_INFANTRY ->
+                  drawMechanizedInfantrySilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case BATTLE_ARMOR -> drawBattleArmorSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case PROTO_MEK -> drawProtoMekSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case AEROSPACE_FIGHTER -> drawAeroFighterSilhouette(g2d, xCenter, yTop, width, height, color, facingRight);
+            case CONVENTIONAL_FIGHTER -> drawConvFighterSilhouette(g2d, xCenter, yTop, width, height, color);
+            case DROPSHIP -> drawDropShipSilhouette(g2d, xCenter, yTop, width, height, color);
+            case SMALL_CRAFT -> drawSmallCraftSilhouette(g2d, xCenter, yTop, width, height, color);
+            case JUMPSHIP -> drawJumpShipSilhouette(g2d, xCenter, yTop, width, height, color);
+            case WARSHIP -> drawWarShipSilhouette(g2d, xCenter, yTop, width, height, color);
+            case SPACE_STATION -> drawSpaceStationSilhouette(g2d, xCenter, yTop, width, height, color);
+            default -> drawDefaultBar(g2d, xCenter, yTop, width, height, color);
+        }
     }
 
     /**
@@ -1764,8 +1836,11 @@ class LOSElevationDiagramPanel extends JPanel {
      * @return the loaded image, or null if the file could not be loaded
      */
     private static BufferedImage loadSilhouetteImage(String filename) {
-        if (silhouetteCache.containsKey(filename)) {
-            return silhouetteCache.get(filename);
+        // ConcurrentHashMap.computeIfAbsent is atomic and thread-safe.
+        // The sentinel MISSING_IMAGE is used because ConcurrentHashMap does not allow null values.
+        BufferedImage cached = silhouetteCache.get(filename);
+        if (cached != null) {
+            return cached == MISSING_IMAGE ? null : cached;
         }
 
         BufferedImage image = null;
@@ -1774,10 +1849,10 @@ class LOSElevationDiagramPanel extends JPanel {
             try {
                 image = ImageIO.read(imageFile);
             } catch (Exception ignored) {
-                // Failed to load - will cache null
+                // Failed to load
             }
         }
-        silhouetteCache.put(filename, image);
+        silhouetteCache.put(filename, image != null ? image : MISSING_IMAGE);
         return image;
     }
 
@@ -1884,21 +1959,26 @@ class LOSElevationDiagramPanel extends JPanel {
     }
 
     /** Cached crosshair image for empty hex targets. */
-    private static BufferedImage crosshairImage;
-    private static boolean crosshairLoaded = false;
+    private static volatile BufferedImage crosshairImage;
+    private static volatile boolean crosshairLoaded = false;
 
     private static BufferedImage loadCrosshairImage() {
         if (crosshairLoaded) {
             return crosshairImage;
         }
-        crosshairLoaded = true;
-        File imageFile = new File(Configuration.imagesDir(), "hexes" + File.separator + "nukeinc.gif");
-        if (imageFile.exists()) {
-            try {
-                crosshairImage = ImageIO.read(imageFile);
-            } catch (Exception ignored) {
-                // Failed to load
+        synchronized (LOSElevationDiagramPanel.class) {
+            if (crosshairLoaded) {
+                return crosshairImage;
             }
+            File imageFile = new File(Configuration.imagesDir(), "hexes" + File.separator + "nukeinc.gif");
+            if (imageFile.exists()) {
+                try {
+                    crosshairImage = ImageIO.read(imageFile);
+                } catch (Exception ignored) {
+                    // Failed to load
+                }
+            }
+            crosshairLoaded = true;
         }
         return crosshairImage;
     }
@@ -1994,15 +2074,55 @@ class LOSElevationDiagramPanel extends JPanel {
         }
 
         int xStart = metrics.leftMargin + (metrics.hexColumnWidth / 2);
-        int yStart = metrics.levelToY(diagramData.attackerAbsHeight());
         int xEnd = metrics.leftMargin + ((hexPath.size() - 1) * metrics.hexColumnWidth)
               + (metrics.hexColumnWidth / 2);
-        int targetLosHeight = diagramData.targetAbsHeight();
-        int yEnd = metrics.levelToY(targetLosHeight);
+
+        // For altitude units, the LOS line originates from above the break indicator
+        int yStart;
+        if (metrics.attackerIsAltitude) {
+            yStart = metrics.topMargin - UIUtil.scaleForGUI(ALTITUDE_SILHOUETTE_HEIGHT / 2);
+        } else {
+            yStart = metrics.levelToY(diagramData.attackerAbsHeight());
+        }
+        int yEnd;
+        if (metrics.targetIsAltitude) {
+            yEnd = metrics.topMargin - UIUtil.scaleForGUI(ALTITUDE_SILHOUETTE_HEIGHT / 2);
+        } else {
+            yEnd = metrics.levelToY(diagramData.targetAbsHeight());
+        }
+
+        // Clip the LOS line to the visible drawing area so it spans the full diagram width
+        // even when endpoints are far outside the visible elevation range (e.g., aerospace at altitude 1000).
+        // Without clipping, the line would only be visible in the small region where it crosses the panel.
+        int yMin = metrics.topMargin;
+        int yMax = metrics.topMargin + metrics.drawAreaHeight;
+
+        int clippedXStart = xStart;
+        int clippedYStart = yStart;
+        int clippedXEnd = xEnd;
+        int clippedYEnd = yEnd;
+
+        // Cohen-Sutherland-style clipping against top and bottom edges
+        if (yStart != yEnd) {
+            if (yStart < yMin) {
+                clippedXStart = xStart + (int) ((long) (xEnd - xStart) * (yMin - yStart) / (yEnd - yStart));
+                clippedYStart = yMin;
+            } else if (yStart > yMax) {
+                clippedXStart = xStart + (int) ((long) (xEnd - xStart) * (yMax - yStart) / (yEnd - yStart));
+                clippedYStart = yMax;
+            }
+            if (yEnd < yMin) {
+                clippedXEnd = xStart + (int) ((long) (xEnd - xStart) * (yMin - yStart) / (yEnd - yStart));
+                clippedYEnd = yMin;
+            } else if (yEnd > yMax) {
+                clippedXEnd = xStart + (int) ((long) (xEnd - xStart) * (yMax - yStart) / (yEnd - yStart));
+                clippedYEnd = yMax;
+            }
+        }
 
         g2d.setStroke(STROKE_LOS);
         g2d.setColor(diagramData.losBlocked() ? COLOR_LOS_BLOCKED : COLOR_LOS_CLEAR);
-        g2d.drawLine(xStart, yStart, xEnd, yEnd);
+        g2d.drawLine(clippedXStart, clippedYStart, clippedXEnd, clippedYEnd);
         g2d.setStroke(STROKE_DEFAULT);
     }
 
@@ -2182,7 +2302,9 @@ class LOSElevationDiagramPanel extends JPanel {
           boolean clippedTop,
           boolean clippedBottom,
           int actualMinLevel,
-          int actualMaxLevel
+          int actualMaxLevel,
+          boolean attackerIsAltitude,
+          boolean targetIsAltitude
     ) {
         /**
          * Converts an elevation level to a Y pixel coordinate. Higher levels have lower Y values (screen coordinates

@@ -432,6 +432,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
     public static final String SHOW_TRACE_OVERLAY = "ShowTraceOverlay";
     public static final String UNIT_LABEL_STYLE = "UnitLabelStyle";
     public static final String RULER_DIAGRAM_VISIBLE = "RulerDiagramVisible";
+    public static final String RULER_COMPARE_VISIBLE = "RulerCompareVisible";
 
     public static final String AS_CARD_FONT = "AsCardFont";
     public static final String AS_CARD_SIZE = "AsCardSize";
@@ -3756,6 +3757,14 @@ public class GUIPreferences extends PreferenceStoreProxy {
 
     public void setRulerDiagramVisible(boolean visible) {
         store.setValue(RULER_DIAGRAM_VISIBLE, visible);
+    }
+
+    public boolean getRulerCompareVisible() {
+        return store.getBoolean(RULER_COMPARE_VISIBLE);
+    }
+
+    public void setRulerCompareVisible(boolean visible) {
+        store.setValue(RULER_COMPARE_VISIBLE, visible);
     }
     // endregion Ruler Diagram
 }
