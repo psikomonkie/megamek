@@ -1,6 +1,6 @@
 /*
   Copyright (C) 2003, 2004 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2003-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2003-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -404,6 +404,9 @@ public abstract class TurnOrdered implements ITurnOrdered {
     public static void rollInitAndResolveTies(List<? extends ITurnOrdered> initiativeCandidates,
           List<? extends ITurnOrdered> rerollRequests, boolean bInitCompBonus,
           Map<Team, Integer> initiativeAptitude) {
+        // Cache the team-level breakdown per player.
+        Map<Player, InitiativeBonusBreakdown> playerBreakdownCache = new HashMap<>();
+
         for (ITurnOrdered initiativeCandidate : initiativeCandidates) {
             // Observers don't have initiative, set it to -1
             if (((initiativeCandidate instanceof Player) && ((Player) initiativeCandidate).isObserver()) ||
@@ -440,15 +443,33 @@ public abstract class TurnOrdered implements ITurnOrdered {
                         // bonuses are still based on the best qualifying unit in the whole player
                         // force — the same bonuses as in team initiative. Player-level methods
                         // already handle eligibility (active, deployed, not destroyed, etc.).
+                        final IGame game = entity.getGame();
+                        InitiativeBonusBreakdown base = playerBreakdownCache.computeIfAbsent(player, p -> {
+                            Team playerTeam = game.getTeamForPlayer(p);
+                            return (playerTeam != null)
+                                  ? playerTeam.getInitBonusBreakdown(bInitCompBonus)
+                                  : new InitiativeBonusBreakdown(
+                                  p.getHQInitBonus(),
+                                  p.getQuirkInitBonus(),
+                                  p.getQuirkInitBonusName(),
+                                  p.getCommandConsoleBonus(),
+                                  p.getCrewCommandBonus(),
+                                  p.getTCPInitBonus(),
+                                  p.getConstantInitBonus(),
+                                  bInitCompBonus ? p.getInitCompensationBonus() : 0,
+                                  0
+                            );
+                        });
+                        // Inject the per-entity crew bonus (the only component that varies per unit).
                         breakdown = new InitiativeBonusBreakdown(
-                              player.getHQInitBonus(),
-                              player.getQuirkInitBonus(),
-                              player.getQuirkInitBonusName(),
-                              player.getCommandConsoleBonus(),
-                              player.getCrewCommandBonus(),
-                              player.getTCPInitBonus(),
-                              player.getConstantInitBonus(),
-                              bInitCompBonus ? player.getInitCompensationBonus() : 0,
+                              base.hq(),
+                              base.quirk(),
+                              base.quirkName(),
+                              base.console(),
+                              base.crewCommand(),
+                              base.tcp(),
+                              base.constant(),
+                              base.compensation(),
                               entity.getCrew().getInitBonus()
                         );
 
