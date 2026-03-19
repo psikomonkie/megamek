@@ -48,7 +48,6 @@ import java.io.Serial;
 import java.util.List;
 import javax.swing.*;
 
-import megamek.client.Client;
 import megamek.client.event.BoardViewEvent;
 import megamek.client.event.BoardViewListener;
 import megamek.client.ui.Messages;
@@ -122,7 +121,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     private final JScrollPane diagramScrollPane = new JScrollPane(diagramPanel);
     private boolean diagramExpanded;
 
-    public RulerDialog(JFrame frame, Client client, BoardView boardView, Game game) {
+    public RulerDialog(JFrame frame, BoardView boardView, Game game) {
         super(frame, getRulerTitle(game), false);
         enableEvents(AWTEvent.WINDOW_EVENT_MASK);
 

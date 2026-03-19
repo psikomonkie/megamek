@@ -1097,7 +1097,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("BattleMech_Silhouette.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1118,7 +1118,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("Quad_Mek.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1139,7 +1139,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("SuperHeavy_Mek.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1173,7 +1173,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("Tracked.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1193,7 +1193,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("Hovercraft.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1208,7 +1208,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("Wheeled.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1223,7 +1223,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("WIGE.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1238,7 +1238,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("VTOL.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1258,7 +1258,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color) {
         BufferedImage image = loadSilhouetteImage("Surface_Naval.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, true);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, true);
             return;
         }
 
@@ -1279,7 +1279,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage submarineImage = loadSilhouetteImage("Submarine.png");
         if (submarineImage != null) {
-            drawSilhouetteImage(g2d, submarineImage, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, submarineImage, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1344,7 +1344,7 @@ class LOSElevationDiagramPanel extends JPanel {
 
             for (int i = 0; i < figureCount; i++) {
                 int figCenterX = (int) (startX + i * (figureWidth + gap) + figureWidth / 2);
-                drawSilhouetteImage(g2d, image, figCenterX, yTop, (int) figureWidth, height, color, facingRight);
+                drawSilhouetteImage(g2d, image, figCenterX, yTop, height, color, facingRight);
             }
             return;
         }
@@ -1431,7 +1431,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("ProtoMek.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1452,7 +1452,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("Aerospace_Fighter_Silhouette.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1480,7 +1480,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color, boolean facingRight) {
         BufferedImage image = loadSilhouetteImage("Industrial_Mek.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, facingRight);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, facingRight);
             return;
         }
 
@@ -1501,7 +1501,7 @@ class LOSElevationDiagramPanel extends JPanel {
           int width, int height, Color color) {
         BufferedImage image = loadSilhouetteImage("Support_Vehicle.png");
         if (image != null) {
-            drawSilhouetteImage(g2d, image, xCenter, yTop, width, height, color, true);
+            drawSilhouetteImage(g2d, image, xCenter, yTop, height, color, true);
             return;
         }
 
@@ -1838,7 +1838,7 @@ class LOSElevationDiagramPanel extends JPanel {
      * @param facingRight true if the unit faces right (attacker), false to flip horizontally (target)
      */
     private void drawSilhouetteImage(Graphics2D g2d, BufferedImage image, int xCenter, int yTop,
-          int maxWidth, int maxHeight, Color color, boolean facingRight) {
+          int maxHeight, Color color, boolean facingRight) {
         BufferedImage tinted = tintSilhouette(image, color);
 
         // Always scale to fill the full TW height -- height accuracy is critical for the diagram.
@@ -1933,13 +1933,13 @@ class LOSElevationDiagramPanel extends JPanel {
         if (metrics.clippedBottom) {
             int baseY = metrics.topMargin + metrics.drawAreaHeight;
             drawZigzag(g2d, diagramLeft, baseY, segmentWidth, zigzagHeight, peakCount);
-            drawBreakLabel(g2d, metrics, diagramRight, baseY, metrics.actualMinLevel + LEVEL_PADDING, false);
+            drawBreakLabel(g2d, diagramRight, baseY, metrics.actualMinLevel + LEVEL_PADDING, false);
         }
 
         if (metrics.clippedTop) {
             int baseY = metrics.topMargin;
             drawZigzag(g2d, diagramLeft, baseY, segmentWidth, zigzagHeight, peakCount);
-            drawBreakLabel(g2d, metrics, diagramRight, baseY, metrics.actualMaxLevel - LEVEL_PADDING, true);
+            drawBreakLabel(g2d, diagramRight, baseY, metrics.actualMaxLevel - LEVEL_PADDING, true);
         }
 
         g2d.setStroke(oldStroke);
@@ -1966,7 +1966,7 @@ class LOSElevationDiagramPanel extends JPanel {
     /**
      * Draws a label showing the actual extreme elevation at a break indicator.
      */
-    private void drawBreakLabel(Graphics2D g2d, DiagramMetrics metrics, int xRight, int baseY,
+    private void drawBreakLabel(Graphics2D g2d, int xRight, int baseY,
           int actualLevel, boolean isTop) {
         Font labelFont = g2d.getFont().deriveFont(Font.BOLD, UIUtil.scaleForGUI(9.0f));
         g2d.setFont(labelFont);

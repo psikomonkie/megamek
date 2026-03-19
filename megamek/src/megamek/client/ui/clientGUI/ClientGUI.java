@@ -2710,7 +2710,7 @@ public class ClientGUI extends AbstractClientGUI
                     boardView.addOverlay(new TurnDetailsOverlay(boardView));
                     boardView.setTooltipProvider(new TWBoardViewTooltip(client.getGame(), ClientGUI.this, boardView));
                     boardViewsContainer.updateMapTabs();
-                    ruler = new RulerDialog(frame, client, boardView, client.getGame());
+                    ruler = new RulerDialog(frame, boardView, client.getGame());
                     boardView.addBoardViewListener(ClientGUI.this);
                 } catch (IOException ex) {
                     // this is likely fatal anyway
