@@ -4447,6 +4447,35 @@ public abstract class Entity extends TurnOrdered
         addEquipment(mounted, loc, rearMounted);
     }
 
+    /**
+     * Adds the given mounted equipment to the unit in the given location (front-facing). This method adds the mounted
+     * to the right equipment lists, updates the unit's tech level and adds one-shot ammo where necessary. Overriding
+     * methods may perform more tasks. This method, by default, does *NOT* create crit slots, update or add linkages nor
+     * handle secondary locations.
+     *
+     * @param mounted The new equipment
+     * @param loc     The location; may be Entity.LOC_NONE
+     *
+     * @throws LocationFullException When the location is full
+     * @see #addEquipment(Mounted, int, boolean)
+     */
+    public final void addEquipment(Mounted<?> mounted, int loc) throws LocationFullException {
+        addEquipment(mounted, loc, false);
+    }
+
+    /**
+     * Adds the given mounted equipment to the unit in the given location, possibly rear-facing depending on the given
+     * parameter. This method adds the mounted to the right equipment lists, updates the unit's tech level and adds
+     * one-shot ammo where necessary. Overriding methods may perform more tasks. This method, by default, does *NOT*
+     * create crit slots, update or add linkages nor handle secondary locations. Overrides for unit types may however
+     * do that.
+     *
+     * @param mounted     The new equipment
+     * @param loc         The location; may be Entity.LOC_NONE
+     * @param rearMounted True to make the equipment rear-facing
+     *
+     * @throws LocationFullException When the location is full
+     */
     public void addEquipment(Mounted<?> mounted, int loc, boolean rearMounted) throws LocationFullException {
         mounted.setLocation(loc, rearMounted);
         equipmentList.add(mounted);
@@ -5436,7 +5465,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Adds a critical to the first available slot in the location.
+     * Adds a critical to the first available slot in the location. If the location is invalid or Entity.LOC_NONE,
+     * this method does nothing.
      *
      * @return true if there was room for the critical
      */
@@ -5676,14 +5706,14 @@ public abstract class Entity extends TurnOrdered
     protected abstract int[] getNoOfSlots();
 
     /**
-     * Returns the number of total critical slots in a location
+     * @return The number of total critical slots in the given location.
      */
-    public int getNumberOfCriticalSlots(int loc) {
+    public int getNumberOfCriticalSlots(int location) {
         int[] noOfSlots = getNoOfSlots();
-        if ((null == noOfSlots) || (loc >= noOfSlots.length) || (loc == LOC_NONE)) {
+        if ((null == noOfSlots) || (location >= noOfSlots.length) || (location == LOC_NONE)) {
             return 0;
         }
-        return noOfSlots[loc];
+        return noOfSlots[location];
     }
 
     /**
