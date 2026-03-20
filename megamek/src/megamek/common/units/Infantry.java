@@ -1459,12 +1459,35 @@ public class Infantry extends Entity {
     }
 
     @Override
+    public boolean isEligibleForMovement() {
+        if (isExhaustedFromFastMove()) {
+            return false;
+        }
+        return super.isEligibleForMovement();
+    }
+
+    @Override
     public boolean isEligibleForFiring() {
+        if (isExhaustedFromFastMove()) {
+            return false;
+        }
         if (gameOptions().booleanOption(OptionsConstants.ADVANCED_GROUND_MOVEMENT_TAC_OPS_FAST_INFANTRY_MOVE) &&
               (moved == EntityMovementType.MOVE_RUN)) {
             return false;
         }
         return super.isEligibleForFiring();
+    }
+
+    /**
+     * Per TO:AR p.25, 0 MP infantry that used fast movement (MOVE_RUN) in the previous turn cannot move or fire in the
+     * following turn.
+     *
+     * @return true if this unit is exhausted from using fast movement last round
+     */
+    public boolean isExhaustedFromFastMove() {
+        return gameOptions().booleanOption(OptionsConstants.ADVANCED_GROUND_MOVEMENT_TAC_OPS_FAST_INFANTRY_MOVE)
+              && (getWalkMP() == 0)
+              && (movedLastRound == EntityMovementType.MOVE_RUN);
     }
 
     @Override
