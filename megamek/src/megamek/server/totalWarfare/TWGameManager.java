@@ -5015,6 +5015,9 @@ public class TWGameManager extends AbstractGameManager {
             addReport(vehicleMotiveDamage((Tank) entity, motiveDamageMod));
         }
         if (skid && !entity.isDoomed()) {
+            // Preserve pre-skid movement distance for TMM and charge damage calculations
+            entity.delta_distance = distance - 1;
+
             if (!flip && isGroundVehicle) {
                 addReport(vehicleMotiveDamage((Tank) entity, 0));
             }
@@ -15851,7 +15854,8 @@ public class TWGameManager extends AbstractGameManager {
         // decided the defenders are wiped out, so the sustained-combat protection
         // should not reduce that to 50%.
         if (result.getType() == megamek.common.InfantryCombatResult.ResultType.PARTIAL ||
-                  result.getType() == megamek.common.InfantryCombatResult.ResultType.ELIMINATED) {
+                  result.getType() == megamek.common.InfantryCombatResult.ResultType.ELIMINATED ||
+                  result.isDefenderEliminated()) {
             combat.hasPartialControl = true;
         }
 
