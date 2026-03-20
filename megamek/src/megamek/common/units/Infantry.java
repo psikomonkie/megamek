@@ -1486,6 +1486,7 @@ public class Infantry extends Entity {
      */
     public boolean isExhaustedFromFastMove() {
         return gameOptions().booleanOption(OptionsConstants.ADVANCED_GROUND_MOVEMENT_TAC_OPS_FAST_INFANTRY_MOVE)
+              && isConventionalInfantry()
               && (getWalkMP() == 0)
               && (movedLastRound == EntityMovementType.MOVE_RUN);
     }

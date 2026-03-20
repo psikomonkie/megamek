@@ -210,5 +210,33 @@ class InfantryFastMovementTest {
 
             assertTrue(infantry.isEligibleForMovement());
         }
+
+        @Test
+        @DisplayName("Exhaustion clears after newRound() transition (moved -> movedLastRound -> MOVE_NONE)")
+        void exhaustionClearsAfterNewRound() {
+            Infantry infantry = createInfantry(0);
+            infantry.setGame(createGameWithFastMovement(true));
+
+            // Simulate: unit fast-moved this round
+            infantry.moved = EntityMovementType.MOVE_RUN;
+
+            // Round transition: moved -> movedLastRound, moved reset to MOVE_NONE
+            infantry.newRound(2);
+
+            // Now movedLastRound == MOVE_RUN, so unit should be exhausted
+            assertFalse(infantry.isEligibleForMovement(),
+                  "Should be exhausted the round after fast movement");
+            assertFalse(infantry.isEligibleForFiring(),
+                  "Should be exhausted the round after fast movement");
+
+            // Another round transition: movedLastRound becomes MOVE_NONE (since unit couldn't move)
+            infantry.newRound(3);
+
+            // Exhaustion should now be cleared
+            assertTrue(infantry.isEligibleForMovement(),
+                  "Exhaustion should clear after one round of being unable to act");
+            assertTrue(infantry.isEligibleForFiring(),
+                  "Exhaustion should clear after one round of being unable to act");
+        }
     }
 }
