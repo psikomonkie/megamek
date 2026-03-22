@@ -39,7 +39,9 @@ import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -53,11 +55,15 @@ import megamek.client.ui.util.KeyCommandBind;
 import megamek.client.ui.util.MegaMekController;
 import megamek.client.ui.widget.MegaMekButton;
 import megamek.client.ui.widget.MekPanelTabStrip;
+import megamek.common.actions.GhostTargetAction;
 import megamek.common.enums.GamePhase;
+import megamek.common.equipment.MiscMounted;
+import megamek.common.equipment.MiscType;
 import megamek.common.event.GamePhaseChangeEvent;
 import megamek.common.event.GameTurnChangeEvent;
 import megamek.common.event.entity.GameEntityChangeEvent;
 import megamek.common.game.Game;
+import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
 import megamek.logging.MMLogger;
 
@@ -77,7 +83,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     public enum PrephaseCommand implements PhaseCommand {
         PREPHASE_NEXT("prephaseNext"),
         PREPHASE_REVEAL("prephaseReveal"),
-        PREPHASE_CANCEL_REVEAL("prephaseCancelReveal");
+        PREPHASE_CANCEL_REVEAL("prephaseCancelReveal"),
+        PREPHASE_GHOST_TARGET("prephaseGhostTarget");
 
         final String cmd;
 
@@ -134,6 +141,12 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private final GamePhase phase;
 
     protected final ClientGUI clientgui;
+
+    /** When true, the next unit clicked on the board will be assigned as a ghost target. */
+    private boolean ghostTargetMode = false;
+
+    /** Tracks equipment IDs on the current entity that have already been assigned ghost targets this turn. */
+    private final Set<Integer> usedGhostTargetEquipment = new HashSet<>();
 
     /**
      * Creates and lays out a new PreFiring or PreMovement phase display for the specified clientGUi.getClient().
@@ -210,6 +223,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private void selectEntity(int en) {
         // clear any previously considered actions
         if (en != cen) {
+            ghostTargetMode = false;
+            usedGhostTargetEquipment.clear();
             refreshAll();
         }
         Client client = clientgui.getClient();
@@ -264,14 +279,23 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
             return;
         }
 
-        setStatusBarText(
-              Messages.getFormattedString("PrephaseDisplay.its_your_turn", phase.toString(), ce.getDisplayName()));
+        if (ghostTargetMode) {
+            setStatusBarText(Messages.getString("PrephaseDisplay.ghostTargetMode"));
+        } else {
+            setStatusBarText(
+                  Messages.getFormattedString("PrephaseDisplay.its_your_turn", phase.toString(), ce.getDisplayName()));
+        }
 
         boolean isRevealing = !ce.getHiddenActivationPhase().isUnknown();
         setRevealEnabled(!isRevealing);
         setCancelRevealEnabled(isRevealing);
         setNextEnabled(true);
         butDone.setEnabled(true);
+
+        // Ghost Target button: only visible in pre-firing phase with Standard ghost target mode
+        boolean showGhostTarget = isStandardGhostTargetMode() && phase.isPreFiring()
+              && hasAvailableGhostTargetEquipment(ce);
+        setGhostTargetEnabled(showGhostTarget);
     }
 
     @Override
@@ -308,6 +332,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      */
     private void endMyTurn() {
         cen = Entity.NONE;
+        ghostTargetMode = false;
+        usedGhostTargetEquipment.clear();
         clientgui.boardViews().forEach(IBoardView::clearMarkedHexes);
         clientgui.boardViews().forEach(bv -> ((BoardView) bv).clearMovementData());
         clientgui.clearFieldOfFire();
@@ -322,6 +348,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private void disableButtons() {
         setRevealEnabled(false);
         setCancelRevealEnabled(false);
+        setGhostTargetEnabled(false);
         setNextEnabled(false);
         butDone.setEnabled(false);
     }
@@ -476,6 +503,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
             reveal();
         } else if (ev.getActionCommand().equals(PrephaseCommand.PREPHASE_CANCEL_REVEAL.getCmd())) {
             cancelReveal();
+        } else if (ev.getActionCommand().equals(PrephaseCommand.PREPHASE_GHOST_TARGET.getCmd())) {
+            toggleGhostTargetMode();
         } else if (ev.getActionCommand().equals(PrephaseCommand.PREPHASE_NEXT.getCmd())) {
             selectEntity(clientgui.getClient().getNextEntityNum(cen));
         }
@@ -494,6 +523,130 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private void setNextEnabled(boolean enabled) {
         buttons.get(PrephaseCommand.PREPHASE_NEXT).setEnabled(enabled);
         clientgui.getMenuBar().setEnabled(PrephaseCommand.PREPHASE_NEXT.getCmd(), enabled);
+    }
+
+    private void setGhostTargetEnabled(boolean enabled) {
+        buttons.get(PrephaseCommand.PREPHASE_GHOST_TARGET).setEnabled(enabled);
+        clientgui.getMenuBar().setEnabled(PrephaseCommand.PREPHASE_GHOST_TARGET.getCmd(), enabled);
+    }
+
+    private void toggleGhostTargetMode() {
+        ghostTargetMode = !ghostTargetMode;
+        refreshButtons();
+    }
+
+    /**
+     * Assigns the clicked unit as a ghost target for the current entity's first available ghost-target-capable
+     * equipment.
+     */
+    private void assignGhostTarget(Entity targetEntity) {
+        Entity source = currentEntity();
+        if (source == null) {
+            return;
+        }
+
+        // Conventional infantry is immune to ghost targets
+        if (targetEntity.isConventionalInfantry()) {
+            setStatusBarText(Messages.getString("PrephaseDisplay.ghostTargetInfantryImmune"));
+            return;
+        }
+
+        // Find the first available ghost-target-capable equipment not yet used this turn
+        int equipId = findAvailableGhostTargetEquipment(source);
+        if (equipId < 0) {
+            setStatusBarText(Messages.getString("PrephaseDisplay.ghostTargetNoEquipment"));
+            ghostTargetMode = false;
+            refreshButtons();
+            return;
+        }
+
+        // Range check: target must be within 6 hexes (standard ECM/comms ghost target range)
+        int distance = source.getPosition().distance(targetEntity.getPosition());
+        if (distance > 6) {
+            setStatusBarText(Messages.getFormattedString("PrephaseDisplay.ghostTargetOutOfRange",
+                  targetEntity.getDisplayName()));
+            return;
+        }
+
+        // Determine if target is friendly or enemy
+        boolean isFriendly = !source.isEnemyOf(targetEntity);
+
+        // Send the action to the server
+        clientgui.getClient().sendGhostTargetAction(
+              source.getId(), equipId, targetEntity.getId(), isFriendly);
+
+        // Track this equipment as used
+        usedGhostTargetEquipment.add(equipId);
+
+        // Report the assignment
+        String effectType = isFriendly
+              ? Messages.getString("PrephaseDisplay.ghostTargetProtect")
+              : Messages.getString("PrephaseDisplay.ghostTargetJam");
+        setStatusBarText(Messages.getFormattedString("PrephaseDisplay.ghostTargetAssigned",
+              source.getDisplayName(), targetEntity.getDisplayName(), effectType));
+
+        // Exit ghost target mode (can re-enter to assign additional equipment)
+        ghostTargetMode = false;
+        refreshButtons();
+    }
+
+    /**
+     * Finds the equipment number of the first available ghost-target-capable equipment on the entity that hasn't been
+     * used for ghost targets this turn.
+     *
+     * @return the equipment index, or -1 if none available
+     */
+    private int findAvailableGhostTargetEquipment(Entity entity) {
+        for (MiscMounted m : entity.getMisc()) {
+            int equipNum = entity.getEquipmentNum(m);
+            if (usedGhostTargetEquipment.contains(equipNum)) {
+                continue;
+            }
+            if (m.isInoperable() || entity.getCrew().isUnconscious()) {
+                continue;
+            }
+
+            MiscType type = m.getType();
+            // ECM in Ghost Targets mode (including Angel ECM combined modes)
+            if (type.hasFlag(MiscType.F_ECM)
+                  && (m.curMode().equals("Ghost Targets")
+                  || m.curMode().equals("ECM & Ghost Targets")
+                  || m.curMode().equals("ECCM & Ghost Targets"))) {
+                return equipNum;
+            }
+            // Communications equipment (7+ tons) in Ghost Targets mode
+            if (type.hasFlag(MiscType.F_COMMUNICATIONS)
+                  && m.curMode().equals("Ghost Targets")
+                  && (entity.getTotalCommGearTons() >= 7)) {
+                return equipNum;
+            }
+            // Vehicle Cockpit Command Console in Ghost Targets mode
+            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
+                  && m.curMode().equals("Ghost Targets")) {
+                return equipNum;
+            }
+        }
+
+        // Mek Cockpit Command Console (cockpit type, not misc equipment)
+        if (entity.hasCommandConsoleBonus()
+              && !usedGhostTargetEquipment.contains(GhostTargetAction.CCC_EQUIPMENT_ID)) {
+            return GhostTargetAction.CCC_EQUIPMENT_ID;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Checks if the entity has any ghost-target-capable equipment that hasn't been used this turn.
+     */
+    private boolean hasAvailableGhostTargetEquipment(Entity entity) {
+        return findAvailableGhostTargetEquipment(entity) >= 0;
+    }
+
+    private boolean isStandardGhostTargetMode() {
+        return game().getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
+              game().getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE));
     }
 
     @Override
@@ -527,6 +680,12 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         if (selectedUnit == null) {
             return;
         }
+
+        if (isMyTurn() && ghostTargetMode) {
+            assignGhostTarget(selectedUnit);
+            return;
+        }
+
         if (isMyTurn()) {
             if (clientgui.getClient().getMyTurn().isValidEntity(selectedUnit, game())) {
                 selectEntity(selectedUnit.getId());

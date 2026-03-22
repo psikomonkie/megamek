@@ -75,6 +75,7 @@ import megamek.common.equipment.AmmoType;
 import megamek.common.equipment.AmmoType.AmmoTypeEnum;
 import megamek.common.equipment.AmmoType.Munitions;
 import megamek.common.equipment.Minefield;
+import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.Mounted;
 import megamek.common.equipment.WeaponMounted;
@@ -317,11 +318,98 @@ public abstract class BotClient extends Client {
     }
 
     /**
-     * Calculates the pre phase turn currently does nothing other than end turn
+     * Calculates the pre phase turn. In Standard ghost target mode during PRE_FIRING,
+     * assigns ghost targets for any qualifying equipment. Otherwise just ends the turn.
      */
     protected void calculatePrePhaseTurn() {
-        sendPrePhaseData(game.getFirstEntityNum(getMyTurn()));
+        int entityId = game.getFirstEntityNum(getMyTurn());
+        Entity entity = game.getEntity(entityId);
+
+        // Assign ghost targets in Standard mode during PRE_FIRING
+        if ((entity != null) && game.getPhase().isPreFiring()
+              && game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
+              game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+            assignBotGhostTargets(entity);
+        }
+
+        sendPrePhaseData(entityId);
         sendDone(true);
+    }
+
+    /**
+     * Simple bot heuristic for ghost target assignment in Standard mode. For each ghost-target-capable equipment: jam
+     * the nearest enemy within range, or protect self if no enemies are in range.
+     */
+    private void assignBotGhostTargets(Entity source) {
+        if (source.getPosition() == null) {
+            return;
+        }
+
+        for (MiscMounted m : source.getMisc()) {
+            if (m.isInoperable() || source.getCrew().isUnconscious()) {
+                continue;
+            }
+
+            boolean isGhostTargetEquipment = false;
+            MiscType type = m.getType();
+
+            if (type.hasFlag(MiscType.F_ECM)
+                  && (m.curMode().equals("Ghost Targets")
+                  || m.curMode().equals("ECM & Ghost Targets")
+                  || m.curMode().equals("ECCM & Ghost Targets"))) {
+                isGhostTargetEquipment = true;
+            }
+            if (type.hasFlag(MiscType.F_COMMUNICATIONS)
+                  && m.curMode().equals("Ghost Targets")
+                  && (source.getTotalCommGearTons() >= 7)) {
+                isGhostTargetEquipment = true;
+            }
+            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
+                  && m.curMode().equals("Ghost Targets")) {
+                isGhostTargetEquipment = true;
+            }
+
+            if (!isGhostTargetEquipment) {
+                continue;
+            }
+
+            int equipId = source.getEquipmentNum(m);
+            assignBotGhostTargetForEquipment(source, equipId);
+        }
+
+        // Mek Cockpit Command Console (cockpit type, not misc equipment)
+        if (source.hasCommandConsoleBonus()) {
+            assignBotGhostTargetForEquipment(source,
+                  megamek.common.actions.GhostTargetAction.CCC_EQUIPMENT_ID);
+        }
+    }
+
+    /**
+     * Assigns a single ghost target for the given equipment on the source entity. Jams the nearest enemy within 6
+     * hexes, or protects self if none in range.
+     */
+    private void assignBotGhostTargetForEquipment(Entity source, int equipId) {
+        Entity bestTarget = null;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (Entity enemy : game.inGameTWEntities()) {
+            if (!enemy.isEnemyOf(source) || !enemy.isDeployed() || enemy.isDestroyed()
+                  || (enemy.getPosition() == null) || enemy.isConventionalInfantry()) {
+                continue;
+            }
+            int dist = source.getPosition().distance(enemy.getPosition());
+            if ((dist <= 6) && (dist < bestDistance)) {
+                bestDistance = dist;
+                bestTarget = enemy;
+            }
+        }
+
+        if (bestTarget != null) {
+            sendGhostTargetAction(source.getId(), equipId, bestTarget.getId(), false);
+        } else {
+            sendGhostTargetAction(source.getId(), equipId, source.getId(), true);
+        }
     }
 
     @Nullable

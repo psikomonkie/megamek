@@ -132,6 +132,8 @@ public class GameOptions extends BasicGameOptions {
         addOption(advancedRules, OptionsConstants.ADVANCED_TAC_OPS_BAP, false);
         addOption(advancedRules, OptionsConstants.ADVANCED_TAC_OPS_ECCM, false);
         addOption(advancedRules, OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET, false);
+        addOption(advancedRules, OptionsConstants.ADVANCED_GHOST_TARGET_MODE, IOption.CHOICE,
+              OptionsConstants.GHOST_TARGET_MODE_LEGACY);
         addOption(advancedRules, OptionsConstants.ADVANCED_GHOST_TARGET_MAX, 5);
         addOption(advancedRules, OptionsConstants.ADVANCED_TAC_OPS_DIG_IN, false);
         addOption(advancedRules, OptionsConstants.ADVANCED_TAC_OPS_BA_WEIGHT, false);

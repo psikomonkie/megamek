@@ -176,6 +176,9 @@ public class TWGameManager extends AbstractGameManager {
 
     private final List<DemolitionCharge> explodingCharges = new ArrayList<>();
 
+    /** Pending ghost target actions for Standard mode, collected during PRE_FIRING and resolved at start of FIRING. */
+    private final List<GhostTargetAction> pendingGhostTargetActions = new ArrayList<>();
+
     /**
      * Keeps track of what team a player requested to join.
      */
@@ -763,6 +766,9 @@ public class TWGameManager extends AbstractGameManager {
                     break;
                 case ENTITY_PREPHASE:
                     receivePrephase(packet, connId);
+                    break;
+                case ENTITY_GHOST_TARGET:
+                    receiveGhostTargetAction(packet, connId);
                     break;
                 case ENTITY_GTA_HEX_SELECT:
                     receiveGroundToAirHexSelectPacket(packet, connId);
@@ -9663,6 +9669,37 @@ public class TWGameManager extends AbstractGameManager {
     }
 
     /**
+     * Receives a ghost target action from a client during the PRE_FIRING phase (Standard mode). Validates the action
+     * and stores it for resolution at the start of the FIRING phase.
+     */
+    private void receiveGhostTargetAction(Packet packet, int connId) throws InvalidPacketDataException {
+        int entityId = packet.getIntValue(0);
+        int equipmentId = packet.getIntValue(1);
+        int targetId = packet.getIntValue(2);
+        boolean targetIsFriendly = packet.getBooleanValue(3);
+
+        Entity source = game.getEntity(entityId);
+        if (source == null) {
+            LOGGER.error("Received ghost target action for invalid entity ID {}", entityId);
+            return;
+        }
+
+        if (!getGame().getPhase().isPreFiring()) {
+            LOGGER.error("Received ghost target action in wrong phase {}", game.getPhase());
+            return;
+        }
+
+        Entity target = game.getEntity(targetId);
+        if (target == null) {
+            LOGGER.error("Ghost target action targets invalid entity ID {}", targetId);
+            return;
+        }
+
+        pendingGhostTargetActions.add(
+              new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly));
+    }
+
+    /**
      * Gets a bunch of entity attacks from the packet. If valid, processes them and ends the current turn.
      */
     private void receiveAttack(Packet packet, int connId) throws InvalidPacketDataException {
@@ -10647,6 +10684,82 @@ public class TWGameManager extends AbstractGameManager {
                 addReport(r);
             }
         }
+        addNewLines();
+    }
+
+    /**
+     * Resolves all pending Standard (TO:AR) ghost target actions collected during PRE_FIRING. For each action: rolls
+     * Piloting/Driving +3, on success applies +1 to the target's defensive or offensive bonus (capped at +3 each), and
+     * generates reports.
+     */
+    void resolveStandardGhostTargets() {
+        if (pendingGhostTargetActions.isEmpty()) {
+            return;
+        }
+
+        addReport(new Report(3636, Report.PUBLIC));
+
+        for (GhostTargetAction action : pendingGhostTargetActions) {
+            Entity source = game.getEntity(action.getEntityId());
+            Entity target = game.getEntity(action.getTargetEntityId());
+
+            if ((source == null) || (target == null) || source.isDestroyed()
+                  || target.isDestroyed() || !source.isDeployed() || !target.isDeployed()) {
+                continue;
+            }
+
+            // ECCM suppression: can't generate if entity's hex has more enemy ECM than friendly ECCM
+            if (ComputeECM.isAffectedByECM(source, source.getPosition(), source.getPosition())) {
+                Report r = new Report(3637);
+                r.subject = source.getId();
+                r.addDesc(source);
+                addReport(r);
+                continue;
+            }
+
+            // Roll: Piloting/Driving +3 (Gunnery +3 for ProtoMeks), no other modifiers
+            int targetNumber = source.getCrew().getPiloting() + 3;
+            if (source.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
+                targetNumber = source.getCrew().getGunnery() + 3;
+            }
+
+            Roll roll = Compute.rollD6(2);
+            boolean success = roll.getIntValue() >= targetNumber;
+
+            // Report: source targets target with Ghost Targets (needs X+), rolls Y: success/failure
+            Report r = new Report(3633);
+            r.subject = source.getId();
+            r.addDesc(source);
+            r.addDesc(target);
+            r.add(targetNumber);
+            r.add(roll);
+            r.choose(success);
+            addReport(r);
+
+            if (success) {
+                if (action.isTargetFriendly()) {
+                    target.addGhostTargetDefensiveBonus(1);
+                } else {
+                    target.addGhostTargetOffensiveBonus(1);
+                }
+                entityUpdate(target.getId());
+            }
+
+            // Stealth Armor + Angel ECM: generating entity suffers +1 to own attacks
+            if (success && source.isStealthActive()) {
+                MiscMounted equipment = source.getMisc(action.getEquipmentId());
+                if ((equipment != null) && equipment.getType().hasFlag(MiscType.F_ANGEL_ECM)) {
+                    source.addGhostTargetOffensiveBonus(1);
+                    entityUpdate(source.getId());
+                    Report stealthReport = new Report(3638);
+                    stealthReport.subject = source.getId();
+                    stealthReport.addDesc(source);
+                    addReport(stealthReport);
+                }
+            }
+        }
+
+        pendingGhostTargetActions.clear();
         addNewLines();
     }
 

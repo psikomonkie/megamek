@@ -872,10 +872,16 @@ public abstract class Entity extends TurnOrdered
     // roll for sensor check
     private int sensorCheck;
 
-    // the roll for ghost targets
+    // the roll for ghost targets (Legacy mode)
     private Roll ghostTargetRoll;
-    // the roll to override ghost targets
+    // the roll to override ghost targets (Legacy mode)
     private int ghostTargetOverride;
+
+    // Standard mode ghost target bonuses (per TO:AR rules)
+    // Accumulated +N to-hit for attacks AGAINST this unit (from friendly ghost targets)
+    private transient int ghostTargetDefensiveBonus;
+    // Accumulated +N to-hit for attacks BY this unit (from enemy ghost targets)
+    private transient int ghostTargetOffensiveBonus;
 
     // Tac Ops HeatSink Coolant Failure number
     protected int heatSinkCoolantFailureFactor;
@@ -6002,6 +6008,12 @@ public abstract class Entity extends TurnOrdered
                   !(m.isInoperable() || getCrew().isUnconscious())) {
                 hasGhost = true;
             }
+            // Vehicle Cockpit Command Console in Ghost Targets mode
+            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE) &&
+                  m.curMode().equals("Ghost Targets") &&
+                  !(m.isInoperable() || getCrew().isUnconscious())) {
+                hasGhost = true;
+            }
         }
         return hasGhost;
     }
@@ -7307,9 +7319,13 @@ public abstract class Entity extends TurnOrdered
             activeSensor = nextSensor;
         }
 
-        // ghost target roll
+        // ghost target roll (Legacy mode)
         ghostTargetRoll = Compute.rollD6(2);
         ghostTargetOverride = Compute.d6(2);
+
+        // clear Standard mode ghost target bonuses
+        ghostTargetDefensiveBonus = 0;
+        ghostTargetOffensiveBonus = 0;
 
         // update fatigue count
         if ((null != crew) && isDeployed()) {
@@ -13159,6 +13175,16 @@ public abstract class Entity extends TurnOrdered
 
                 misc.getType().setModes(modes.toArray(stringArray));
             }
+
+            // Vehicle Cockpit Command Console: add Ghost Targets mode when option is enabled
+            if (misc.getType().hasFlag(MiscType.F_COMMAND_CONSOLE)
+                  && gameOpts.booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)) {
+                ArrayList<String> modes = new ArrayList<>();
+                modes.add("Default");
+                modes.add("Ghost Targets");
+                misc.getType().setModes(modes.toArray(new String[0]));
+                misc.getType().setInstantModeSwitch(false);
+            }
         }
     }
 
@@ -13362,6 +13388,40 @@ public abstract class Entity extends TurnOrdered
 
     public int getGhostTargetOverride() {
         return ghostTargetOverride;
+    }
+
+    /**
+     * @return the accumulated to-hit bonus for attacks AGAINST this unit from friendly ghost targets (Standard mode
+     *       only, per TO:AR)
+     */
+    public int getGhostTargetDefensiveBonus() {
+        return ghostTargetDefensiveBonus;
+    }
+
+    /**
+     * @return the accumulated to-hit bonus for attacks BY this unit from enemy ghost targets (Standard mode only, per
+     *       TO:AR)
+     */
+    public int getGhostTargetOffensiveBonus() {
+        return ghostTargetOffensiveBonus;
+    }
+
+    /**
+     * Increment the defensive ghost target bonus (attacks against this unit are harder). Capped at +3 per TO:AR rules.
+     *
+     * @param amount the amount to add (typically +1 per successful ghost target roll)
+     */
+    public void addGhostTargetDefensiveBonus(int amount) {
+        ghostTargetDefensiveBonus = Math.min(3, ghostTargetDefensiveBonus + amount);
+    }
+
+    /**
+     * Increment the offensive ghost target bonus (attacks by this unit are harder). Capped at +3 per TO:AR rules.
+     *
+     * @param amount the amount to add (typically +1 per successful ghost target roll)
+     */
+    public void addGhostTargetOffensiveBonus(int amount) {
+        ghostTargetOffensiveBonus = Math.min(3, ghostTargetOffensiveBonus + amount);
     }
 
     public int getCoolantFailureAmount() {
