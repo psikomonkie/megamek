@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import javax.swing.JOptionPane;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -56,6 +57,7 @@ import megamek.client.ui.util.MegaMekController;
 import megamek.client.ui.widget.MegaMekButton;
 import megamek.client.ui.widget.MekPanelTabStrip;
 import megamek.common.actions.GhostTargetAction;
+import megamek.common.compute.Compute;
 import megamek.common.enums.GamePhase;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
@@ -64,6 +66,7 @@ import megamek.common.event.GameTurnChangeEvent;
 import megamek.common.event.entity.GameEntityChangeEvent;
 import megamek.common.game.Game;
 import megamek.common.options.OptionsConstants;
+import megamek.common.rolls.Roll;
 import megamek.common.units.Entity;
 import megamek.logging.MMLogger;
 
@@ -148,6 +151,9 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     /** Tracks equipment IDs on the current entity that have already been assigned ghost targets this turn. */
     private final Set<Integer> usedGhostTargetEquipment = new HashSet<>();
 
+    /** Confirmation message to display persistently in the status bar after ghost target assignment. */
+    private String ghostTargetConfirmation = null;
+
     /**
      * Creates and lays out a new PreFiring or PreMovement phase display for the specified clientGUi.getClient().
      */
@@ -224,6 +230,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         // clear any previously considered actions
         if (en != cen) {
             ghostTargetMode = false;
+            ghostTargetConfirmation = null;
             usedGhostTargetEquipment.clear();
             refreshAll();
         }
@@ -281,6 +288,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
 
         if (ghostTargetMode) {
             setStatusBarText(Messages.getString("PrephaseDisplay.ghostTargetMode"));
+        } else if (ghostTargetConfirmation != null) {
+            setStatusBarText(ghostTargetConfirmation);
         } else {
             setStatusBarText(
                   Messages.getFormattedString("PrephaseDisplay.its_your_turn", phase.toString(), ce.getDisplayName()));
@@ -333,6 +342,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private void endMyTurn() {
         cen = Entity.NONE;
         ghostTargetMode = false;
+        ghostTargetConfirmation = null;
         usedGhostTargetEquipment.clear();
         clientgui.boardViews().forEach(IBoardView::clearMarkedHexes);
         clientgui.boardViews().forEach(bv -> ((BoardView) bv).clearMovementData());
@@ -414,6 +424,14 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
             b.getBoardView().cursor(b.getCoords());
         } else if (b.getType() == BoardViewEvent.BOARD_HEX_CLICKED) {
             b.getBoardView().select(b.getCoords());
+
+            // In ghost target mode, find a unit at the clicked hex and assign it
+            if (ghostTargetMode && (b.getCoords() != null)) {
+                Entity target = findEntityAtCoords(b.getCoords());
+                if (target != null) {
+                    assignGhostTarget(target);
+                }
+            }
         }
     }
 
@@ -570,20 +588,38 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
 
         // Determine if target is friendly or enemy
         boolean isFriendly = !source.isEnemyOf(targetEntity);
-
-        // Send the action to the server
-        clientgui.getClient().sendGhostTargetAction(
-              source.getId(), equipId, targetEntity.getId(), isFriendly);
-
-        // Track this equipment as used
-        usedGhostTargetEquipment.add(equipId);
-
-        // Report the assignment
         String effectType = isFriendly
               ? Messages.getString("PrephaseDisplay.ghostTargetProtect")
               : Messages.getString("PrephaseDisplay.ghostTargetJam");
-        setStatusBarText(Messages.getFormattedString("PrephaseDisplay.ghostTargetAssigned",
-              source.getDisplayName(), targetEntity.getDisplayName(), effectType));
+
+        // Roll Piloting/Driving +3 (Gunnery +3 for ProtoMeks)
+        int targetNumber = source.getCrew().getPiloting() + 3;
+        if (source.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
+            targetNumber = source.getCrew().getGunnery() + 3;
+        }
+        Roll roll = Compute.rollD6(2);
+        boolean success = roll.getIntValue() >= targetNumber;
+
+        // Show popup with roll result
+        String rollResult = source.getDisplayName() + " targets " + targetEntity.getDisplayName()
+              + " with Ghost Targets (" + effectType + ")\n\n"
+              + "Needs: " + targetNumber + "+    Rolled: " + roll.getIntValue() + "\n\n"
+              + (success ? "SUCCESS - +1 to-hit modifier applied!" : "FAILED - no effect.");
+        String title = "Ghost Target Roll" + (success ? " - Success" : " - Failed");
+        JOptionPane.showMessageDialog(clientgui.getFrame(), rollResult, title,
+              success ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+
+        // Send the action and result to the server
+        clientgui.getClient().sendGhostTargetAction(
+              source.getId(), equipId, targetEntity.getId(), isFriendly, success);
+
+        // Track this equipment as used (regardless of success - one attempt per equipment)
+        usedGhostTargetEquipment.add(equipId);
+
+        // Persistent status bar confirmation
+        ghostTargetConfirmation = Messages.getFormattedString("PrephaseDisplay.ghostTargetAssigned",
+              source.getDisplayName(), targetEntity.getDisplayName(), effectType)
+              + (success ? " (SUCCESS)" : " (FAILED)");
 
         // Exit ghost target mode (can re-enter to assign additional equipment)
         ghostTargetMode = false;
@@ -641,6 +677,18 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      */
     private boolean hasAvailableGhostTargetEquipment(Entity entity) {
         return findAvailableGhostTargetEquipment(entity) >= 0;
+    }
+
+    /**
+     * Finds the first deployed entity at the given coordinates.
+     */
+    private Entity findEntityAtCoords(megamek.common.board.Coords coords) {
+        for (Entity entity : game().inGameTWEntities()) {
+            if (entity.isDeployed() && coords.equals(entity.getPosition())) {
+                return entity;
+            }
+        }
+        return null;
     }
 
     private boolean isStandardGhostTargetMode() {

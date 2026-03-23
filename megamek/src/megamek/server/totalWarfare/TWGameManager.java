@@ -9677,6 +9677,7 @@ public class TWGameManager extends AbstractGameManager {
         int equipmentId = packet.getIntValue(1);
         int targetId = packet.getIntValue(2);
         boolean targetIsFriendly = packet.getBooleanValue(3);
+        boolean success = packet.getBooleanValue(4);
 
         Entity source = game.getEntity(entityId);
         if (source == null) {
@@ -9695,8 +9696,28 @@ public class TWGameManager extends AbstractGameManager {
             return;
         }
 
+        // Apply bonus immediately if the roll succeeded (rolled client-side)
+        if (success) {
+            if (targetIsFriendly) {
+                target.addGhostTargetDefensiveBonus(1);
+            } else {
+                target.addGhostTargetOffensiveBonus(1);
+            }
+            entityUpdate(target.getId());
+
+            // Stealth Armor + Angel ECM self-penalty
+            if (source.isStealthActive()) {
+                MiscMounted equipment = source.getMisc(equipmentId);
+                if ((equipment != null) && equipment.getType().hasFlag(MiscType.F_ANGEL_ECM)) {
+                    source.addGhostTargetOffensiveBonus(1);
+                    entityUpdate(source.getId());
+                }
+            }
+        }
+
+        // Store for FIRING phase report summary
         pendingGhostTargetActions.add(
-              new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly));
+              new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly, success));
     }
 
     /**

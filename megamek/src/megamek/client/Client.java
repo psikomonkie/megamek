@@ -361,11 +361,12 @@ public class Client extends AbstractClient {
      * @param equipmentId      the equipment number on the source entity
      * @param targetEntityId   the entity being targeted
      * @param targetIsFriendly true if targeting a friendly unit, false if enemy
+     * @param success          true if the Piloting+3 roll succeeded
      */
     public void sendGhostTargetAction(int sourceEntityId, int equipmentId,
-          int targetEntityId, boolean targetIsFriendly) {
+          int targetEntityId, boolean targetIsFriendly, boolean success) {
         send(new Packet(PacketCommand.ENTITY_GHOST_TARGET,
-              sourceEntityId, equipmentId, targetEntityId, targetIsFriendly));
+              sourceEntityId, equipmentId, targetEntityId, targetIsFriendly, success));
     }
 
     /**

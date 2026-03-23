@@ -6019,6 +6019,41 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
+     * Checks if this entity has any equipment set to a Ghost Targets mode, without checking PSR success, spaceborne
+     * status, or shutdown state. Used for determining turn eligibility in the PRE_FIRING phase (Standard ghost target
+     * mode).
+     *
+     * @return true if the entity has qualifying equipment in a Ghost Targets mode
+     */
+    public boolean hasGhostTargetEquipment() {
+        for (MiscMounted m : getMisc()) {
+            if (m.isInoperable() || getCrew().isUnconscious()) {
+                continue;
+            }
+            MiscType type = m.getType();
+            if (type.hasFlag(MiscType.F_ECM)
+                  && (m.curMode().equals("Ghost Targets")
+                  || m.curMode().equals("ECM & Ghost Targets")
+                  || m.curMode().equals("ECCM & Ghost Targets"))) {
+                return true;
+            }
+            if (type.hasFlag(MiscType.F_COMMUNICATIONS)
+                  && m.curMode().equals("Ghost Targets")
+                  && (getTotalCommGearTons() >= 7)) {
+                return true;
+            }
+            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
+                  && m.curMode().equals("Ghost Targets")) {
+                return true;
+            }
+        }
+        if (hasCommandConsoleBonus()) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Checks to see if this entity has a functional ECM unit that is using ECCM.
      *
      * @return <code>true</code> if the entity has AngeleCM, and it is in ECCM
@@ -10745,7 +10780,19 @@ public abstract class Entity extends TurnOrdered
 
         // Hidden units are always eligible for PRE phases
         if (phase.isPremovement() || phase.isPreFiring()) {
-            return isHidden();
+            if (isHidden()) {
+                return true;
+            }
+            // Standard ghost target mode: entities with ghost target equipment
+            // are eligible during PRE_FIRING to assign targets
+            if (phase.isPreFiring() && hasGhostTargetEquipment()
+                  && (game != null)
+                  && game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+                  && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
+                  game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+                return true;
+            }
+            return false;
         }
 
         // Hidden units shouldn't be counted for turn order, unless deploying or firing (spotting)
