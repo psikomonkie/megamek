@@ -405,18 +405,10 @@ public abstract class BotClient extends Client {
             }
         }
 
-        // Roll Piloting+3 (Gunnery+3 for ProtoMeks)
-        int targetNumber = source.getCrew().getPiloting() + 3;
-        if (source.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
-            targetNumber = source.getCrew().getGunnery() + 3;
-        }
-        megamek.common.rolls.Roll roll = megamek.common.compute.Compute.rollD6(2);
-        boolean success = roll.getIntValue() >= targetNumber;
-
         if (bestTarget != null) {
-            sendGhostTargetAction(source.getId(), equipId, bestTarget.getId(), false, success);
+            sendGhostTargetAction(source.getId(), equipId, bestTarget.getId(), false);
         } else {
-            sendGhostTargetAction(source.getId(), equipId, source.getId(), true, success);
+            sendGhostTargetAction(source.getId(), equipId, source.getId(), true);
         }
     }
 

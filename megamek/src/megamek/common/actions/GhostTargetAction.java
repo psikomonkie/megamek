@@ -60,7 +60,6 @@ public class GhostTargetAction extends AbstractEntityAction {
     private final int equipmentId;
     private final int targetEntityId;
     private final boolean targetIsFriendly;
-    private final boolean success;
 
     /**
      * Creates a new ghost target action.
@@ -71,15 +70,13 @@ public class GhostTargetAction extends AbstractEntityAction {
      * @param targetEntityId   the ID of the entity being targeted
      * @param targetIsFriendly true if targeting a friendly unit (+1 to attacks against it), false if targeting an enemy
      *                         unit (+1 to attacks by it)
-     * @param success          true if the Piloting+3 roll succeeded
      */
     public GhostTargetAction(int sourceEntityId, int equipmentId, int targetEntityId,
-          boolean targetIsFriendly, boolean success) {
+          boolean targetIsFriendly) {
         super(sourceEntityId);
         this.equipmentId = equipmentId;
         this.targetEntityId = targetEntityId;
         this.targetIsFriendly = targetIsFriendly;
-        this.success = success;
     }
 
     public int getEquipmentId() {
@@ -92,10 +89,6 @@ public class GhostTargetAction extends AbstractEntityAction {
 
     public boolean isTargetFriendly() {
         return targetIsFriendly;
-    }
-
-    public boolean isSuccess() {
-        return success;
     }
 
     @Override

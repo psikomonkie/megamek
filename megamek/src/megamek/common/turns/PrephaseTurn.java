@@ -36,10 +36,11 @@ package megamek.common.turns;
 import megamek.common.annotations.Nullable;
 import megamek.common.game.Game;
 import megamek.common.game.GameTurn;
+import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
 
 /**
- * Prephase turn currently used for revealing hidden units
+ * Prephase turn used for revealing hidden units and for Standard mode ghost target assignment during PRE_FIRING.
  */
 public class PrephaseTurn extends GameTurn {
 
@@ -49,6 +50,23 @@ public class PrephaseTurn extends GameTurn {
 
     @Override
     public boolean isValidEntity(@Nullable Entity entity, Game game, boolean useValidNonInfantryCheck) {
-        return super.isValidEntity(entity, game, useValidNonInfantryCheck) && entity.isHidden();
+        if (!super.isValidEntity(entity, game, useValidNonInfantryCheck)) {
+            return false;
+        }
+
+        if (entity.isHidden()) {
+            return true;
+        }
+
+        // Standard ghost target mode: entities with ghost target equipment are valid during PRE_FIRING
+        if (game.getPhase().isPreFiring()
+              && entity.hasGhostTargetEquipment()
+              && game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
+              game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+            return true;
+        }
+
+        return false;
     }
 }

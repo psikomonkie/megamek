@@ -9677,7 +9677,6 @@ public class TWGameManager extends AbstractGameManager {
         int equipmentId = packet.getIntValue(1);
         int targetId = packet.getIntValue(2);
         boolean targetIsFriendly = packet.getBooleanValue(3);
-        boolean success = packet.getBooleanValue(4);
 
         Entity source = game.getEntity(entityId);
         if (source == null) {
@@ -9696,28 +9695,12 @@ public class TWGameManager extends AbstractGameManager {
             return;
         }
 
-        // Apply bonus immediately if the roll succeeded (rolled client-side)
-        if (success) {
-            if (targetIsFriendly) {
-                target.addGhostTargetDefensiveBonus(1);
-            } else {
-                target.addGhostTargetOffensiveBonus(1);
-            }
-            entityUpdate(target.getId());
-
-            // Stealth Armor + Angel ECM self-penalty
-            if (source.isStealthActive()) {
-                MiscMounted equipment = source.getMisc(equipmentId);
-                if ((equipment != null) && equipment.getType().hasFlag(MiscType.F_ANGEL_ECM)) {
-                    source.addGhostTargetOffensiveBonus(1);
-                    entityUpdate(source.getId());
-                }
-            }
-        }
-
-        // Store for FIRING phase report summary
+        // Store for resolution at start of FIRING phase (server performs the roll)
+        LOGGER.debug("Ghost target action received: source={} (id={}), equip={}, target={} (id={}), friendly={}",
+              source.getDisplayName(), entityId, equipmentId,
+              target.getDisplayName(), targetId, targetIsFriendly);
         pendingGhostTargetActions.add(
-              new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly, success));
+              new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly));
     }
 
     /**
@@ -10714,6 +10697,7 @@ public class TWGameManager extends AbstractGameManager {
      * generates reports.
      */
     void resolveStandardGhostTargets() {
+        LOGGER.debug("Resolving standard ghost targets: {} pending actions", pendingGhostTargetActions.size());
         if (pendingGhostTargetActions.isEmpty()) {
             return;
         }
@@ -10726,11 +10710,16 @@ public class TWGameManager extends AbstractGameManager {
 
             if ((source == null) || (target == null) || source.isDestroyed()
                   || target.isDestroyed() || !source.isDeployed() || !target.isDeployed()) {
+                LOGGER.debug(
+                      "Ghost target action skipped: source or target invalid/destroyed/undeployed (sourceId={}, targetId={})",
+                      action.getEntityId(),
+                      action.getTargetEntityId());
                 continue;
             }
 
             // ECCM suppression: can't generate if entity's hex has more enemy ECM than friendly ECCM
             if (ComputeECM.isAffectedByECM(source, source.getPosition(), source.getPosition())) {
+                LOGGER.debug("Ghost target suppressed by ECCM: {}", source.getDisplayName());
                 Report r = new Report(3637);
                 r.subject = source.getId();
                 r.addDesc(source);
@@ -10747,6 +10736,10 @@ public class TWGameManager extends AbstractGameManager {
             Roll roll = Compute.rollD6(2);
             boolean success = roll.getIntValue() >= targetNumber;
 
+            LOGGER.debug("Ghost target roll: {} -> {} needs {}+, rolled {}, {}",
+                  source.getDisplayName(), target.getDisplayName(),
+                  targetNumber, roll.getIntValue(), success ? "SUCCESS" : "FAILED");
+
             // Report: source targets target with Ghost Targets (needs X+), rolls Y: success/failure
             Report r = new Report(3633);
             r.subject = source.getId();
@@ -10760,8 +10753,12 @@ public class TWGameManager extends AbstractGameManager {
             if (success) {
                 if (action.isTargetFriendly()) {
                     target.addGhostTargetDefensiveBonus(1);
+                    LOGGER.debug("Ghost target defensive bonus applied to {} (now {})",
+                          target.getDisplayName(), target.getGhostTargetDefensiveBonus());
                 } else {
                     target.addGhostTargetOffensiveBonus(1);
+                    LOGGER.debug("Ghost target offensive bonus applied to {} (now {})",
+                          target.getDisplayName(), target.getGhostTargetOffensiveBonus());
                 }
                 entityUpdate(target.getId());
             }

@@ -42,7 +42,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.swing.JOptionPane;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -57,7 +56,6 @@ import megamek.client.ui.util.MegaMekController;
 import megamek.client.ui.widget.MegaMekButton;
 import megamek.client.ui.widget.MekPanelTabStrip;
 import megamek.common.actions.GhostTargetAction;
-import megamek.common.compute.Compute;
 import megamek.common.enums.GamePhase;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
@@ -66,7 +64,6 @@ import megamek.common.event.GameTurnChangeEvent;
 import megamek.common.event.entity.GameEntityChangeEvent;
 import megamek.common.game.Game;
 import megamek.common.options.OptionsConstants;
-import megamek.common.rolls.Roll;
 import megamek.common.units.Entity;
 import megamek.logging.MMLogger;
 
@@ -560,11 +557,17 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private void assignGhostTarget(Entity targetEntity) {
         Entity source = currentEntity();
         if (source == null) {
+            logger.debug("Ghost target assignment: no current entity");
             return;
         }
 
+        logger.debug("Ghost target assignment: {} targeting {}",
+              source.getDisplayName(),
+              targetEntity.getDisplayName());
+
         // Conventional infantry is immune to ghost targets
         if (targetEntity.isConventionalInfantry()) {
+            logger.debug("Ghost target rejected: {} is conventional infantry", targetEntity.getDisplayName());
             setStatusBarText(Messages.getString("PrephaseDisplay.ghostTargetInfantryImmune"));
             return;
         }
@@ -572,6 +575,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         // Find the first available ghost-target-capable equipment not yet used this turn
         int equipId = findAvailableGhostTargetEquipment(source);
         if (equipId < 0) {
+            logger.debug("Ghost target rejected: no available equipment on {}", source.getDisplayName());
             setStatusBarText(Messages.getString("PrephaseDisplay.ghostTargetNoEquipment"));
             ghostTargetMode = false;
             refreshButtons();
@@ -581,6 +585,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         // Range check: target must be within 6 hexes (standard ECM/comms ghost target range)
         int distance = source.getPosition().distance(targetEntity.getPosition());
         if (distance > 6) {
+            logger.debug("Ghost target rejected: {} is {} hexes away (max 6)", targetEntity.getDisplayName(), distance);
             setStatusBarText(Messages.getFormattedString("PrephaseDisplay.ghostTargetOutOfRange",
                   targetEntity.getDisplayName()));
             return;
@@ -592,34 +597,19 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
               ? Messages.getString("PrephaseDisplay.ghostTargetProtect")
               : Messages.getString("PrephaseDisplay.ghostTargetJam");
 
-        // Roll Piloting/Driving +3 (Gunnery +3 for ProtoMeks)
-        int targetNumber = source.getCrew().getPiloting() + 3;
-        if (source.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
-            targetNumber = source.getCrew().getGunnery() + 3;
-        }
-        Roll roll = Compute.rollD6(2);
-        boolean success = roll.getIntValue() >= targetNumber;
+        logger.debug("Ghost target sent to server: {} -> {} (equipId={}, friendly={}, distance={})",
+              source.getDisplayName(), targetEntity.getDisplayName(), equipId, isFriendly, distance);
 
-        // Show popup with roll result
-        String rollResult = source.getDisplayName() + " targets " + targetEntity.getDisplayName()
-              + " with Ghost Targets (" + effectType + ")\n\n"
-              + "Needs: " + targetNumber + "+    Rolled: " + roll.getIntValue() + "\n\n"
-              + (success ? "SUCCESS - +1 to-hit modifier applied!" : "FAILED - no effect.");
-        String title = "Ghost Target Roll" + (success ? " - Success" : " - Failed");
-        JOptionPane.showMessageDialog(clientgui.getFrame(), rollResult, title,
-              success ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
-
-        // Send the action and result to the server
+        // Send the action to the server (server performs the Piloting+3 roll)
         clientgui.getClient().sendGhostTargetAction(
-              source.getId(), equipId, targetEntity.getId(), isFriendly, success);
+              source.getId(), equipId, targetEntity.getId(), isFriendly);
 
         // Track this equipment as used (regardless of success - one attempt per equipment)
         usedGhostTargetEquipment.add(equipId);
 
         // Persistent status bar confirmation
         ghostTargetConfirmation = Messages.getFormattedString("PrephaseDisplay.ghostTargetAssigned",
-              source.getDisplayName(), targetEntity.getDisplayName(), effectType)
-              + (success ? " (SUCCESS)" : " (FAILED)");
+              source.getDisplayName(), targetEntity.getDisplayName(), effectType);
 
         // Exit ghost target mode (can re-enter to assign additional equipment)
         ghostTargetMode = false;
