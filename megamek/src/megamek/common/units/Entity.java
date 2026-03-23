@@ -879,9 +879,9 @@ public abstract class Entity extends TurnOrdered
 
     // Standard mode ghost target bonuses (per TO:AR rules)
     // Accumulated +N to-hit for attacks AGAINST this unit (from friendly ghost targets)
-    private transient int ghostTargetDefensiveBonus;
+    private int ghostTargetDefensiveBonus;
     // Accumulated +N to-hit for attacks BY this unit (from enemy ghost targets)
-    private transient int ghostTargetOffensiveBonus;
+    private int ghostTargetOffensiveBonus;
 
     // Tac Ops HeatSink Coolant Failure number
     protected int heatSinkCoolantFailureFactor;
