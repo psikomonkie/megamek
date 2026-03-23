@@ -1641,7 +1641,7 @@ public class Infantry extends Entity {
             divisor = getCustomArmorDamageDivisor();
         }
         // TSM implant reduces divisor to 0.5 if no other armor is worn
-        if ((divisor == 1.0) && hasAbility(OptionsConstants.MD_TSM_IMPLANT)) {
+        if ((armorKit == null) && (divisor == 1.0) && hasAbility(OptionsConstants.MD_TSM_IMPLANT)) {
             divisor = 0.5;
         }
         // Dermal camo armor provides divisor of 1.0 (prevents 0.5 from TSM alone)
