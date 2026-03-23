@@ -40,8 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link InfantryCombatResult} focusing on result creation
- * and interpretation of TOAR Infantry vs. Infantry combat outcomes.
+ * Tests for {@link InfantryCombatResult} focusing on result creation and interpretation of TOAR Infantry vs. Infantry
+ * combat outcomes.
  */
 public class InfantryCombatResultTest {
 

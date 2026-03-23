@@ -703,27 +703,25 @@ public abstract class Entity extends TurnOrdered
     private int swarmAttackerId = Entity.NONE;
 
     /**
-     * The id of the target entity this infantry unit is engaged in boarding combat with.
-     * NONE (-1) indicates not in infantry vs. infantry combat.
-     * Target can be AbstractBuildingEntity or Large Naval Vessel.
+     * The id of the target entity this infantry unit is engaged in boarding combat with. NONE (-1) indicates not in
+     * infantry vs. infantry combat. Target can be AbstractBuildingEntity or Large Naval Vessel.
      */
     private int infantryCombatTargetId = Entity.NONE;
 
     /**
-     * True if this entity is the attacker in an infantry vs. infantry combat.
-     * False if defender. Only meaningful if infantryCombatTargetId != NONE.
+     * True if this entity is the attacker in an infantry vs. infantry combat. False if defender. Only meaningful if
+     * infantryCombatTargetId != NONE.
      */
     private boolean infantryCombatIsAttacker = false;
 
     /**
-     * Number of turns this entity has been engaged in infantry vs. infantry combat.
-     * Used for tracking combat duration.
+     * Number of turns this entity has been engaged in infantry vs. infantry combat. Used for tracking combat duration.
      */
     private int infantryCombatTurnCount = 0;
 
     /**
-     * True if this entity (as attacker) wants to withdraw from infantry combat.
-     * Processed during End Phase before combat resolution.
+     * True if this entity (as attacker) wants to withdraw from infantry combat. Processed during End Phase before
+     * combat resolution.
      */
     private boolean infantryCombatWantsWithdrawal = false;
 
@@ -1483,6 +1481,16 @@ public abstract class Entity extends TurnOrdered
     public void recalculateTechAdvancement() {
         initTechAdvancement();
         for (Mounted<?> m : getEquipment()) {
+            // ProtoMek EI is built-in per IO:AE p.69 -- only count toward tech level
+            // when tracking neural interface hardware
+            if (isProtoMek()
+                  && (m.getType() instanceof MiscType)
+                  && m.getType().hasFlag(MiscType.F_EI_INTERFACE)
+                  && ((game == null) || !gameOptions().booleanOption(
+                  OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE))) {
+                continue;
+            }
+
             compositeTechLevel.addComponent(m.getType());
             if (m.isArmored()) {
                 compositeTechLevel.addComponent(TA_ARMORED_COMPONENT);
@@ -11036,8 +11044,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Determines if this entity can initiate infantry vs infantry combat.
-     * Default implementation returns false. Infantry units override this.
+     * Determines if this entity can initiate infantry vs infantry combat. Default implementation returns false.
+     * Infantry units override this.
      *
      * @return true if this entity can initiate infantry vs infantry combat
      */
@@ -11046,8 +11054,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Determines if this entity can reinforce ongoing infantry vs infantry combat.
-     * Default implementation returns false. Infantry units override this.
+     * Determines if this entity can reinforce ongoing infantry vs infantry combat. Default implementation returns
+     * false. Infantry units override this.
      *
      * @return true if this entity can reinforce infantry vs infantry combat
      */
@@ -11056,16 +11064,15 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Check if the entity can initiate NEW infantry vs. infantry combat.
-     * This is for the PREEND_DECLARATIONS phase.
+     * Check if the entity can initiate NEW infantry vs. infantry combat. This is for the PREEND_DECLARATIONS phase.
      */
     public boolean isEligibleForPreEndDeclarations() {
         return canInitiateInfantryVsInfantryCombat();
     }
 
     /**
-     * Check if the entity can participate in ONGOING infantry vs. infantry combat.
-     * This is for the INFANTRY_VS_INFANTRY_COMBAT phase.
+     * Check if the entity can participate in ONGOING infantry vs. infantry combat. This is for the
+     * INFANTRY_VS_INFANTRY_COMBAT phase.
      */
     public boolean isEligibleForInfantryVsInfantry() {
         return canReinforceInfantryVsInfantry();
@@ -11954,33 +11961,18 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Returns whether this unit has an active Enhanced Imaging (EI) cockpit system. EI cockpit is always required (it's
-     * built into the unit at construction). When the "Track Neural Interface Hardware" option is enabled, the pilot
-     * must also have the EI implant. When tracking is disabled, only the cockpit is required (original behavior).
-     *
-     * <p>Note: EI has inverted requirements compared to DNI:</p>
-     * <ul>
-     *   <li>DNI: Implant always required, hardware conditional on tracking</li>
-     *   <li>EI: Hardware (cockpit) always required, implant conditional on tracking</li>
-     * </ul>
+     * Returns whether this unit has an active Enhanced Imaging (EI) cockpit system. The EI implant is the primary
+     * requirement (same pattern as DNI via {@link #isNeuralInterfaceActive}). When tracking hardware is disabled
+     * (default), the implant alone provides EI benefits. When tracking is enabled, the unit must also have EI cockpit
+     * equipment that is not shut down.
      *
      * @return true if the unit has an active EI cockpit system
      */
     public boolean hasActiveEiCockpit() {
-        // EI cockpit is always required (it's built into the unit)
-        if (!hasEiCockpit()) {
-            return false;
-        }
-
-        // When tracking hardware, also require EI implant on pilot
-        if ((game != null) && gameOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
-            if (!hasAbility(OptionsConstants.MD_EI_IMPLANT)) {
-                return false;
-            }
-        }
-
-        // EI-specific: check if interface is in "Off" mode
-        return !isEiShutdown();
+        return isNeuralInterfaceActive(
+              hasAbility(OptionsConstants.MD_EI_IMPLANT),
+              hasEiCockpit() && !isEiShutdown()
+        );
     }
 
     /**

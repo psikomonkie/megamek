@@ -41,8 +41,8 @@ import megamek.common.InfantryCombatResult;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link InfantryCombatTables} focusing on ratio calculation,
- * action resolution, and crew casualties conversion (TOAR p. 173-174).
+ * Tests for {@link InfantryCombatTables} focusing on ratio calculation, action resolution, and crew casualties
+ * conversion (TOAR p. 173-174).
  */
 public class InfantryCombatTablesTest {
 
@@ -196,7 +196,7 @@ public class InfantryCombatTablesTest {
     @Test
     void testResolveAction_AllRatios() {
         // Test that all ratio strings resolve without errors
-        String[] ratios = {"1:3<", "1:3", "1:2", "2:3", "1:1", "3:2", "2:1", "3:1", ">3:1"};
+        String[] ratios = { "1:3<", "1:3", "1:2", "2:3", "1:1", "3:2", "2:1", "3:1", ">3:1" };
 
         for (String ratio : ratios) {
             for (int roll = 2; roll <= 12; roll++) {
