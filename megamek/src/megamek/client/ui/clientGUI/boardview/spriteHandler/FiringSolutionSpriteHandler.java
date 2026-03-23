@@ -145,7 +145,7 @@ public class FiringSolutionSpriteHandler extends BoardViewSpriteHandler implemen
             }
         }
 
-        // Spotted plain hexes (e.g. tagged for indirect artillery fire)
+        // Spotted hexes
         for (Entity spotter : game.getEntitiesVector()) {
             if (!spotter.isEnemyOf(entity) && spotter.isSpotting()
                   && game.getEntity(spotter.getSpotTargetId()) == null) {
