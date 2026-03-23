@@ -1597,8 +1597,8 @@ public class Infantry extends Entity {
     }
 
     /**
-     * Applies the armor kit's flags (encumbering, space suit, DEST, sneak properties)
-     * and recalculates the damage divisor, without modifying the equipment list.
+     * Applies the armor kit's flags (encumbering, space suit, DEST, sneak properties) and recalculates the damage
+     * divisor, without modifying the equipment list.
      */
     private void applyArmorKitFlags(EquipmentType armorKit) {
         if ((armorKit != null) && armorKit.hasFlag(MiscType.F_ARMOR_KIT)) {
