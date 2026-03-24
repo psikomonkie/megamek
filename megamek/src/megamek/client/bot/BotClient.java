@@ -379,7 +379,10 @@ public abstract class BotClient extends Client {
         }
 
         // Mek Cockpit Command Console (cockpit type, not misc equipment)
-        if (source.hasCommandConsoleBonus()) {
+        if ((source instanceof megamek.common.units.Mek mek)
+              && (mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_COMMAND_CONSOLE
+              || mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
+              || mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
             assignBotGhostTargetForEquipment(source,
                   megamek.common.actions.GhostTargetAction.CCC_EQUIPMENT_ID);
         }

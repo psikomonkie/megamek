@@ -6047,8 +6047,16 @@ public abstract class Entity extends TurnOrdered
                 return true;
             }
         }
-        if (hasCommandConsoleBonus()) {
-            return true;
+        // Mek Cockpit Command Console (cockpit type, not misc equipment).
+        // Simpler check than hasCommandConsoleBonus() which is designed for initiative
+        // and has phase-dependent conditions that don't apply to ghost targets.
+        if (this instanceof Mek mek) {
+            boolean isCCC = (mek.getCockpitType() == Mek.COCKPIT_COMMAND_CONSOLE
+                  || mek.getCockpitType() == Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
+                  || mek.getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE);
+            if (isCCC && !getCrew().isDead() && !getCrew().isUnconscious()) {
+                return true;
+            }
         }
         return false;
     }

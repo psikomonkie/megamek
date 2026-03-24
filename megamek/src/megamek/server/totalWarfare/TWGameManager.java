@@ -9698,12 +9698,24 @@ public class TWGameManager extends AbstractGameManager {
             return;
         }
 
-        // Store for resolution at start of FIRING phase (server performs the roll)
-        LOGGER.debug("Ghost target action received: source={} (id={}), equip={}, target={} (id={}), friendly={}",
+        // Reject duplicate: same entity + equipment already has a pending action this round
+        for (GhostTargetAction existing : pendingGhostTargetActions) {
+            if (existing.getEntityId() == entityId && existing.getEquipmentId() == equipmentId) {
+                LOGGER.info("[GhostTarget] receiveGhostTargetAction: REJECTED duplicate for entity={}, equip={}",
+                      entityId, equipmentId);
+                return;
+            }
+        }
+
+        LOGGER.info("[GhostTarget] receiveGhostTargetAction: source={} (id={}), equip={}, target={} (id={}), "
+                    + "friendly={}, listSizeBefore={}",
               source.getDisplayName(), entityId, equipmentId,
-              target.getDisplayName(), targetId, targetIsFriendly);
+              target.getDisplayName(), targetId, targetIsFriendly,
+              pendingGhostTargetActions.size());
         pendingGhostTargetActions.add(
               new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly));
+        LOGGER.info("[GhostTarget] receiveGhostTargetAction: listSizeAfter={}",
+              pendingGhostTargetActions.size());
     }
 
     /**
@@ -10670,6 +10682,48 @@ public class TWGameManager extends AbstractGameManager {
         addReport(vDesc);
     }
 
+    /**
+     * Reports Ghost Target mode changes during the End Phase. Scans all deployed entities for ECM/Comms/CCC equipment
+     * that has a pending Ghost Targets mode change and reports the activation or deactivation to all players.
+     */
+    void reportGhostTargetModeChanges() {
+        if (!game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)) {
+            return;
+        }
+
+        for (Entity ent : game.inGameTWEntities()) {
+            if (!ent.isDeployed() || ent.isDestroyed()) {
+                continue;
+            }
+            for (MiscMounted m : ent.getMisc()) {
+                String curModeName = m.curMode().getName();
+                String pendModeName = m.pendingMode().getName();
+
+                // Skip if no pending change
+                if ("None".equals(pendModeName)) {
+                    continue;
+                }
+
+                boolean curIsGT = curModeName.contains("Ghost Targets");
+                boolean pendIsGT = pendModeName.contains("Ghost Targets");
+
+                if (pendIsGT && !curIsGT) {
+                    Report r = new Report(3640, Report.PUBLIC);
+                    r.subject = ent.getId();
+                    r.addDesc(ent);
+                    r.add(m.getName());
+                    addReport(r);
+                } else if (!pendIsGT && curIsGT) {
+                    Report r = new Report(3641, Report.PUBLIC);
+                    r.subject = ent.getId();
+                    r.addDesc(ent);
+                    r.add(m.getName());
+                    addReport(r);
+                }
+            }
+        }
+    }
+
     void reportGhostTargetRolls() {
         // run through an enumeration of deployed game entities. If they have
         // ghost targets, then check the roll
@@ -10699,8 +10753,27 @@ public class TWGameManager extends AbstractGameManager {
      * Piloting/Driving +3, on success applies +1 to the target's defensive or offensive bonus (capped at +3 each), and
      * generates reports.
      */
+    /**
+     * Clears all pending ghost target actions and reports. Called at the start of PRE_FIRING
+     * to prevent accumulation across rounds.
+     */
+    void clearPendingGhostTargets() {
+        LOGGER.info("[GhostTarget] clearPendingGhostTargets: clearing {} actions, {} reports",
+              pendingGhostTargetActions.size(), pendingGhostTargetReports.size());
+        pendingGhostTargetActions.clear();
+        pendingGhostTargetReports.clear();
+    }
+
     void resolveStandardGhostTargets() {
-        LOGGER.debug("Resolving standard ghost targets: {} pending actions", pendingGhostTargetActions.size());
+        LOGGER.info(
+              "[GhostTarget] resolveStandardGhostTargets CALLED: pendingActions={}, pendingReports={}, stacktrace={}",
+              pendingGhostTargetActions.size(),
+              pendingGhostTargetReports.size(),
+              Thread.currentThread().getStackTrace()[2]);
+
+        // Always clear reports from any previous round
+        pendingGhostTargetReports.clear();
+
         if (pendingGhostTargetActions.isEmpty()) {
             return;
         }
@@ -10743,29 +10816,61 @@ public class TWGameManager extends AbstractGameManager {
                   source.getDisplayName(), target.getDisplayName(),
                   targetNumber, roll.getIntValue(), success ? "SUCCESS" : "FAILED");
 
-            // Report: source targets target with Defensive/Offensive Ghost Targets (needs X+), rolls Y: success/failure
-            String ghostType = action.isTargetFriendly() ? "Defensive" : "Offensive";
-            Report r = new Report(3633);
-            r.subject = source.getId();
-            r.addDesc(source);
-            r.addDesc(target);
-            r.add(ghostType);
-            r.add(targetNumber);
-            r.add(roll);
-            r.choose(success);
-            pendingGhostTargetReports.add(r);
+            // Check special cases for successful rolls
+            boolean probeImmune = success && !action.isTargetFriendly()
+                  && target.hasBAP() && !target.isStealthActive();
+            boolean alreadyCapped = success
+                  && ((action.isTargetFriendly() && target.getGhostTargetDefensiveBonus() >= 3)
+                  || (!action.isTargetFriendly() && target.getGhostTargetOffensiveBonus() >= 3));
 
-            if (success) {
-                if (action.isTargetFriendly()) {
-                    target.addGhostTargetDefensiveBonus(1);
-                    LOGGER.debug("Ghost target defensive bonus applied to {} (now {})",
-                          target.getDisplayName(), target.getGhostTargetDefensiveBonus());
-                } else {
-                    target.addGhostTargetOffensiveBonus(1);
-                    LOGGER.debug("Ghost target offensive bonus applied to {} (now {})",
-                          target.getDisplayName(), target.getGhostTargetOffensiveBonus());
+            String ghostType = action.isTargetFriendly() ? "Defensive" : "Offensive";
+
+            if (probeImmune) {
+                // Dedicated report: success but target is immune due to active probe
+                Report r = new Report(3642);
+                r.subject = source.getId();
+                r.addDesc(source);
+                r.addDesc(target);
+                r.add(ghostType);
+                r.add(targetNumber);
+                r.add(roll);
+                r.addDesc(target);
+                pendingGhostTargetReports.add(r);
+            } else if (alreadyCapped) {
+                // Dedicated report: success but target is already at +3 max
+                Report r = new Report(3643);
+                r.subject = source.getId();
+                r.addDesc(source);
+                r.addDesc(target);
+                r.add(ghostType);
+                r.add(targetNumber);
+                r.add(roll);
+                r.addDesc(target);
+                pendingGhostTargetReports.add(r);
+            } else {
+                // Normal report: success or failure
+                Report r = new Report(3633);
+                r.subject = source.getId();
+                r.addDesc(source);
+                r.addDesc(target);
+                r.add(ghostType);
+                r.add(targetNumber);
+                r.add(roll);
+                r.choose(success);
+                pendingGhostTargetReports.add(r);
+
+                if (success) {
+                    if (action.isTargetFriendly()) {
+                        target.addGhostTargetDefensiveBonus(1);
+                        LOGGER.debug("Ghost target defensive bonus applied to {} (now {})",
+                              target.getDisplayName(), target.getGhostTargetDefensiveBonus());
+                    } else {
+                        target.addGhostTargetOffensiveBonus(1);
+                        LOGGER.debug("Ghost target offensive bonus applied to {} (now {})",
+                              target.getDisplayName(), target.getGhostTargetOffensiveBonus());
+                    }
+                    entityUpdate(target.getId());
                 }
-                entityUpdate(target.getId());
             }
 
             // Stealth Armor + Angel ECM: generating entity suffers +1 to own attacks
@@ -10790,6 +10895,8 @@ public class TWGameManager extends AbstractGameManager {
      * FIRING phase end processing, after the phase header.
      */
     void addGhostTargetReports() {
+        LOGGER.info("[GhostTarget] addGhostTargetReports CALLED: {} reports pending",
+              pendingGhostTargetReports.size());
         if (!pendingGhostTargetReports.isEmpty()) {
             for (Report report : pendingGhostTargetReports) {
                 addReport(report);
@@ -26384,6 +26491,7 @@ public class TWGameManager extends AbstractGameManager {
                     }
                 }
             }
+
         } catch (Exception ex) {
             LOGGER.error("", ex);
         }
