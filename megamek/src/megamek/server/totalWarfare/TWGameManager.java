@@ -10726,15 +10726,20 @@ public class TWGameManager extends AbstractGameManager {
 
     void reportGhostTargetRolls() {
         // run through an enumeration of deployed game entities. If they have
-        // ghost targets, then check the roll
-        // and report it
+        // ghost targets, then check the roll and report it
         Report r;
+        boolean hasGhostTargets = false;
         for (Entity ent : game.inGameTWEntities()) {
             if (ent.isDeployed() && ent.hasGhostTargets(false)) {
+                if (!hasGhostTargets) {
+                    addReport(new Report(3636, Report.PUBLIC));
+                    hasGhostTargets = true;
+                }
                 r = new Report(3630);
                 r.subject = ent.getId();
                 r.addDesc(ent);
                 // Ghost target mod is +3 per errata
+                // For BA, getCrew().getPiloting() returns the Anti-Mek skill per errata
                 int target = ent.getCrew().getPiloting() + 3;
                 if (ent.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
                     target = ent.getCrew().getGunnery() + 3;
@@ -10743,6 +10748,18 @@ public class TWGameManager extends AbstractGameManager {
                 r.add(ent.getGhostTargetRoll());
                 r.choose(ent.getGhostTargetRoll().getIntValue() >= target);
                 addReport(r);
+            }
+        }
+        // Report override rolls for entities that may be affected by ghost targets
+        if (hasGhostTargets) {
+            for (Entity ent : game.inGameTWEntities()) {
+                if (ent.isDeployed() && !ent.isConventionalInfantry()) {
+                    Report overrideReport = new Report(3644);
+                    overrideReport.subject = ent.getId();
+                    overrideReport.addDesc(ent);
+                    overrideReport.add(ent.getGhostTargetOverride());
+                    addReport(overrideReport);
+                }
             }
         }
         addNewLines();
