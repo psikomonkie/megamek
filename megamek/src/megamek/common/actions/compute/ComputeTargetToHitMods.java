@@ -153,22 +153,30 @@ public class ComputeTargetToHitMods {
         // Special Equipment and Quirks that the target possesses
 
         // ECM suite generating Ghost Targets
-        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-              && !isIndirect
-              && !isArtilleryIndirect
-              && !isArtilleryDirect) {
+        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)) {
 
             boolean isStandardMode = OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
                   game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE));
 
             if (isStandardMode) {
                 // Standard (TO:AR) mode: per-unit targeted ghost targets
+                // Per errata: indirect fire pays the modifier (firing is firing), spotting does not
                 // Active probe grants full immunity unless jammed or has active stealth armor
                 boolean hasActiveProbeImmunity = attacker.hasBAP() && !attacker.isStealthActive();
 
+                // Per errata: TAG-designated targets with semi-guided ammo are immune to ghost target
+                // defensive modifiers (TAG resolves before ghost targets, so the lock bypasses ghosts)
+                boolean isSemiGuidedTagged = (entityTarget != null)
+                      && (entityTarget.getTaggedBy() != WeaponAttackAction.UNASSIGNED)
+                      && (ammoType != null)
+                      && ammoType.getAmmoType().isAnyOf(AmmoType.AmmoTypeEnum.LRM, AmmoType.AmmoTypeEnum.LRM_IMP,
+                      AmmoType.AmmoTypeEnum.MML, AmmoType.AmmoTypeEnum.NLRM, AmmoType.AmmoTypeEnum.MEK_MORTAR)
+                      && munition.contains(AmmoType.Munitions.M_SEMIGUIDED);
+
                 if (!attacker.isConventionalInfantry() && !hasActiveProbeImmunity) {
                     // Defensive bonus: +N to attacks AGAINST the target (from friendly ghost targets)
-                    if ((entityTarget != null) && (entityTarget.getGhostTargetDefensiveBonus() > 0)) {
+                    if ((entityTarget != null) && (entityTarget.getGhostTargetDefensiveBonus() > 0)
+                          && !isSemiGuidedTagged) {
                         toHit.addModifier(entityTarget.getGhostTargetDefensiveBonus(),
                               Messages.getString("WeaponAttackAction.GhostTargetsDefensive"));
                     }
@@ -179,8 +187,8 @@ public class ComputeTargetToHitMods {
                               Messages.getString("WeaponAttackAction.GhostTargetsOffensive"));
                     }
                 }
-            } else {
-                // Legacy (Area Effect) mode: original MegaMek implementation
+            } else if (!isIndirect && !isArtilleryIndirect && !isArtilleryDirect) {
+                // Legacy (Area Effect) mode: original MegaMek implementation (excludes indirect fire)
                 int ghostTargetMod = Compute.getGhostTargetNumber(attacker, attacker.getPosition(),
                       target.getPosition());
                 if ((ghostTargetMod > -1) && !attacker.isConventionalInfantry()) {

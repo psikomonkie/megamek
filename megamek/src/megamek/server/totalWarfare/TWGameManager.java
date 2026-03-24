@@ -10803,7 +10803,8 @@ public class TWGameManager extends AbstractGameManager {
                 continue;
             }
 
-            // Roll: Piloting/Driving +3 (Gunnery +3 for ProtoMeks), no other modifiers
+            // Roll: Piloting/Driving +3 (Gunnery +3 for ProtoMeks, Anti-Mek +3 for BA), no other modifiers
+            // For BA, getCrew().getPiloting() returns the Anti-Mek skill per errata
             int targetNumber = source.getCrew().getPiloting() + 3;
             if (source.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
                 targetNumber = source.getCrew().getGunnery() + 3;
