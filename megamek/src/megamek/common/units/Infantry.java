@@ -1597,8 +1597,8 @@ public class Infantry extends Entity {
     }
 
     /**
-     * Applies the armor kit's flags (encumbering, space suit, DEST, sneak properties)
-     * and recalculates the damage divisor, without modifying the equipment list.
+     * Applies the armor kit's flags (encumbering, space suit, DEST, sneak properties) and recalculates the damage
+     * divisor, without modifying the equipment list.
      */
     private void applyArmorKitFlags(EquipmentType armorKit) {
         if ((armorKit != null) && armorKit.hasFlag(MiscType.F_ARMOR_KIT)) {
@@ -1641,7 +1641,7 @@ public class Infantry extends Entity {
             divisor = getCustomArmorDamageDivisor();
         }
         // TSM implant reduces divisor to 0.5 if no other armor is worn
-        if ((divisor == 1.0) && hasAbility(OptionsConstants.MD_TSM_IMPLANT)) {
+        if ((armorKit == null) && (divisor == 1.0) && hasAbility(OptionsConstants.MD_TSM_IMPLANT)) {
             divisor = 0.5;
         }
         // Dermal camo armor provides divisor of 1.0 (prevents 0.5 from TSM alone)
