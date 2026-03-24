@@ -320,7 +320,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         // Send all pending ghost target actions to the server
         for (PendingGhostTarget pgt : pendingGhostTargets.values()) {
             clientgui.getClient().sendGhostTargetAction(
-                  pgt.sourceId(), pgt.equipId(), pgt.targetId(), pgt.isFriendly());
+                  pgt.sourceId(), pgt.equipId(), pgt.targetId());
         }
 
         clientgui.getClient().sendPrePhaseData(cen);
@@ -342,7 +342,9 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         // that still get turns generated in PRE_FIRING)
         int firstEntity = clientgui.getClient().getFirstEntityNum();
         if (firstEntity == Entity.NONE) {
-            ready();
+            disableButtons();
+            clientgui.getClient().sendDone(true);
+            endMyTurn();
             return;
         }
 
@@ -638,16 +640,16 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         usedGhostTargetEquipment.add(equipId);
 
         // Build status bar showing all pending assignments for this entity
-        StringBuilder sb = new StringBuilder("Ghost Targets: ");
+        StringBuilder sb = new StringBuilder(Messages.getString("PrephaseDisplay.ghostTargetStatusPrefix"));
         boolean first = true;
         for (PendingGhostTarget pgt : pendingGhostTargets.values()) {
             if (!first) {
-                sb.append(" | ");
+                sb.append(Messages.getString("PrephaseDisplay.ghostTargetStatusSeparator"));
             }
             sb.append(pgt.description());
             first = false;
         }
-        sb.append("  [Click Done to confirm, or Ghost Target to change]");
+        sb.append(Messages.getString("PrephaseDisplay.ghostTargetStatusSuffix"));
         ghostTargetConfirmation = sb.toString();
 
         // Exit ghost target mode (can re-enter to assign additional equipment or change target)

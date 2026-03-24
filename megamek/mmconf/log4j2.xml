@@ -65,16 +65,6 @@
         <Logger name="BotLogger" level="info" additivity="false">
             <AppenderRef ref="BotLog" />
         </Logger>
-        <Logger name="megamek.client.ui.panels.phaseDisplay.PrephaseDisplay" level="debug" additivity="false">
-            <AppenderRef ref="${env:mm.profile:-null}" />
-            <AppenderRef ref="UnifiedLog" />
-            <AppenderRef ref="MegaMekLog" />
-        </Logger>
-        <Logger name="megamek.server.totalWarfare.TWGameManager" level="debug" additivity="false">
-            <AppenderRef ref="${env:mm.profile:-null}" />
-            <AppenderRef ref="UnifiedLog" />
-            <AppenderRef ref="MegaMekLog" />
-        </Logger>
         <Logger name="megamek" level="info" additivity="false">
             <AppenderRef ref="${env:mm.profile:-null}" />
             <AppenderRef ref="UnifiedLog" />

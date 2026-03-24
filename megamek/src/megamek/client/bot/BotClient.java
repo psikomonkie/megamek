@@ -409,9 +409,9 @@ public abstract class BotClient extends Client {
         }
 
         if (bestTarget != null) {
-            sendGhostTargetAction(source.getId(), equipId, bestTarget.getId(), false);
+            sendGhostTargetAction(source.getId(), equipId, bestTarget.getId());
         } else {
-            sendGhostTargetAction(source.getId(), equipId, source.getId(), true);
+            sendGhostTargetAction(source.getId(), equipId, source.getId());
         }
     }
 

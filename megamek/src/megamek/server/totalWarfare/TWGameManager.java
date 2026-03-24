@@ -9679,7 +9679,20 @@ public class TWGameManager extends AbstractGameManager {
         int entityId = packet.getIntValue(0);
         int equipmentId = packet.getIntValue(1);
         int targetId = packet.getIntValue(2);
-        boolean targetIsFriendly = packet.getBooleanValue(3);
+
+        // Validate phase
+        if (!getGame().getPhase().isPreFiring()) {
+            LOGGER.error("Received ghost target action in wrong phase {}", game.getPhase());
+            return;
+        }
+
+        // Validate Standard mode is active
+        if (!game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+              || !OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
+              game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+            LOGGER.error("Received ghost target action but Standard mode is not active");
+            return;
+        }
 
         Entity source = game.getEntity(entityId);
         if (source == null) {
@@ -9687,8 +9700,10 @@ public class TWGameManager extends AbstractGameManager {
             return;
         }
 
-        if (!getGame().getPhase().isPreFiring()) {
-            LOGGER.error("Received ghost target action in wrong phase {}", game.getPhase());
+        // Validate connection owns this entity
+        Player player = game.getPlayer(connId);
+        if ((player == null) || (source.getOwnerId() != player.getId())) {
+            LOGGER.error("Connection {} does not own entity {}", connId, entityId);
             return;
         }
 
@@ -9698,24 +9713,35 @@ public class TWGameManager extends AbstractGameManager {
             return;
         }
 
+        // Derive friendliness server-side (don't trust client)
+        boolean targetIsFriendly = !source.isEnemyOf(target);
+
+        // Validate target is not conventional infantry (immune)
+        if (target.isConventionalInfantry()) {
+            LOGGER.error("Ghost target action rejected: target {} is conventional infantry", targetId);
+            return;
+        }
+
+        // Validate target is within range (6 hexes)
+        if ((source.getPosition() != null) && (target.getPosition() != null)
+              && (source.getPosition().distance(target.getPosition()) > 6)) {
+            LOGGER.error("Ghost target action rejected: target {} is out of range", targetId);
+            return;
+        }
+
         // Reject duplicate: same entity + equipment already has a pending action this round
         for (GhostTargetAction existing : pendingGhostTargetActions) {
-            if (existing.getEntityId() == entityId && existing.getEquipmentId() == equipmentId) {
-                LOGGER.info("[GhostTarget] receiveGhostTargetAction: REJECTED duplicate for entity={}, equip={}",
-                      entityId, equipmentId);
+            if ((existing.getEntityId() == entityId) && (existing.getEquipmentId() == equipmentId)) {
+                LOGGER.debug("Ghost target action rejected: duplicate for entity={}, equip={}", entityId, equipmentId);
                 return;
             }
         }
 
-        LOGGER.info("[GhostTarget] receiveGhostTargetAction: source={} (id={}), equip={}, target={} (id={}), "
-                    + "friendly={}, listSizeBefore={}",
+        LOGGER.debug("Ghost target action received: source={} (id={}), equip={}, target={} (id={}), friendly={}",
               source.getDisplayName(), entityId, equipmentId,
-              target.getDisplayName(), targetId, targetIsFriendly,
-              pendingGhostTargetActions.size());
+              target.getDisplayName(), targetId, targetIsFriendly);
         pendingGhostTargetActions.add(
               new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly));
-        LOGGER.info("[GhostTarget] receiveGhostTargetAction: listSizeAfter={}",
-              pendingGhostTargetActions.size());
     }
 
     /**
@@ -10766,11 +10792,6 @@ public class TWGameManager extends AbstractGameManager {
     }
 
     /**
-     * Resolves all pending Standard (TO:AR) ghost target actions collected during PRE_FIRING. For each action: rolls
-     * Piloting/Driving +3, on success applies +1 to the target's defensive or offensive bonus (capped at +3 each), and
-     * generates reports.
-     */
-    /**
      * Clears all pending ghost target actions and reports. Called at the start of PRE_FIRING
      * to prevent accumulation across rounds.
      */
@@ -10807,6 +10828,28 @@ public class TWGameManager extends AbstractGameManager {
                       "Ghost target action skipped: source or target invalid/destroyed/undeployed (sourceId={}, targetId={})",
                       action.getEntityId(),
                       action.getTargetEntityId());
+                continue;
+            }
+
+            // Server-side rule validation: verify equipment is ghost-target-capable and in correct mode
+            if (!source.hasGhostTargetEquipment()) {
+                LOGGER.debug("Ghost target action skipped: {} has no ghost target equipment",
+                      source.getDisplayName());
+                continue;
+            }
+
+            // Validate target is not conventional infantry
+            if (target.isConventionalInfantry()) {
+                LOGGER.debug("Ghost target action skipped: target {} is conventional infantry",
+                      target.getDisplayName());
+                continue;
+            }
+
+            // Validate target is within range
+            if ((source.getPosition() != null) && (target.getPosition() != null)
+                  && (source.getPosition().distance(target.getPosition()) > 6)) {
+                LOGGER.debug("Ghost target action skipped: target {} is out of range",
+                      target.getDisplayName());
                 continue;
             }
 
