@@ -132,7 +132,10 @@ public class FiringSolutionSpriteHandler extends BoardViewSpriteHandler implemen
                 for (Coords buildingHex : buildingEntity.getCoordsList()) {
                     BuildingTarget buildingTarget = new BuildingTarget(buildingHex,
                           game.getBoard(buildingEntity.getBoardId()), Targetable.TYPE_BUILDING);
-                    Optional<Entity> spotter = Optional.ofNullable(Compute.findSpotter(game, entity, buildingTarget));
+                    Optional<Entity> spotter = game.getEntitiesVector().stream()
+                          .filter(s -> !s.isEnemyOf(entity) && s.isSpotting()
+                                && s.getSpotTargetId() == buildingTarget.getId())
+                          .findFirst();
                     ToHitData thd = WeaponAttackAction.toHit(game, entity.getId(), weapon, ammo,
                           spotter, buildingTarget);
                     thd.setLocation(buildingHex);
