@@ -2397,6 +2397,7 @@ public class Princess extends BotClient {
      * Find buildings/vessels in same hex or adjacent that could be targets for infantry combat.
      *
      * @param infantry The infantry unit looking for targets
+     *
      * @return List of potential target buildings/vessels
      */
     private List<Entity> findInfantryCombatTargets(Entity infantry) {
@@ -2416,6 +2417,7 @@ public class Princess extends BotClient {
      * Get the building entity at a specific position.
      *
      * @param position The coordinates to check
+     *
      * @return The building entity at this position, or null if none
      */
     private Entity getBuildingAtPosition(Coords position) {
@@ -2428,11 +2430,12 @@ public class Princess extends BotClient {
     }
 
     /**
-     * Find eligible infantry combats that this entity can reinforce.
-     * Returns target IDs of buildings/vessels with active combat in the SAME building as the entity.
-     * Per TO:AR p. 172, reinforcements must be in the same multi-hex building.
+     * Find eligible infantry combats that this entity can reinforce. Returns target IDs of buildings/vessels with
+     * active combat in the SAME building as the entity. Per TO:AR p. 172, reinforcements must be in the same multi-hex
+     * building.
      *
      * @param entity The entity looking to reinforce (must be in a building)
+     *
      * @return List of combat target IDs in the same building, empty if not in a building
      */
     private List<Integer> findEligibleInfantryCombatsToReinforce(Entity entity) {
@@ -2464,6 +2467,7 @@ public class Princess extends BotClient {
      *
      * @param attacker The attacking entity
      * @param target   The target building/vessel
+     *
      * @return MPS ratio (attacker / defender)
      */
     private double calculateCombatRatio(Entity attacker, Entity target) {
