@@ -179,6 +179,9 @@ public class TWGameManager extends AbstractGameManager {
     /** Pending ghost target actions for Standard mode, collected during PRE_FIRING and resolved at start of FIRING. */
     private final List<GhostTargetAction> pendingGhostTargetActions = new ArrayList<>();
 
+    /** Ghost target reports generated during PRE_FIRING resolution, displayed at the start of the Weapon Attack Phase. */
+    private final List<Report> pendingGhostTargetReports = new ArrayList<>();
+
     /**
      * Keeps track of what team a player requested to join.
      */
@@ -10702,7 +10705,7 @@ public class TWGameManager extends AbstractGameManager {
             return;
         }
 
-        addReport(new Report(3636, Report.PUBLIC));
+        pendingGhostTargetReports.add(new Report(3636, Report.PUBLIC));
 
         for (GhostTargetAction action : pendingGhostTargetActions) {
             Entity source = game.getEntity(action.getEntityId());
@@ -10723,7 +10726,7 @@ public class TWGameManager extends AbstractGameManager {
                 Report r = new Report(3637);
                 r.subject = source.getId();
                 r.addDesc(source);
-                addReport(r);
+                pendingGhostTargetReports.add(r);
                 continue;
             }
 
@@ -10740,15 +10743,17 @@ public class TWGameManager extends AbstractGameManager {
                   source.getDisplayName(), target.getDisplayName(),
                   targetNumber, roll.getIntValue(), success ? "SUCCESS" : "FAILED");
 
-            // Report: source targets target with Ghost Targets (needs X+), rolls Y: success/failure
+            // Report: source targets target with Defensive/Offensive Ghost Targets (needs X+), rolls Y: success/failure
+            String ghostType = action.isTargetFriendly() ? "Defensive" : "Offensive";
             Report r = new Report(3633);
             r.subject = source.getId();
             r.addDesc(source);
             r.addDesc(target);
+            r.add(ghostType);
             r.add(targetNumber);
             r.add(roll);
             r.choose(success);
-            addReport(r);
+            pendingGhostTargetReports.add(r);
 
             if (success) {
                 if (action.isTargetFriendly()) {
@@ -10772,13 +10777,26 @@ public class TWGameManager extends AbstractGameManager {
                     Report stealthReport = new Report(3638);
                     stealthReport.subject = source.getId();
                     stealthReport.addDesc(source);
-                    addReport(stealthReport);
+                    pendingGhostTargetReports.add(stealthReport);
                 }
             }
         }
 
         pendingGhostTargetActions.clear();
-        addNewLines();
+    }
+
+    /**
+     * Adds any pending ghost target reports to the Weapon Attack Phase report section. Called at the start of the
+     * FIRING phase end processing, after the phase header.
+     */
+    void addGhostTargetReports() {
+        if (!pendingGhostTargetReports.isEmpty()) {
+            for (Report report : pendingGhostTargetReports) {
+                addReport(report);
+            }
+            addNewLines();
+            pendingGhostTargetReports.clear();
+        }
     }
 
     /**

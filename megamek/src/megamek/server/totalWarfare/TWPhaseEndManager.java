@@ -134,17 +134,22 @@ record TWPhaseEndManager(TWGameManager gameManager) {
                 gameManager.changePhase(GamePhase.OFFBOARD);
                 break;
             case PRE_FIRING:
+                // Resolve Standard ghost targets before transitioning to FIRING,
+                // so bonuses are active during attack declaration (RAW: "at the start of every Weapon Attack Phase")
+                if (isStandardGhostTargetMode()) {
+                    gameManager.resolveStandardGhostTargets();
+                }
                 gameManager.changePhase(GamePhase.FIRING);
                 break;
             case FIRING:
                 // write Weapon Attack Phase header
                 gameManager.addReport(new Report(3000, Report.PUBLIC));
+                // Add ghost target reports (resolved during PRE_FIRING, displayed here)
+                gameManager.addGhostTargetReports();
                 gameManager.resolveWhatPlayersCanSeeWhatUnits();
                 gameManager.resolveAllButWeaponAttacks();
                 gameManager.resolveSelfDestruction();
-                if (isStandardGhostTargetMode()) {
-                    gameManager.resolveStandardGhostTargets();
-                } else {
+                if (!isStandardGhostTargetMode()) {
                     gameManager.reportGhostTargetRolls();
                 }
                 gameManager.reportLargeCraftECCMRolls();
