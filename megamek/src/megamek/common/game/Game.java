@@ -179,6 +179,9 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
     private final Hashtable<Coords, Vector<Minefield>> minefields = new Hashtable<>();
     private final Vector<Minefield> vibraBombs = new Vector<>();
     private final Vector<Minefield> empMines = new Vector<>();
+
+    /** Hex locations currently being cleared by saws (for board view rendering). */
+    private final Set<BoardLocation> hexesBeingCut = new HashSet<>();
     private Vector<AttackHandler> attacks = new Vector<>();
     private Vector<ArtilleryAttackAction> offboardArtilleryAttacks = new Vector<>();
     private Vector<OrbitalBombardment> orbitalBombardmentAttacks = new Vector<>();
@@ -268,6 +271,24 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
     public void addMinefield(Minefield mf) {
         addMinefieldHelper(mf);
         processGameEvent(new GameBoardChangeEvent(this));
+    }
+
+    /**
+     * Returns the set of hex locations currently being cleared by saws. Used by the board view to render "Cut"
+     * indicators on the map.
+     */
+    public Set<BoardLocation> getHexesBeingCut() {
+        return hexesBeingCut;
+    }
+
+    /**
+     * Updates the set of hex locations being cleared by saws.
+     *
+     * @param hexes the current set of hexes being cut
+     */
+    public void setHexesBeingCut(Set<BoardLocation> hexes) {
+        hexesBeingCut.clear();
+        hexesBeingCut.addAll(hexes);
     }
 
     public void addMinefields(Vector<Minefield> mines) {

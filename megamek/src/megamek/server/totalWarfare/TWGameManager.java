@@ -164,6 +164,9 @@ public class TWGameManager extends AbstractGameManager {
     // canceling each other
     private final Vector<PhysicalResult> physicalResults = new Vector<>();
 
+    // Track multi-turn woods clearing operations with chainsaws and dual saws (TM pp.241-243)
+    private final WoodsClearingTracker woodsClearingTracker = new WoodsClearingTracker();
+
     private final List<DynamicTerrainProcessor> terrainProcessors = new ArrayList<>();
 
     private final ArrayList<int[]> scheduledNukes = new ArrayList<>();
@@ -15243,6 +15246,22 @@ public class TWGameManager extends AbstractGameManager {
             damage = (int) Math.ceil(damage * 1.5);
             damageTaken = (int) Math.floor(damageTaken * 0.5);
         }
+
+        // Front-mounted saw charge: override damage with flat saw value (TM pp.241-243)
+        if (ChargeAttackAction.hasFrontMountedSaw(ae)) {
+            damage = ChargeAttackAction.getSawChargeDamage(ae, te);
+            // Attacker still takes normal charge self-damage (damageTaken unchanged)
+
+            // Override hit table for Meks: Kick Location for standing, full table for prone
+            if (te instanceof Mek) {
+                if (te.isProne()) {
+                    toHit.setHitTable(ToHitData.HIT_NORMAL);
+                } else {
+                    toHit.setHitTable(ToHitData.HIT_KICK);
+                }
+            }
+        }
+
         if (glancing) {
             // Glancing Blow rule doesn't state whether damage to attacker on charge
             // or DFA is halved as well, assume yes. TODO : Check with PM
@@ -16161,6 +16180,127 @@ public class TWGameManager extends AbstractGameManager {
         }
 
         tracker.removeCombat(combat.targetId);
+    }
+
+    /**
+     * Handle a woods clearing action using a chainsaw or dual saw.
+     *
+     * <p>Registers the entity as clearing the target hex this round. The actual terrain
+     * reduction happens during round transition processing in {@link #processWoodsClearingCompletions()}.</p>
+     */
+    private void resolveWoodsClearingAction(PhysicalResult pr) {
+        final WoodsClearingAttackAction wca = (WoodsClearingAttackAction) pr.aaa;
+        final Entity ae = game.getEntity(wca.getEntityId());
+
+        if (ae == null) {
+            return;
+        }
+
+        // Validate the action is still possible
+        if (pr.toHit.getValue() == TargetRoll.IMPOSSIBLE) {
+            Report r = new Report(4075);
+            r.subject = ae.getId();
+            r.add(pr.toHit.getDesc());
+            addReport(r);
+            return;
+        }
+
+        Coords targetCoords = wca.getTargetCoords();
+        int targetBoardId = wca.getTargetBoardId();
+        if (targetCoords == null) {
+            return;
+        }
+
+        BoardLocation targetHex = BoardLocation.of(targetCoords, targetBoardId);
+
+        // Use "continues" if hex already has accumulated work, "begins" if fresh start
+        boolean continuing = woodsClearingTracker.hasAccumulatedWork(targetHex);
+
+        // Register clearing with tracker
+        woodsClearingTracker.declareClearing(ae.getId(), targetHex);
+        ae.setClearingWoods(true);
+
+        // Sync clearing state to Game for board view rendering
+        game.setHexesBeingCut(woodsClearingTracker.getAllHexesWithWork());
+
+        // Report: entity is clearing woods
+        Report r = new Report(continuing ? 4501 : 4500);
+        r.subject = ae.getId();
+        r.addDesc(ae);
+        r.add(targetCoords.getBoardNum());
+        addReport(r);
+    }
+
+    /**
+     * Processes completed woods clearing operations at the start of a new round.
+     *
+     * <p>Checks all hexes being cleared and applies terrain reduction for any that
+     * have accumulated enough work turns. Also sets the clearingWoods flag on entities that were clearing last round
+     * (for the firing penalty).</p>
+     */
+    void processWoodsClearingCompletions() {
+        List<BoardLocation> completed = woodsClearingTracker.processNewRound();
+
+        for (BoardLocation loc : completed) {
+            Hex hex = game.getBoard().getHex(loc.coords());
+            if (hex == null) {
+                continue;
+            }
+
+            // Reduce woods/jungle one level
+            boolean reduced = false;
+            if (hex.containsTerrain(Terrains.WOODS)) {
+                int level = hex.terrainLevel(Terrains.WOODS);
+                if (level > 1) {
+                    // Heavy -> Light (or Ultra Heavy -> Heavy)
+                    hex.removeTerrain(Terrains.WOODS);
+                    hex.addTerrain(new Terrain(Terrains.WOODS, level - 1));
+                    reduced = true;
+                } else {
+                    // Light -> Rough
+                    hex.removeTerrain(Terrains.WOODS);
+                    hex.removeTerrain(Terrains.FOLIAGE_ELEV);
+                    hex.addTerrain(new Terrain(Terrains.ROUGH, 1));
+                    reduced = true;
+                }
+            } else if (hex.containsTerrain(Terrains.JUNGLE)) {
+                int level = hex.terrainLevel(Terrains.JUNGLE);
+                if (level > 1) {
+                    hex.removeTerrain(Terrains.JUNGLE);
+                    hex.addTerrain(new Terrain(Terrains.JUNGLE, level - 1));
+                    reduced = true;
+                } else {
+                    hex.removeTerrain(Terrains.JUNGLE);
+                    hex.removeTerrain(Terrains.FOLIAGE_ELEV);
+                    hex.addTerrain(new Terrain(Terrains.ROUGH, 1));
+                    reduced = true;
+                }
+            }
+
+            if (reduced) {
+                Report r = new Report(4502, Report.PUBLIC);
+                r.add(loc.coords().getBoardNum());
+                addReport(r);
+                hexUpdateSet.add(loc);
+            }
+        }
+
+        // Send hex changes to clients immediately so the map updates
+        if (!completed.isEmpty()) {
+            sendChangedHexes();
+        }
+
+        // Sync remaining clearing state to Game for board view rendering
+        game.setHexesBeingCut(woodsClearingTracker.getAllHexesWithWork());
+
+        // Set clearingWoods flag on entities that were clearing last round
+        // (for firing penalty this round)
+        for (int entityId : woodsClearingTracker.getAllClearingEntities()) {
+            Entity entity = game.getEntity(entityId);
+            if (entity != null) {
+                entity.setClearingWoods(true);
+            }
+        }
     }
 
     private void resolveLayExplosivesAttack(PhysicalResult pr) {
@@ -28283,7 +28423,10 @@ public class TWGameManager extends AbstractGameManager {
             Entity target = (Entity) caa.getTarget(game);
 
             if (target != null) {
-                if (caa.getTarget(game) instanceof Entity) {
+                // Front-mounted saw charge uses flat damage (TM pp.241-243)
+                if (ChargeAttackAction.hasFrontMountedSaw(ae)) {
+                    damage = ChargeAttackAction.getMaxSawChargeDamage(ae, target);
+                } else if (caa.getTarget(game) instanceof Entity) {
                     damage = ChargeAttackAction.getDamageFor(ae,
                           target,
                           game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_CHARGE_DAMAGE),
@@ -28410,6 +28553,9 @@ public class TWGameManager extends AbstractGameManager {
         } else if (aaa instanceof SuicideImplantsAttackAction suicideImplantsAction) {
             toHit = suicideImplantsAction.toHit(game);
             damage = SuicideImplantsAttackAction.getDamageFor(suicideImplantsAction.getTroopersDetonating());
+        } else if (aaa instanceof WoodsClearingAttackAction wca) {
+            toHit = wca.toHit(game);
+            damage = 0; // Woods clearing causes no direct damage
         }
         pr.toHit = toHit;
         pr.damage = damage;
@@ -28473,6 +28619,9 @@ public class TWGameManager extends AbstractGameManager {
             cen = aaa.getEntityId();
         } else if (aaa instanceof DfaAttackAction) {
             resolveDfaAttack(pr, cen);
+            cen = aaa.getEntityId();
+        } else if (aaa instanceof WoodsClearingAttackAction) {
+            resolveWoodsClearingAction(pr);
             cen = aaa.getEntityId();
         } else if (aaa instanceof LayExplosivesAttackAction) {
             resolveLayExplosivesAttack(pr);
