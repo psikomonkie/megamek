@@ -78,6 +78,7 @@ public record TWPhasePreparationManager(TWGameManager gameManager) {
                 gameManager.sendTagInfoReset();
                 gameManager.clearReports();
                 gameManager.resetEntityRound();
+                gameManager.processWoodsClearingCompletions();
                 gameManager.resetEntityPhase(phase);
                 gameManager.checkForObservers();
                 gameManager.transmitAllPlayerUpdates();

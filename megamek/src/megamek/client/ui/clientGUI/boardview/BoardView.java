@@ -1177,6 +1177,9 @@ public final class BoardView extends AbstractBoardView
         // Minefield signs all over the place!
         drawMinefields(graphics2D);
 
+        // Saw clearing indicators
+        drawCutHexes(graphics2D);
+
         // Artillery targets
         drawArtilleryHexes(graphics2D);
 
@@ -1959,6 +1962,46 @@ public final class BoardView extends AbstractBoardView
         graphics2D.drawString(string, x, y);
     }
 
+    /**
+     * Draws "Cut" indicators on hexes that are being cleared by saws.
+     */
+    private void drawCutHexes(Graphics2D graphics2D) {
+        Set<BoardLocation> cutHexes = game.getHexesBeingCut();
+        if (cutHexes.isEmpty()) {
+            return;
+        }
+
+        Rectangle view = graphics2D.getClipBounds();
+        int drawX = (view.x / (int) (HEX_WC * scale)) - 1;
+        int drawY = (view.y / (int) (HEX_H * scale)) - 1;
+        int drawWidth = (view.width / (int) (HEX_WC * scale)) + 3;
+        int drawHeight = (view.height / (int) (HEX_H * scale)) + 3;
+        int maxX = drawX + drawWidth;
+        int maxY = drawY + drawHeight;
+
+        Board board = game.getBoard(boardId);
+
+        for (BoardLocation loc : cutHexes) {
+            if (loc.boardId() != boardId) {
+                continue;
+            }
+            Coords coords = loc.coords();
+            if ((coords.getX() < drawX) || (coords.getX() > maxX)
+                  || (coords.getY() < drawY) || (coords.getY() > maxY)
+                  || !board.contains(coords)) {
+                continue;
+            }
+
+            Point hexLocation = getHexLocation(coords);
+            graphics2D.setColor(new Color(139, 69, 19)); // Brown color for "Cut"
+            drawCenteredString("Cut",
+                  hexLocation.x,
+                  hexLocation.y + (int) (hex_size.height - 8 * scale),
+                  font_minefield,
+                  graphics2D);
+        }
+    }
+
     @Override
     public BufferedImage getEntireBoardImage(boolean ignoreUnits, boolean useBaseZoom) {
         // Set zoom to base, so we get a consistent board image
@@ -1984,6 +2027,9 @@ public final class BoardView extends AbstractBoardView
         if (!ignoreUnits) {
             // Minefield signs all over the place!
             drawMinefields(boardGraph);
+
+            // Saw clearing indicators
+            drawCutHexes(boardGraph);
 
             // Artillery targets
             drawArtilleryHexes(boardGraph);

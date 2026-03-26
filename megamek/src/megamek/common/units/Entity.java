@@ -485,6 +485,7 @@ public abstract class Entity extends TurnOrdered
 
     public boolean spotting;
     private boolean clearingMinefield = false;
+    private boolean clearingWoods = false;
     protected int killerId = Entity.NONE;
     private int offBoardDistance = 0;
     private OffBoardDirection offBoardDirection = OffBoardDirection.NONE;
@@ -7236,6 +7237,7 @@ public abstract class Entity extends TurnOrdered
         setSpotting(false);
         spotTargetId = Entity.NONE;
         setClearingMinefield(false);
+        setClearingWoods(false);
         setUnjammingRAC(false);
         crew.setKoThisRound(false);
         m_lNarcedBy |= m_lPendingNarc;
@@ -10214,6 +10216,27 @@ public abstract class Entity extends TurnOrdered
 
     public void setClearingMinefield(boolean clearingMinefield) {
         this.clearingMinefield = clearingMinefield;
+    }
+
+    /**
+     * Returns true if this entity is currently clearing woods with a saw.
+     *
+     * <p>When clearing woods, weapon attacks are penalized as though the unit were
+     * moving at running/flank speed (TM pp.241-243).</p>
+     *
+     * @return true if the entity is clearing woods
+     */
+    public boolean isClearingWoods() {
+        return clearingWoods;
+    }
+
+    /**
+     * Sets whether this entity is currently clearing woods with a saw.
+     *
+     * @param clearingWoods true if clearing woods
+     */
+    public void setClearingWoods(boolean clearingWoods) {
+        this.clearingWoods = clearingWoods;
     }
 
     /**
