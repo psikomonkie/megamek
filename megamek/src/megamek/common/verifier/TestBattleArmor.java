@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Vector;
 
 import megamek.common.TechConstants;
@@ -795,7 +796,7 @@ public class TestBattleArmor extends TestEntity {
             }
 
             if (m.isDWPMounted() && (m.getLinkedBy() == null || !m.getLinkedBy().is(EquipmentTypeLookup.BA_DWP))) {
-                buff.append("Invalid DWP mount location for %s!\n".formatted(m.getName()));
+                buff.append("Missing or incorrect link to a DWP for %s!\n".formatted(m.getName()));
                 correct = false;
             }
 
@@ -1395,6 +1396,7 @@ public class TestBattleArmor extends TestEntity {
         if (!currentErrors.isEmpty() && (errors != null)) {
             errors.append(String.join("\n", currentErrors)).append("\n");
         }
-        return (!currentErrors.isEmpty()) || super.hasIllegalEquipmentCombinations(errors);
+        return (!currentErrors.isEmpty())
+              || super.hasIllegalEquipmentCombinations(Objects.requireNonNullElse(errors, new StringBuffer()));
     }
 }
