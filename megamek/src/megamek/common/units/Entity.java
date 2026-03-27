@@ -64,6 +64,7 @@ import megamek.common.actions.EntityAction;
 import megamek.common.actions.PushAttackAction;
 import megamek.common.actions.TeleMissileAttackAction;
 import megamek.common.actions.WeaponAttackAction;
+import megamek.common.actions.WoodsClearingAttackAction;
 import megamek.common.annotations.Nullable;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.battleArmor.BattleArmorHandles;
@@ -11051,6 +11052,28 @@ public abstract class Entity extends TurnOrdered
             } // Check the next hex of the building
 
         } // Check the next building
+
+        // Check if the entity can clear woods with a saw (chainsaw or dual saw)
+        if (!canHit && WoodsClearingAttackAction.hasWorkingSaw(this)) {
+            // Own hex is always in arc
+            Hex ownHex = game.getHex(position, boardId);
+            if (ownHex != null && (ownHex.containsTerrain(Terrains.WOODS) || ownHex.containsTerrain(Terrains.JUNGLE))) {
+                canHit = true;
+            }
+            // Adjacent hexes must be in the saw's attack arc
+            if (!canHit) {
+                for (int dir = 0; dir < 6; dir++) {
+                    Coords adj = position.translated(dir);
+                    Hex adjHex = game.getBoard(boardId).getHex(adj);
+                    if (adjHex != null && (adjHex.containsTerrain(Terrains.WOODS)
+                          || adjHex.containsTerrain(Terrains.JUNGLE))
+                          && WoodsClearingAttackAction.isInSawArc(this, adj)) {
+                        canHit = true;
+                        break;
+                    }
+                }
+            }
+        }
 
         return canHit;
     }

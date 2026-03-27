@@ -180,8 +180,8 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
     private final Vector<Minefield> vibraBombs = new Vector<>();
     private final Vector<Minefield> empMines = new Vector<>();
 
-    /** Hex locations currently being cleared by saws (for board view rendering). */
-    private final Set<BoardLocation> hexesBeingCut = new HashSet<>();
+    /** Hex locations being cleared by saws, mapped to turns remaining. For board view rendering. */
+    private Map<BoardLocation, Integer> hexesBeingCut = new HashMap<>();
     private Vector<AttackHandler> attacks = new Vector<>();
     private Vector<ArtilleryAttackAction> offboardArtilleryAttacks = new Vector<>();
     private Vector<OrbitalBombardment> orbitalBombardmentAttacks = new Vector<>();
@@ -274,21 +274,27 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
     }
 
     /**
-     * Returns the set of hex locations currently being cleared by saws. Used by the board view to render "Cut"
-     * indicators on the map.
+     * Returns the map of hex locations being cleared by saws to turns remaining.
+     * Used by the board view to render cut indicators and tooltips.
      */
-    public Set<BoardLocation> getHexesBeingCut() {
+    public Map<BoardLocation, Integer> getHexesBeingCut() {
+        if (hexesBeingCut == null) {
+            return new HashMap<>();
+        }
         return hexesBeingCut;
     }
 
     /**
-     * Updates the set of hex locations being cleared by saws.
+     * Updates the map of hex locations being cleared by saws.
      *
-     * @param hexes the current set of hexes being cut
+     * @param hexes the current map of hexes being cut to turns remaining
      */
-    public void setHexesBeingCut(Set<BoardLocation> hexes) {
+    public void setHexesBeingCut(Map<BoardLocation, Integer> hexes) {
+        if (hexesBeingCut == null) {
+            hexesBeingCut = new HashMap<>();
+        }
         hexesBeingCut.clear();
-        hexesBeingCut.addAll(hexes);
+        hexesBeingCut.putAll(hexes);
     }
 
     public void addMinefields(Vector<Minefield> mines) {

@@ -16220,8 +16220,8 @@ public class TWGameManager extends AbstractGameManager {
         woodsClearingTracker.declareClearing(ae.getId(), targetHex);
         ae.setClearingWoods(true);
 
-        // Sync clearing state to Game for board view rendering
-        game.setHexesBeingCut(woodsClearingTracker.getAllHexesWithWork());
+        // Sync clearing state to Game for board view rendering and send to clients
+        sendCutHexesUpdate();
 
         // Report: entity is clearing woods
         Report r = new Report(continuing ? 4501 : 4500);
@@ -16290,8 +16290,8 @@ public class TWGameManager extends AbstractGameManager {
             sendChangedHexes();
         }
 
-        // Sync remaining clearing state to Game for board view rendering
-        game.setHexesBeingCut(woodsClearingTracker.getAllHexesWithWork());
+        // Sync remaining clearing state to Game for board view rendering and send to clients
+        sendCutHexesUpdate();
 
         // Set clearingWoods flag on entities that were clearing last round
         // (for firing penalty this round)
@@ -27140,6 +27140,16 @@ public class TWGameManager extends AbstractGameManager {
             }
         }
         send(new Packet(PacketCommand.CHANGE_HEXES, changedHexes));
+    }
+
+    /**
+     * Syncs the current map of hexes being cleared by saws to the server Game object and sends the update to all
+     * clients so their board views can render the indicators.
+     */
+    private void sendCutHexesUpdate() {
+        Map<BoardLocation, Integer> cutHexes = woodsClearingTracker.getTurnsRemainingPerHex();
+        game.setHexesBeingCut(cutHexes);
+        send(new Packet(PacketCommand.UPDATE_CUT_HEXES, new HashMap<>(cutHexes)));
     }
 
     /**

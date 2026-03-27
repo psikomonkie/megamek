@@ -486,24 +486,36 @@ public class PhysicalDisplay extends AttackPhaseDisplay {
         if ((entity instanceof Mek) && !entity.isProne() && entity.hasAbility(OptionsConstants.PILOT_DODGE_MANEUVER)) {
             setDodgeEnabled(true);
         }
-        // Enable clear woods button if entity has a working saw and is near woods
-        if (WoodsClearingAttackAction.hasWorkingSaw(entity) && !entity.isProne() && !entity.isImmobile()) {
+        // Enable clear woods button if entity has a working saw and is near woods in arc
+        boolean hasSaw = WoodsClearingAttackAction.hasWorkingSaw(entity);
+        logger.debug("Clear woods check for {}: hasSaw={}, prone={}, immobile={}, position={}",
+              entity.getDisplayName(), hasSaw, entity.isProne(), entity.isImmobile(), entity.getPosition());
+        if (hasSaw && !entity.isProne() && !entity.isImmobile()) {
             boolean nearWoods = false;
-            for (int dir = 0; dir < 6; dir++) {
-                Coords adj = entity.getPosition().translated(dir);
-                Hex adjHex = game.getBoard().getHex(adj);
-                if (adjHex != null && (adjHex.containsTerrain(Terrains.WOODS)
-                      || adjHex.containsTerrain(Terrains.JUNGLE))) {
-                    nearWoods = true;
-                    break;
-                }
-            }
-            // Also check the entity's own hex
+            // Own hex is always in arc
             Hex ownHex = game.getBoard().getHex(entity.getPosition());
             if (ownHex != null && (ownHex.containsTerrain(Terrains.WOODS) || ownHex.containsTerrain(Terrains.JUNGLE))) {
                 nearWoods = true;
+                logger.debug("  Entity's own hex has woods/jungle");
             }
+            // Adjacent hexes must be in the saw's arc
+            if (!nearWoods) {
+                for (int dir = 0; dir < 6; dir++) {
+                    Coords adj = entity.getPosition().translated(dir);
+                    Hex adjHex = game.getBoard().getHex(adj);
+                    if (adjHex != null && (adjHex.containsTerrain(Terrains.WOODS)
+                          || adjHex.containsTerrain(Terrains.JUNGLE))
+                          && WoodsClearingAttackAction.isInSawArc(entity, adj)) {
+                        nearWoods = true;
+                        logger.debug("  Found woods/jungle in arc at direction {} coords {}", dir, adj);
+                        break;
+                    }
+                }
+            }
+            logger.debug("  nearWoods={}, enabling clear woods button: {}", nearWoods, nearWoods);
             setClearWoodsEnabled(nearWoods);
+        } else if (hasSaw) {
+            logger.debug("  Has saw but prone or immobile, not enabling clear woods");
         }
         updateDonePanel();
         cacheVisibleTargets();

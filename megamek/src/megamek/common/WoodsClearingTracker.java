@@ -219,6 +219,24 @@ public class WoodsClearingTracker implements Serializable {
     }
 
     /**
+     * Returns a map of hex locations to the number of turns remaining to complete clearing. Accounts for the number of
+     * contributors this round when calculating remaining turns.
+     *
+     * @return map of hex locations to turns remaining (1 or 2 typically)
+     */
+    public Map<BoardLocation, Integer> getTurnsRemainingPerHex() {
+        Map<BoardLocation, Integer> result = new HashMap<>();
+        for (Map.Entry<BoardLocation, ClearingState> entry : clearingOperations.entrySet()) {
+            ClearingState state = entry.getValue();
+            int turnsNeeded = (state.contributorsThisRound.size() >= 2)
+                  ? TURNS_REQUIRED_MULTI : TURNS_REQUIRED_SINGLE;
+            int remaining = Math.max(0, turnsNeeded - state.accumulatedWork);
+            result.put(entry.getKey(), remaining);
+        }
+        return result;
+    }
+
+    /**
      * Removes all clearing operations. Used when resetting the game state.
      */
     public void clear() {
