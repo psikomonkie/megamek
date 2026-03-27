@@ -1963,10 +1963,11 @@ public final class BoardView extends AbstractBoardView
     }
 
     /**
-     * Draws "Cut" indicators on hexes that are being cleared by saws.
+     * Draws saw-blade indicators on hexes that are being cleared by saws.
+     * Renders a circular saw blade icon with teeth and a "CUT" label beneath it.
      */
     private void drawCutHexes(Graphics2D graphics2D) {
-        Set<BoardLocation> cutHexes = game.getHexesBeingCut();
+        Map<BoardLocation, Integer> cutHexes = game.getHexesBeingCut();
         if (cutHexes.isEmpty()) {
             return;
         }
@@ -1981,7 +1982,8 @@ public final class BoardView extends AbstractBoardView
 
         Board board = game.getBoard(boardId);
 
-        for (BoardLocation loc : cutHexes) {
+        for (Map.Entry<BoardLocation, Integer> entry : cutHexes.entrySet()) {
+            BoardLocation loc = entry.getKey();
             if (loc.boardId() != boardId) {
                 continue;
             }
@@ -1993,13 +1995,84 @@ public final class BoardView extends AbstractBoardView
             }
 
             Point hexLocation = getHexLocation(coords);
-            graphics2D.setColor(new Color(139, 69, 19)); // Brown color for "Cut"
-            drawCenteredString("Cut",
-                  hexLocation.x,
-                  hexLocation.y + (int) (hex_size.height - 8 * scale),
-                  font_minefield,
-                  graphics2D);
+            drawSawBladeIndicator(graphics2D, hexLocation, entry.getValue());
         }
+    }
+
+    /**
+     * Draws a circular saw blade icon with turns remaining and a "CUT" label at the given hex location. Positioned in
+     * the lower portion of the hex to avoid overlapping unit sprites.
+     *
+     * @param graphics2D     the graphics context
+     * @param hexLocation    the top-left corner of the hex
+     * @param turnsRemaining the number of turns remaining to complete clearing
+     */
+    private void drawSawBladeIndicator(Graphics2D graphics2D, Point hexLocation, int turnsRemaining) {
+        Object oldAntiAlias = graphics2D.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+        graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Position in lower portion of hex, centered horizontally
+        int centerX = hexLocation.x + (hex_size.width / 2);
+        int centerY = hexLocation.y + (int) (hex_size.height - 20 * scale);
+        int bladeRadius = (int) (10 * scale);
+        int toothHeight = (int) (4 * scale);
+        int numTeeth = 12;
+
+        // Draw outer teeth (dark steel color)
+        graphics2D.setColor(new Color(100, 100, 110));
+        for (int i = 0; i < numTeeth; i++) {
+            double angle = (2 * Math.PI * i) / numTeeth;
+            double nextAngle = (2 * Math.PI * (i + 0.5)) / numTeeth;
+            int outerX = centerX + (int) ((bladeRadius + toothHeight) * Math.cos(angle));
+            int outerY = centerY + (int) ((bladeRadius + toothHeight) * Math.sin(angle));
+            int leftX = centerX + (int) (bladeRadius * Math.cos(angle - 0.15));
+            int leftY = centerY + (int) (bladeRadius * Math.sin(angle - 0.15));
+            int rightX = centerX + (int) (bladeRadius * Math.cos(nextAngle));
+            int rightY = centerY + (int) (bladeRadius * Math.sin(nextAngle));
+            int[] xPoints = { outerX, leftX, rightX };
+            int[] yPoints = { outerY, leftY, rightY };
+            graphics2D.fillPolygon(xPoints, yPoints, 3);
+        }
+
+        // Draw blade body (steel gray with slight gradient effect)
+        graphics2D.setColor(new Color(170, 170, 180));
+        graphics2D.fillOval(centerX - bladeRadius, centerY - bladeRadius,
+              bladeRadius * 2, bladeRadius * 2);
+
+        // Draw inner ring (darker)
+        int innerRadius = (int) (6 * scale);
+        graphics2D.setColor(new Color(130, 130, 140));
+        graphics2D.fillOval(centerX - innerRadius, centerY - innerRadius,
+              innerRadius * 2, innerRadius * 2);
+
+        // Draw turns remaining number in the center of the blade
+        String turnsStr = String.valueOf(turnsRemaining);
+        Font turnsFont = new Font(MMConstants.FONT_SANS_SERIF, Font.BOLD, (int) (11 * scale));
+        FontMetrics fm = graphics2D.getFontMetrics(turnsFont);
+        int textWidth = fm.stringWidth(turnsStr);
+        int textX = centerX - (textWidth / 2);
+        int textY = centerY + (fm.getAscent() / 2) - 1;
+
+        // White text with dark outline for readability
+        graphics2D.setFont(turnsFont);
+        graphics2D.setColor(new Color(40, 40, 50));
+        graphics2D.drawString(turnsStr, textX - 1, textY);
+        graphics2D.drawString(turnsStr, textX + 1, textY);
+        graphics2D.drawString(turnsStr, textX, textY - 1);
+        graphics2D.drawString(turnsStr, textX, textY + 1);
+        graphics2D.setColor(Color.WHITE);
+        graphics2D.drawString(turnsStr, textX, textY);
+
+        // Draw blade outline
+        graphics2D.setColor(new Color(60, 60, 70));
+        Stroke oldStroke = graphics2D.getStroke();
+        graphics2D.setStroke(new BasicStroke(Math.max(1, scale)));
+        graphics2D.drawOval(centerX - bladeRadius, centerY - bladeRadius,
+              bladeRadius * 2, bladeRadius * 2);
+        graphics2D.setStroke(oldStroke);
+
+        graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+              oldAntiAlias != null ? oldAntiAlias : RenderingHints.VALUE_ANTIALIAS_DEFAULT);
     }
 
     @Override

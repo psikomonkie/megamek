@@ -38,11 +38,15 @@ import megamek.client.ui.Messages;
 import megamek.common.Hex;
 import megamek.common.ToHitData;
 import megamek.common.board.Coords;
+import megamek.common.compute.Compute;
+import megamek.common.compute.ComputeArc;
+import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.game.Game;
 import megamek.common.rolls.TargetRoll;
 import megamek.common.units.Entity;
+import megamek.common.units.Mek;
 import megamek.common.units.Targetable;
 import megamek.common.units.Terrains;
 
@@ -171,6 +175,11 @@ public class WoodsClearingAttackAction extends AbstractAttackAction {
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Cannot clear woods while immobile");
         }
 
+        // Target hex must be in the saw's attack arc (only matters for adjacent hexes)
+        if (distance == 1 && !isInSawArc(entity, targetCoords)) {
+            return new ToHitData(TargetRoll.IMPOSSIBLE, "Target hex is not in the saw's attack arc");
+        }
+
         return null;
     }
 
@@ -184,6 +193,49 @@ public class WoodsClearingAttackAction extends AbstractAttackAction {
     public static boolean hasWorkingSaw(Entity entity) {
         return entity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW)
               || entity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW);
+    }
+
+    /**
+     * Checks if a target hex is within the attack arc of at least one of the entity's working saws. The arc is
+     * determined by the saw's mounting location, following the same logic as club attacks.
+     *
+     * @param entity       the entity with the saw
+     * @param targetCoords the target hex coordinates
+     *
+     * @return true if the target is in the arc of at least one working saw
+     */
+    public static boolean isInSawArc(Entity entity, Coords targetCoords) {
+        for (MiscMounted misc : entity.getMisc()) {
+            if (!misc.isReady()) {
+                continue;
+            }
+            if (!misc.getType().hasFlag(MiscType.F_CLUB)) {
+                continue;
+            }
+            if (!misc.getType().hasFlag(MiscTypeFlag.S_CHAINSAW)
+                  && !misc.getType().hasFlag(MiscTypeFlag.S_DUAL_SAW)) {
+                continue;
+            }
+
+            // Determine the arc based on mounting location (same logic as ClubAttackAction)
+            int sawArc;
+            int location = misc.getLocation();
+            if (location == Mek.LOC_LEFT_ARM) {
+                sawArc = Compute.ARC_LEFT_ARM;
+            } else if (location == Mek.LOC_RIGHT_ARM) {
+                sawArc = Compute.ARC_RIGHT_ARM;
+            } else if (misc.isRearMounted()) {
+                sawArc = Compute.ARC_REAR;
+            } else {
+                sawArc = Compute.ARC_FORWARD;
+            }
+
+            if (ComputeArc.isInArc(entity.getPosition(), entity.getSecondaryFacing(),
+                  targetCoords, sawArc)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
