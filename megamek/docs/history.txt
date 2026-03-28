@@ -1,5 +1,7 @@
 MEGAMEK VERSION HISTORY:
 ----------------
+0.50.13
+
 0.50.12 (2026-03-28 2100 UTC)
 ## What's Changed
 * PR: Now Witness the Firepower... by @psikomonkie in https://github.com/MegaMek/megamek/pull/7737
