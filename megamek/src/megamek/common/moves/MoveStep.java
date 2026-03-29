@@ -2919,8 +2919,9 @@ public class MoveStep implements Serializable {
                 mp = 4;
                 return;
             }
-            // Mountain Troops only expend 1 MP per 2 levels moved up or down
-            // TO:AUE p.153
+            // Mountain Troops only expend 1 MP per 2 levels moved up or down (TO:AUE p.153).
+            // This stacks with the Mountaineer ability (PILOT_TM_MOUNTAINEER) which reduces
+            // elevation cost by 1 MP. Combined, a 1-level change can cost 0 MP elevation.
             boolean isMountainTroop = isInfantry
                   && ((Infantry) entity).hasSpecialization(Infantry.MOUNTAIN_TROOPS);
             if (isMountainTroop) {

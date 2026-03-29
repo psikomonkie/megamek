@@ -33,6 +33,7 @@
 package megamek.common.moves;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import megamek.common.GameBoardTestCase;
@@ -146,7 +147,7 @@ public class MountainInfantryMovementTest extends GameBoardTestCase {
             MovePath standardPath = getMovePathFor(createStandardInfantry(), 0, null,
                   MoveStepType.FORWARDS);
 
-            assertTrue(!standardPath.isMoveLegal(),
+            assertFalse(standardPath.isMoveLegal(),
                   "Standard infantry should NOT be able to climb 2 levels (max elevation change is 1)");
         }
 
@@ -182,7 +183,7 @@ public class MountainInfantryMovementTest extends GameBoardTestCase {
             MovePath standardPath = getMovePathFor(createStandardInfantry(), 0, null,
                   MoveStepType.FORWARDS);
 
-            assertTrue(!standardPath.isMoveLegal(),
+            assertFalse(standardPath.isMoveLegal(),
                   "Standard infantry should NOT be able to climb 3 levels (max elevation change is 1)");
         }
     }
