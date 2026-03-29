@@ -215,6 +215,15 @@ class AntiMekAttackTest {
         return infantry;
     }
 
+    /**
+     * Creates mountain troops infantry with the MOUNTAIN_TROOPS specialization.
+     */
+    private Infantry createMountainTroops(int troopers) {
+        Infantry infantry = createConventionalInfantry(troopers);
+        infantry.setSpecializations(Infantry.MOUNTAIN_TROOPS);
+        return infantry;
+    }
+
     @Nested
     @DisplayName("isBurdened() Mock Verification")
     class IsBurdenedTests {
@@ -488,6 +497,77 @@ class AntiMekAttackTest {
                   "Leg attack should be possible for Clan BA");
             assertNotEquals(TargetRoll.IMPOSSIBLE, swarmAttack.getValue(),
                   "Swarm attack should be possible for Clan BA");
+        }
+    }
+
+    @Nested
+    @DisplayName("Mountain Troops Anti-Mek Modifier Tests")
+    class MountainTroopsAntiMekTests {
+
+        @Test
+        @DisplayName("Mountain Troops get -2 anti-mek modifier on leg attacks (TO:AUE p.153)")
+        void mountainTroopsGetMinusTwoOnLegAttack() {
+            Infantry attacker = createMountainTroops(22);
+            Mek defender = createTargetMek();
+
+            attacker.setPosition(new Coords(5, 5));
+            defender.setPosition(new Coords(5, 5));
+
+            game.addEntity(attacker);
+            game.addEntity(defender);
+
+            assertTrue(attacker.hasSpecialization(Infantry.MOUNTAIN_TROOPS),
+                  "Test setup: infantry should have Mountain Troops specialization");
+
+            ToHitData toHit = Compute.getLegAttackBaseToHit(attacker, defender, game);
+
+            assertNotEquals(TargetRoll.IMPOSSIBLE, toHit.getValue(),
+                  "Mountain troops should be able to leg attack");
+            assertTrue(toHit.getDesc().contains("Mountain Troops"),
+                  "ToHit description should mention Mountain Troops modifier");
+        }
+
+        @Test
+        @DisplayName("Mountain Troops get -2 anti-mek modifier on swarm attacks (TO:AUE p.153)")
+        void mountainTroopsGetMinusTwoOnSwarmAttack() {
+            Infantry attacker = createMountainTroops(22);
+            Mek defender = createTargetMek();
+
+            attacker.setPosition(new Coords(5, 5));
+            defender.setPosition(new Coords(5, 5));
+
+            game.addEntity(attacker);
+            game.addEntity(defender);
+
+            ToHitData toHit = Compute.getSwarmMekBaseToHit(attacker, defender, game);
+
+            assertNotEquals(TargetRoll.IMPOSSIBLE, toHit.getValue(),
+                  "Mountain troops should be able to swarm attack");
+            assertTrue(toHit.getDesc().contains("Mountain Troops"),
+                  "ToHit description should mention Mountain Troops modifier");
+        }
+
+        @Test
+        @DisplayName("Standard infantry does NOT get -2 anti-mek modifier")
+        void standardInfantryDoesNotGetMountainBonus() {
+            Infantry attacker = createConventionalInfantry(22);
+            Mek defender = createTargetMek();
+
+            attacker.setPosition(new Coords(5, 5));
+            defender.setPosition(new Coords(5, 5));
+
+            game.addEntity(attacker);
+            game.addEntity(defender);
+
+            assertFalse(attacker.hasSpecialization(Infantry.MOUNTAIN_TROOPS),
+                  "Test setup: standard infantry should NOT have Mountain Troops specialization");
+
+            ToHitData toHit = Compute.getLegAttackBaseToHit(attacker, defender, game);
+
+            assertNotEquals(TargetRoll.IMPOSSIBLE, toHit.getValue(),
+                  "Standard infantry should be able to leg attack");
+            assertFalse(toHit.getDesc().contains("Mountain Troops"),
+                  "ToHit description should NOT mention Mountain Troops modifier");
         }
     }
 }

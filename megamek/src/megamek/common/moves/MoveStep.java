@@ -2919,13 +2919,19 @@ public class MoveStep implements Serializable {
                 mp = 4;
                 return;
             }
-            // non-flying Infantry and ground vehicles are charged double.
-            if ((isInfantry &&
+            // Mountain Troops only expend 1 MP per 2 levels moved up or down
+            // TO:AUE p.153
+            boolean isMountainTroop = isInfantry
+                  && ((Infantry) entity).hasSpecialization(Infantry.MOUNTAIN_TROOPS);
+            if (isMountainTroop) {
+                delta_e = (int) Math.ceil(delta_e / 2.0);
+            } else if ((isInfantry &&
                   !((getMovementType(false) == EntityMovementType.MOVE_VTOL_WALK) ||
                         (getMovementType(false) == EntityMovementType.MOVE_VTOL_RUN))) ||
                   ((moveMode == EntityMovementMode.TRACKED) ||
                         (moveMode == EntityMovementMode.WHEELED) ||
                         (moveMode == EntityMovementMode.HOVER))) {
+                // non-flying Infantry and ground vehicles are charged double.
                 delta_e *= 2;
             }
             if (entity.hasAbility(OptionsConstants.PILOT_TM_MOUNTAINEER)) {
