@@ -147,24 +147,27 @@ public enum Atmosphere {
             throw new IllegalArgumentException("Atmosphere value must not be null or blank");
         }
 
+        String trimmed = value.strip();
+
         // Try exact enum name first
         for (Atmosphere atmo : values()) {
-            if (atmo.name().equals(value)) {
+            if (atmo.name().equals(trimmed)) {
                 return atmo;
             }
         }
 
         // Try case-insensitive enum name match
         for (Atmosphere atmo : values()) {
-            if (atmo.name().equalsIgnoreCase(value)) {
+            if (atmo.name().equalsIgnoreCase(trimmed)) {
                 return atmo;
             }
         }
 
-        // Try legacy aliases
-        Atmosphere legacy = LEGACY_ALIASES.get(value);
-        if (legacy != null) {
-            return legacy;
+        // Try legacy aliases (case-insensitive)
+        for (var entry : LEGACY_ALIASES.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(trimmed)) {
+                return entry.getValue();
+            }
         }
 
         throw new IllegalArgumentException("Unknown Atmosphere value: '" + value + "'");
