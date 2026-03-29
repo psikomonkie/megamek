@@ -1932,8 +1932,23 @@ public class BattleArmor extends Infantry {
         return 5;
     }
 
-    @Override
-    public int getRecoveryTime() {
-        return 10;
+    /**
+     * Returns true when the entity has a MiscType equipment of the given internalName, regardless of its state, in the
+     * given mount location (arm/body...). When available, use EquipmentTypeLookup internal names (or add one when it is
+     * not yet used for a MiscType). Note that any internal name, even of weapons, can be given but this method only
+     * searches misc equipment and will not find weapons.
+     *
+     * @param internalName The internal name of the misc, e.g. EquipmentTypeLookup.BA_MYOMER_BOOSTER
+     * @param location     The location, e.g. BattleArmor.MOUNT_LOC_LEFT_ARM
+     *
+     * @return True when the entity has a MiscType equipment of the given internalName in the given location
+     *
+     * @see MiscType
+     * @see EquipmentTypeLookup
+     */
+    public boolean hasMiscInMountLocation(String internalName, int location) {
+        return miscList.stream()
+              .filter(misc -> misc.getBaMountLoc() == location)
+              .anyMatch(misc -> misc.is(internalName));
     }
 }

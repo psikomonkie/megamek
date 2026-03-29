@@ -153,11 +153,11 @@ public class TestBattleArmor extends TestEntity {
          */
         public final boolean pairMounted;
 
-        BAManipulator(int t, boolean p) {
-            type = t;
-            internalName = BattleArmor.MANIPULATOR_TYPE_STRINGS[t];
-            displayName = BattleArmor.MANIPULATOR_NAME_STRINGS[t];
-            pairMounted = p;
+        BAManipulator(int type, boolean pairMounted) {
+            this.type = type;
+            internalName = BattleArmor.MANIPULATOR_TYPE_STRINGS[type];
+            displayName = BattleArmor.MANIPULATOR_NAME_STRINGS[type];
+            this.pairMounted = pairMounted;
         }
 
         /**
@@ -1007,14 +1007,19 @@ public class TestBattleArmor extends TestEntity {
 
         if (laManipType != null && raManipType != null) {
             if ((laManipType.pairMounted || raManipType.pairMounted) && (laManipType.type != raManipType.type)) {
-                if (laManipType.pairMounted) {
-                    buff.append(
-                          "Left Arm manipulator must be mounted as a pair, but the right arm manipulator doesn't match! ");
-                } else {
-                    buff.append(
-                          "Right Arm manipulator must be mounted as a pair, but the left arm manipulator doesn't match! ");
-                }
+                buff.append("Mismatch of pair-mounted manipulators!");
+                correct = false;
+            }
+        }
 
+        if ((laManipType != null && laManipType.pairMounted) || (raManipType != null && raManipType.pairMounted)) {
+            boolean laModularAdaptor = ba.hasMiscInMountLocation(EquipmentTypeLookup.BA_MODULAR_EQUIPMENT_ADAPTOR,
+                  BattleArmor.MOUNT_LOC_LEFT_ARM);
+            boolean raModularAdaptor = ba.hasMiscInMountLocation(EquipmentTypeLookup.BA_MODULAR_EQUIPMENT_ADAPTOR,
+                  BattleArmor.MOUNT_LOC_RIGHT_ARM);
+            // XOR = exactly one of them present
+            if (laModularAdaptor ^ raModularAdaptor) {
+                buff.append("Cannot combine a single Modular Equipment Adaptor with a pair-mounted manipulator!");
                 correct = false;
             }
         }

@@ -5156,10 +5156,10 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Returns true when the entity has a MiscType equipment of the given internalName, regardless of its state. When
-     * available, use EquipmentTypeLookup internal names (or add one when it is not yet used for a MiscType). Note that
-     * any internal name, even of weapons, can be given but this method only searches misc equipment and will not find
-     * weapons.
+     * Returns true when the entity has a MiscType equipment of the given internalName, regardless of its state or
+     * location (it may be unallocated). When available, use EquipmentTypeLookup internal names (or add one when it is
+     * not yet used for a MiscType). Note that any internal name, even of weapons, can be given but this method only
+     * searches misc equipment and will not find weapons.
      *
      * @param internalName The internal name of the misc, e.g. EquipmentTypeLookup.BA_MYOMER_BOOSTER
      *
@@ -5192,7 +5192,9 @@ public abstract class Entity extends TurnOrdered
      * Returns true when the entity has a MiscType equipment of the given internalName, regardless of its state, in the
      * given location. When available, use EquipmentTypeLookup internal names (or add one when it is not yet used for a
      * MiscType). Note that any internal name, even of weapons, can be given but this method only searches misc
-     * equipment and will not find weapons.
+     * equipment and will not find weapons. Note that for BA, this checks the trooper locations (squad, trooper 1...)
+     * rather than the mount locations (arm, body). For BA, {@link BattleArmor#hasMiscInMountLocation} can be
+     * used instead.
      *
      * @param internalName The internal name of the misc, e.g. EquipmentTypeLookup.BA_MYOMER_BOOSTER
      * @param location     The location, e.g. Mek.LOC_LEFT_TORSO
