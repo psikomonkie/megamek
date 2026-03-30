@@ -1830,33 +1830,35 @@ public class BattleArmor extends Infantry {
     }
 
     /**
+     * Returns the Mounted for the manipulator in the given location of this BattleArmor squad or null if there is none.
+     * Note that the location should be MOUNT_LOC_LEFT_ARM or MOUNT_LOC_RIGHT_ARM.
+     *
+     * @throws IllegalArgumentException for locations that are not one of the arms
+     */
+    public MiscMounted getManipulator(int mountLocation) {
+        if (mountLocation != MOUNT_LOC_RIGHT_ARM && mountLocation != MOUNT_LOC_LEFT_ARM) {
+            throw new IllegalArgumentException("Invalid mount location");
+        }
+        return getMisc().stream()
+              .filter(m -> m.getType().hasFlag(MiscType.F_BA_MANIPULATOR))
+              .filter(m -> m.getBaMountLoc() == mountLocation)
+              .findFirst().orElse(null);
+    }
+
+    /**
      * Returns the <code>Mounted</code> for the manipulator mounted in the left arm of this <code>BattleArmor</code>
      * squad.
-     *
      */
     public Mounted<?> getLeftManipulator() {
-        for (Mounted<?> m : getMisc()) {
-            if (m.getType().hasFlag(MiscType.F_BA_MANIPULATOR)
-                  && (m.getBaMountLoc() == MOUNT_LOC_LEFT_ARM)) {
-                return m;
-            }
-        }
-        return null;
+        return getManipulator(MOUNT_LOC_LEFT_ARM);
     }
 
     /**
      * Returns the <code>Mounted</code> for the manipulator mounted in the right arm of this <code>BattleArmor</code>
      * squad.
-     *
      */
     public Mounted<?> getRightManipulator() {
-        for (Mounted<?> m : getMisc()) {
-            if (m.getType().hasFlag(MiscType.F_BA_MANIPULATOR)
-                  && (m.getBaMountLoc() == MOUNT_LOC_RIGHT_ARM)) {
-                return m;
-            }
-        }
-        return null;
+        return getManipulator(MOUNT_LOC_RIGHT_ARM);
     }
 
     public boolean isClanExoWithoutHarjel() {

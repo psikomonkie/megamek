@@ -117,6 +117,7 @@ public class TestBattleArmor extends TestEntity {
 
     /**
      * An enumeration that keeps track of the legal manipulators for BattleArmor.
+     * TM p.166
      *
      * @author arlith
      */
@@ -149,7 +150,7 @@ public class TestBattleArmor extends TestEntity {
         public final String displayName;
 
         /**
-         * Denotes whether this armor is Clan or not.
+         * When true, this manipulator type needs to be mounted in both arms to be valid.
          */
         public final boolean pairMounted;
 

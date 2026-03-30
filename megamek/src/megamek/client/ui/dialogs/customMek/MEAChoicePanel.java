@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -32,16 +32,15 @@
  */
 package megamek.client.ui.dialogs.customMek;
 
+import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.io.Serial;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.awt.Insets;
+import java.util.List;
 import java.util.Objects;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-import megamek.client.ui.GBC;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.units.Entity;
 import megamek.common.equipment.EquipmentType;
@@ -58,27 +57,25 @@ import megamek.logging.MMLogger;
  * @author arlith
  */
 public class MEAChoicePanel extends JPanel {
-    @Serial
-    private static final long serialVersionUID = 6189888202192403704L;
 
     private static final MMLogger LOGGER = MMLogger.create(MEAChoicePanel.class);
 
     private final Entity entity;
+    private final List<MiscType> manipulators;
+    private final JComboBox<String> comboChoices = new JComboBox<>();
 
-    private final ArrayList<MiscType> manipulators;
-
-    private final JComboBox<String> comboChoices;
     /**
      * The BattleArmor mount location of the modular equipment adaptor.
      */
     private final int battleArmorMountLocation;
+
     /**
      * The manipulator currently mounted by a modular equipment adaptor.
      */
     private Mounted<?> mountedManipulator;
 
-    public MEAChoicePanel(Entity entity, int mountLoc, Mounted<?> mounted, ArrayList<MiscType> manipulators) {
-        this.entity = entity;
+    public MEAChoicePanel(BattleArmor battleArmor, int mountLoc, Mounted<?> mounted, List<MiscType> manipulators) {
+        this.entity = battleArmor;
         this.manipulators = manipulators;
 
         mountedManipulator = mounted;
@@ -89,32 +86,25 @@ public class MEAChoicePanel extends JPanel {
             equipmentType = mounted.getType();
         }
 
-        comboChoices = new JComboBox<>();
         comboChoices.addItem("None");
-        comboChoices.setSelectedIndex(0);
-        Iterator<MiscType> it = this.manipulators.iterator();
-        for (int x = 1; it.hasNext(); x++) {
-            MiscType manipulator = it.next();
-            String manipulatorName = manipulator.getName() + " (" + manipulator.getTonnage(this.entity) + "kg)";
+        for (MiscType manipulator : manipulators) {
+            String manipulatorName =
+                  "%s (%d kg)".formatted(manipulator.getShortName(), (int) (manipulator.getTonnage(this.entity) * 1000));
             comboChoices.addItem(manipulatorName);
             if (equipmentType != null &&
                   Objects.equals(manipulator.getInternalName(), equipmentType.getInternalName())) {
-                comboChoices.setSelectedIndex(x);
+                comboChoices.setSelectedItem(manipulatorName);
             }
         }
 
-        String labelDescription = "";
-        if (battleArmorMountLocation != BattleArmor.MOUNT_LOC_NONE) {
-            labelDescription += " (" + BattleArmor.MOUNT_LOC_NAMES[battleArmorMountLocation] + ')';
-        } else {
-            labelDescription = "None";
-        }
-
+        String labelDescription = BattleArmor.MOUNT_LOC_NAMES[battleArmorMountLocation] + ":";
         JLabel labelLocation = new JLabel(labelDescription);
-        GridBagLayout gridBagLayout = new GridBagLayout();
-        setLayout(gridBagLayout);
-        add(labelLocation, GBC.std());
-        add(comboChoices, GBC.std());
+
+        setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(0, 2, 1, 2);
+        add(labelLocation, gbc);
+        add(comboChoices, gbc);
     }
 
     public void applyChoice() {

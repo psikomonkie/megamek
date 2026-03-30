@@ -64,6 +64,7 @@ import megamek.common.battleArmor.BattleArmor;
 import megamek.common.equipment.AmmoMounted;
 import megamek.common.equipment.AmmoType;
 import megamek.common.equipment.EquipmentType;
+import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.Mounted;
@@ -121,7 +122,7 @@ public class EquipChoicePanel extends JPanel {
      * gloves are also considered AP mounts)
      **/
     private final JPanel panAPMounts = new JPanel();
-    private final JPanel panMEAdaptors = new JPanel();
+    private JPanel panMEAdaptors = new JPanel(new GridBagLayout());
     private final JPanel panWeaponAmmoSelector = new JPanel();
     private final ArrayList<RapidFireMGPanel> m_vMGs = new ArrayList<>();
     private final JPanel panRapidFireMGs = new JPanel();
@@ -240,6 +241,7 @@ public class EquipChoicePanel extends JPanel {
         }
 
         if ((entity instanceof BattleArmor battleArmor) && entity.hasWorkingMisc(MiscType.F_BA_MEA)) {
+            panMEAdaptors = new BAManipulatorChoicePanel(battleArmor);
             panMEAdaptors.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
                   Messages.getString("CustomMekDialog.MEAPanelTitle"),
                   TitledBorder.TOP,
@@ -256,11 +258,9 @@ public class EquipChoicePanel extends JPanel {
                 }
             }
             String freeWeight = Messages.getString("CustomMekDialog.freeWeight") +
-                  String.format(": %1$.3f/%2$.3f",
-                        maxTrooperWeight,
-                        battleArmor.getTrooperWeight());
+                  String.format(": %d kg", (int) (maxTrooperWeight * 1000));
 
-            setupMEAdaptors(freeWeight);
+//            setupMEAdaptors(freeWeight, battleArmor);
             add(panMEAdaptors, GBC.eop().anchor(GridBagConstraints.CENTER));
         }
 
@@ -599,10 +599,7 @@ public class EquipChoicePanel extends JPanel {
      * Set up the layout of <code>panMEAdaptors</code>, which contains components for selecting which manipulators are
      * mounted in a modular equipment adaptor
      */
-    private void setupMEAdaptors(String freeWeight) {
-        GridBagLayout gbl = new GridBagLayout();
-        panMEAdaptors.setLayout(gbl);
-
+    private void setupMEAdaptors(String freeWeight, BattleArmor battleArmor) {
         JLabel lblFreeWeight = new JLabel(freeWeight);
         panMEAdaptors.add(lblFreeWeight, GBC.eol().anchor(GridBagConstraints.CENTER));
 
@@ -617,21 +614,21 @@ public class EquipChoicePanel extends JPanel {
             manipulatorTypes.add(miscType);
         }
 
-        for (Mounted<?> m : entity.getMisc()) {
-            if (!m.getType().hasFlag(MiscType.F_BA_MEA)) {
+        for (Mounted<?> m : battleArmor.getMisc()) {
+            if (!m.is(EquipmentTypeLookup.BA_MODULAR_EQUIPMENT_ADAPTOR)) {
                 continue;
             }
             Mounted<?> currentManipulator;
             if (m.getBaMountLoc() == BattleArmor.MOUNT_LOC_LEFT_ARM) {
-                currentManipulator = ((BattleArmor) entity).getLeftManipulator();
+                currentManipulator = battleArmor.getLeftManipulator();
             } else if (m.getBaMountLoc() == BattleArmor.MOUNT_LOC_RIGHT_ARM) {
-                currentManipulator = ((BattleArmor) entity).getRightManipulator();
+                currentManipulator = battleArmor.getRightManipulator();
             } else {
                 // We can only have MEA's in an arm
                 continue;
             }
-            MEAChoicePanel meaChoicePanel;
-            meaChoicePanel = new MEAChoicePanel(entity, m.getBaMountLoc(), currentManipulator, manipulatorTypes);
+            var meaChoicePanel = new MEAChoicePanel(battleArmor, m.getBaMountLoc(), currentManipulator,
+                  manipulatorTypes);
 
             panMEAdaptors.add(meaChoicePanel, GBC.eol());
             m_vMEAdaptors.add(meaChoicePanel);
