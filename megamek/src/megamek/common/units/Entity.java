@@ -5998,32 +5998,12 @@ public abstract class Entity extends TurnOrdered
         if ((ghostTargetRoll == null) || (active && (getGhostTargetRollMoS() < 0)) || isShutDown()) {
             return false;
         }
-        boolean hasGhost = false;
         for (MiscMounted m : getMisc()) {
-            MiscType type = m.getType();
-            // TacOps p. 100 Angle ECM can have ECM/ECCM and Ghost Targets at
-            // the same time
-            if (type.hasFlag(MiscType.F_ECM) &&
-                  (m.curMode().equals("Ghost Targets") ||
-                        m.curMode().equals("ECM & Ghost Targets") ||
-                        m.curMode().equals("ECCM & Ghost Targets")) &&
-                  !(m.isInoperable() || getCrew().isUnconscious())) {
-                hasGhost = true;
-            }
-            if (type.hasFlag(MiscType.F_COMMUNICATIONS) &&
-                  m.curMode().equals("Ghost Targets") &&
-                  (getTotalCommGearTons() >= 7) &&
-                  !(m.isInoperable() || getCrew().isUnconscious())) {
-                hasGhost = true;
-            }
-            // Vehicle Cockpit Command Console in Ghost Targets mode
-            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE) &&
-                  m.curMode().equals("Ghost Targets") &&
-                  !(m.isInoperable() || getCrew().isUnconscious())) {
-                hasGhost = true;
+            if (isGhostTargetCapable(m)) {
+                return true;
             }
         }
-        return hasGhost;
+        return false;
     }
 
     /**
@@ -6035,36 +6015,40 @@ public abstract class Entity extends TurnOrdered
      */
     public boolean hasGhostTargetEquipment() {
         for (MiscMounted m : getMisc()) {
-            if (m.isInoperable() || getCrew().isUnconscious()) {
-                continue;
-            }
-            MiscType type = m.getType();
-            if (type.hasFlag(MiscType.F_ECM)
-                  && (m.curMode().equals("Ghost Targets")
-                  || m.curMode().equals("ECM & Ghost Targets")
-                  || m.curMode().equals("ECCM & Ghost Targets"))) {
-                return true;
-            }
-            if (type.hasFlag(MiscType.F_COMMUNICATIONS)
-                  && m.curMode().equals("Ghost Targets")
-                  && (getTotalCommGearTons() >= 7)) {
-                return true;
-            }
-            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
-                  && m.curMode().equals("Ghost Targets")) {
+            if (isGhostTargetCapable(m)) {
                 return true;
             }
         }
-        // Mek Cockpit Command Console (cockpit type, not misc equipment).
-        // Simpler check than hasCommandConsoleBonus() which is designed for initiative
-        // and has phase-dependent conditions that don't apply to ghost targets.
-        if (this instanceof Mek mek) {
-            boolean isCCC = (mek.getCockpitType() == Mek.COCKPIT_COMMAND_CONSOLE
-                  || mek.getCockpitType() == Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
-                  || mek.getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE);
-            if (isCCC && !getCrew().isDead() && !getCrew().isUnconscious()) {
-                return true;
-            }
+        return false;
+    }
+
+    /**
+     * Returns true if the given equipment is currently set to a Ghost Targets mode and is operational. Used by both
+     * turn eligibility checks and equipment selection in the PRE_FIRING phase.
+     *
+     * @param equipment the misc equipment to check
+     *
+     * @return true if this equipment is generating ghost targets
+     */
+    public boolean isGhostTargetCapable(MiscMounted equipment) {
+        if (equipment.isInoperable() || getCrew().isUnconscious()) {
+            return false;
+        }
+        MiscType type = equipment.getType();
+        if (type.hasFlag(MiscType.F_ECM)
+              && (equipment.curMode().equals("Ghost Targets")
+              || equipment.curMode().equals("ECM & Ghost Targets")
+              || equipment.curMode().equals("ECCM & Ghost Targets"))) {
+            return true;
+        }
+        if (type.hasFlag(MiscType.F_COMMUNICATIONS)
+              && equipment.curMode().equals("Ghost Targets")
+              && (getTotalCommGearTons() >= 7)) {
+            return true;
+        }
+        if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
+              && equipment.curMode().equals("Ghost Targets")) {
+            return true;
         }
         return false;
     }
@@ -10803,9 +10787,7 @@ public abstract class Entity extends TurnOrdered
             // are eligible during PRE_FIRING to assign targets
             if (phase.isPreFiring() && hasGhostTargetEquipment()
                   && (game != null)
-                  && game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-                  && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-                  game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+                  && game.usesStandardGhostTargetMode()) {
                 return true;
             }
             return false;

@@ -36,7 +36,6 @@ package megamek.common.turns;
 import megamek.common.annotations.Nullable;
 import megamek.common.game.Game;
 import megamek.common.game.GameTurn;
-import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
 
 /**
@@ -61,9 +60,7 @@ public class PrephaseTurn extends GameTurn {
         // Standard ghost target mode: entities with ghost target equipment are valid during PRE_FIRING
         if (game.getPhase().isPreFiring()
               && entity.hasGhostTargetEquipment()
-              && game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-              game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+              && game.usesStandardGhostTargetMode()) {
             return true;
         }
 

@@ -362,8 +362,7 @@ public class Client extends AbstractClient {
      * @param equipmentId      the equipment number on the source entity
      * @param targetEntityId   the entity being targeted
      */
-    public void sendGhostTargetAction(int sourceEntityId, int equipmentId,
-          int targetEntityId) {
+    public void sendGhostTargetAction(int sourceEntityId, int equipmentId, int targetEntityId) {
         send(new Packet(PacketCommand.ENTITY_GHOST_TARGET,
               sourceEntityId, equipmentId, targetEntityId));
     }

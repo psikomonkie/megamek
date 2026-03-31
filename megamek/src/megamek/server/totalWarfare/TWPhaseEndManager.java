@@ -37,7 +37,6 @@ import megamek.common.Player;
 import megamek.common.Report;
 import megamek.common.enums.GamePhase;
 import megamek.common.event.GameVictoryEvent;
-import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
 import megamek.server.ServerHelper;
 
@@ -346,10 +345,6 @@ record TWPhaseEndManager(TWGameManager gameManager) {
     }
 
     private boolean isStandardGhostTargetMode() {
-        return gameManager.getGame().getOptions()
-              .booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-              gameManager.getGame().getOptions()
-                    .stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE));
+        return gameManager.getGame().usesStandardGhostTargetMode();
     }
 }

@@ -176,11 +176,7 @@ public class TWGameManager extends AbstractGameManager {
 
     private final List<DemolitionCharge> explodingCharges = new ArrayList<>();
 
-    /** Pending ghost target actions for Standard mode, collected during PRE_FIRING and resolved at start of FIRING. */
-    private final List<GhostTargetAction> pendingGhostTargetActions = new ArrayList<>();
-
-    /** Ghost target reports generated during PRE_FIRING resolution, displayed at the start of the Weapon Attack Phase. */
-    private final List<Report> pendingGhostTargetReports = new ArrayList<>();
+    private final GhostTargetHelper ghostTargetHelper = new GhostTargetHelper(this);
 
     /**
      * Keeps track of what team a player requested to join.
@@ -771,7 +767,7 @@ public class TWGameManager extends AbstractGameManager {
                     receivePrephase(packet, connId);
                     break;
                 case ENTITY_GHOST_TARGET:
-                    receiveGhostTargetAction(packet, connId);
+                    ghostTargetHelper.receiveGhostTargetAction(packet, connId);
                     break;
                 case ENTITY_GTA_HEX_SELECT:
                     receiveGroundToAirHexSelectPacket(packet, connId);
@@ -9672,79 +9668,6 @@ public class TWGameManager extends AbstractGameManager {
     }
 
     /**
-     * Receives a ghost target action from a client during the PRE_FIRING phase (Standard mode). Validates the action
-     * and stores it for resolution at the start of the FIRING phase.
-     */
-    private void receiveGhostTargetAction(Packet packet, int connId) throws InvalidPacketDataException {
-        int entityId = packet.getIntValue(0);
-        int equipmentId = packet.getIntValue(1);
-        int targetId = packet.getIntValue(2);
-
-        // Validate phase
-        if (!getGame().getPhase().isPreFiring()) {
-            LOGGER.error("Received ghost target action in wrong phase {}", game.getPhase());
-            return;
-        }
-
-        // Validate Standard mode is active
-        if (!game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-              || !OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-              game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
-            LOGGER.error("Received ghost target action but Standard mode is not active");
-            return;
-        }
-
-        Entity source = game.getEntity(entityId);
-        if (source == null) {
-            LOGGER.error("Received ghost target action for invalid entity ID {}", entityId);
-            return;
-        }
-
-        // Validate connection owns this entity
-        Player player = game.getPlayer(connId);
-        if ((player == null) || (source.getOwnerId() != player.getId())) {
-            LOGGER.error("Connection {} does not own entity {}", connId, entityId);
-            return;
-        }
-
-        Entity target = game.getEntity(targetId);
-        if (target == null) {
-            LOGGER.error("Ghost target action targets invalid entity ID {}", targetId);
-            return;
-        }
-
-        // Derive friendliness server-side (don't trust client)
-        boolean targetIsFriendly = !source.isEnemyOf(target);
-
-        // Validate target is not conventional infantry (immune)
-        if (target.isConventionalInfantry()) {
-            LOGGER.error("Ghost target action rejected: target {} is conventional infantry", targetId);
-            return;
-        }
-
-        // Validate target is within range (6 hexes)
-        if ((source.getPosition() != null) && (target.getPosition() != null)
-              && (source.getPosition().distance(target.getPosition()) > 6)) {
-            LOGGER.error("Ghost target action rejected: target {} is out of range", targetId);
-            return;
-        }
-
-        // Reject duplicate: same entity + equipment already has a pending action this round
-        for (GhostTargetAction existing : pendingGhostTargetActions) {
-            if ((existing.getEntityId() == entityId) && (existing.getEquipmentId() == equipmentId)) {
-                LOGGER.debug("Ghost target action rejected: duplicate for entity={}, equip={}", entityId, equipmentId);
-                return;
-            }
-        }
-
-        LOGGER.debug("Ghost target action received: source={} (id={}), equip={}, target={} (id={}), friendly={}",
-              source.getDisplayName(), entityId, equipmentId,
-              target.getDisplayName(), targetId, targetIsFriendly);
-        pendingGhostTargetActions.add(
-              new GhostTargetAction(entityId, equipmentId, targetId, targetIsFriendly));
-    }
-
-    /**
      * Gets a bunch of entity attacks from the packet. If valid, processes them and ends the current turn.
      */
     private void receiveAttack(Packet packet, int connId) throws InvalidPacketDataException {
@@ -10791,180 +10714,12 @@ public class TWGameManager extends AbstractGameManager {
         addNewLines();
     }
 
-    /**
-     * Clears all pending ghost target actions and reports. Called at the start of PRE_FIRING
-     * to prevent accumulation across rounds.
-     */
-    void clearPendingGhostTargets() {
-        LOGGER.info("[GhostTarget] clearPendingGhostTargets: clearing {} actions, {} reports",
-              pendingGhostTargetActions.size(), pendingGhostTargetReports.size());
-        pendingGhostTargetActions.clear();
-        pendingGhostTargetReports.clear();
-    }
-
     void resolveStandardGhostTargets() {
-        LOGGER.info(
-              "[GhostTarget] resolveStandardGhostTargets CALLED: pendingActions={}, pendingReports={}, stacktrace={}",
-              pendingGhostTargetActions.size(),
-              pendingGhostTargetReports.size(),
-              Thread.currentThread().getStackTrace()[2]);
-
-        // Always clear reports from any previous round
-        pendingGhostTargetReports.clear();
-
-        if (pendingGhostTargetActions.isEmpty()) {
-            return;
-        }
-
-        pendingGhostTargetReports.add(new Report(3636, Report.PUBLIC));
-
-        for (GhostTargetAction action : pendingGhostTargetActions) {
-            Entity source = game.getEntity(action.getEntityId());
-            Entity target = game.getEntity(action.getTargetEntityId());
-
-            if ((source == null) || (target == null) || source.isDestroyed()
-                  || target.isDestroyed() || !source.isDeployed() || !target.isDeployed()) {
-                LOGGER.debug(
-                      "Ghost target action skipped: source or target invalid/destroyed/undeployed (sourceId={}, targetId={})",
-                      action.getEntityId(),
-                      action.getTargetEntityId());
-                continue;
-            }
-
-            // Server-side rule validation: verify equipment is ghost-target-capable and in correct mode
-            if (!source.hasGhostTargetEquipment()) {
-                LOGGER.debug("Ghost target action skipped: {} has no ghost target equipment",
-                      source.getDisplayName());
-                continue;
-            }
-
-            // Validate target is not conventional infantry
-            if (target.isConventionalInfantry()) {
-                LOGGER.debug("Ghost target action skipped: target {} is conventional infantry",
-                      target.getDisplayName());
-                continue;
-            }
-
-            // Validate target is within range
-            if ((source.getPosition() != null) && (target.getPosition() != null)
-                  && (source.getPosition().distance(target.getPosition()) > 6)) {
-                LOGGER.debug("Ghost target action skipped: target {} is out of range",
-                      target.getDisplayName());
-                continue;
-            }
-
-            // ECCM suppression: can't generate if entity's hex has more enemy ECM than friendly ECCM
-            if (ComputeECM.isAffectedByECM(source, source.getPosition(), source.getPosition())) {
-                LOGGER.debug("Ghost target suppressed by ECCM: {}", source.getDisplayName());
-                Report r = new Report(3637);
-                r.subject = source.getId();
-                r.addDesc(source);
-                pendingGhostTargetReports.add(r);
-                continue;
-            }
-
-            // Roll: Piloting/Driving +3 (Gunnery +3 for ProtoMeks, Anti-Mek +3 for BA), no other modifiers
-            // For BA, getCrew().getPiloting() returns the Anti-Mek skill per errata
-            int targetNumber = source.getCrew().getPiloting() + 3;
-            if (source.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
-                targetNumber = source.getCrew().getGunnery() + 3;
-            }
-
-            Roll roll = Compute.rollD6(2);
-            boolean success = roll.getIntValue() >= targetNumber;
-
-            LOGGER.debug("Ghost target roll: {} -> {} needs {}+, rolled {}, {}",
-                  source.getDisplayName(), target.getDisplayName(),
-                  targetNumber, roll.getIntValue(), success ? "SUCCESS" : "FAILED");
-
-            // Check special cases for successful rolls
-            boolean probeImmune = success && !action.isTargetFriendly()
-                  && target.hasBAP() && !target.isStealthActive();
-            boolean alreadyCapped = success
-                  && ((action.isTargetFriendly() && target.getGhostTargetDefensiveBonus() >= 3)
-                  || (!action.isTargetFriendly() && target.getGhostTargetOffensiveBonus() >= 3));
-
-            String ghostType = action.isTargetFriendly() ? "Defensive" : "Offensive";
-
-            if (probeImmune) {
-                // Dedicated report: success but target is immune due to active probe
-                Report r = new Report(3642);
-                r.subject = source.getId();
-                r.addDesc(source);
-                r.addDesc(target);
-                r.add(ghostType);
-                r.add(targetNumber);
-                r.add(roll);
-                r.addDesc(target);
-                pendingGhostTargetReports.add(r);
-            } else if (alreadyCapped) {
-                // Dedicated report: success but target is already at +3 max
-                Report r = new Report(3643);
-                r.subject = source.getId();
-                r.addDesc(source);
-                r.addDesc(target);
-                r.add(ghostType);
-                r.add(targetNumber);
-                r.add(roll);
-                r.addDesc(target);
-                pendingGhostTargetReports.add(r);
-            } else {
-                // Normal report: success or failure
-                Report r = new Report(3633);
-                r.subject = source.getId();
-                r.addDesc(source);
-                r.addDesc(target);
-                r.add(ghostType);
-                r.add(targetNumber);
-                r.add(roll);
-                r.choose(success);
-                pendingGhostTargetReports.add(r);
-
-                if (success) {
-                    if (action.isTargetFriendly()) {
-                        target.addGhostTargetDefensiveBonus(1);
-                        LOGGER.debug("Ghost target defensive bonus applied to {} (now {})",
-                              target.getDisplayName(), target.getGhostTargetDefensiveBonus());
-                    } else {
-                        target.addGhostTargetOffensiveBonus(1);
-                        LOGGER.debug("Ghost target offensive bonus applied to {} (now {})",
-                              target.getDisplayName(), target.getGhostTargetOffensiveBonus());
-                    }
-                    entityUpdate(target.getId());
-                }
-            }
-
-            // Stealth Armor + Angel ECM: generating entity suffers +1 to own attacks
-            if (success && source.isStealthActive()) {
-                MiscMounted equipment = source.getMisc(action.getEquipmentId());
-                if ((equipment != null) && equipment.getType().hasFlag(MiscType.F_ANGEL_ECM)) {
-                    source.addGhostTargetOffensiveBonus(1);
-                    entityUpdate(source.getId());
-                    Report stealthReport = new Report(3638);
-                    stealthReport.subject = source.getId();
-                    stealthReport.addDesc(source);
-                    pendingGhostTargetReports.add(stealthReport);
-                }
-            }
-        }
-
-        pendingGhostTargetActions.clear();
+        ghostTargetHelper.resolveStandardGhostTargets();
     }
 
-    /**
-     * Adds any pending ghost target reports to the Weapon Attack Phase report section. Called at the start of the
-     * FIRING phase end processing, after the phase header.
-     */
     void addGhostTargetReports() {
-        LOGGER.info("[GhostTarget] addGhostTargetReports CALLED: {} reports pending",
-              pendingGhostTargetReports.size());
-        if (!pendingGhostTargetReports.isEmpty()) {
-            for (Report report : pendingGhostTargetReports) {
-                addReport(report);
-            }
-            addNewLines();
-            pendingGhostTargetReports.clear();
-        }
+        ghostTargetHelper.addGhostTargetReports();
     }
 
     /**

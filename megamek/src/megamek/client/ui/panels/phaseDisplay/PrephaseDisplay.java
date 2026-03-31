@@ -58,13 +58,12 @@ import megamek.client.ui.widget.MekPanelTabStrip;
 import megamek.common.actions.GhostTargetAction;
 import megamek.common.enums.GamePhase;
 import megamek.common.equipment.MiscMounted;
-import megamek.common.equipment.MiscType;
 import megamek.common.event.GamePhaseChangeEvent;
 import megamek.common.event.GameTurnChangeEvent;
 import megamek.common.event.entity.GameEntityChangeEvent;
 import megamek.common.game.Game;
-import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
+import megamek.common.units.Mek;
 import megamek.logging.MMLogger;
 
 /**
@@ -669,37 +668,17 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
             if (usedGhostTargetEquipment.contains(equipNum)) {
                 continue;
             }
-            if (m.isInoperable() || entity.getCrew().isUnconscious()) {
-                continue;
-            }
-
-            MiscType type = m.getType();
-            // ECM in Ghost Targets mode (including Angel ECM combined modes)
-            if (type.hasFlag(MiscType.F_ECM)
-                  && (m.curMode().equals("Ghost Targets")
-                  || m.curMode().equals("ECM & Ghost Targets")
-                  || m.curMode().equals("ECCM & Ghost Targets"))) {
-                return equipNum;
-            }
-            // Communications equipment (7+ tons) in Ghost Targets mode
-            if (type.hasFlag(MiscType.F_COMMUNICATIONS)
-                  && m.curMode().equals("Ghost Targets")
-                  && (entity.getTotalCommGearTons() >= 7)) {
-                return equipNum;
-            }
-            // Vehicle Cockpit Command Console in Ghost Targets mode
-            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
-                  && m.curMode().equals("Ghost Targets")) {
+            if (entity.isGhostTargetCapable(m)) {
                 return equipNum;
             }
         }
 
         // Mek Cockpit Command Console (cockpit type, not misc equipment)
-        if ((entity instanceof megamek.common.units.Mek mek)
+        if ((entity instanceof Mek mek)
               && !usedGhostTargetEquipment.contains(GhostTargetAction.CCC_EQUIPMENT_ID)
-              && (mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_COMMAND_CONSOLE
-              || mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
-              || mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
+              && (mek.getCockpitType() == Mek.COCKPIT_COMMAND_CONSOLE
+              || mek.getCockpitType() == Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
+              || mek.getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
             return GhostTargetAction.CCC_EQUIPMENT_ID;
         }
 
@@ -727,9 +706,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     }
 
     private boolean isStandardGhostTargetMode() {
-        return game().getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-              game().getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE));
+        return game().usesStandardGhostTargetMode();
     }
 
     @Override

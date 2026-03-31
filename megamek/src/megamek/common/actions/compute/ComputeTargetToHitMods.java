@@ -155,16 +155,15 @@ public class ComputeTargetToHitMods {
         // ECM suite generating Ghost Targets
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)) {
 
-            boolean isStandardMode = OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-                  game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE));
+            boolean isStandardMode = game.usesStandardGhostTargetMode();
 
             if (isStandardMode) {
-                // Standard (TO:AR) mode: per-unit targeted ghost targets
+                // Standard (TO:AR p.100-102) mode: per-unit targeted ghost targets
                 // Per errata: indirect fire pays the modifier (firing is firing), spotting does not
-                // Active probe grants full immunity unless jammed or has active stealth armor
+                // Active probe grants full immunity unless jammed or has active stealth armor (TO:AR p.101)
                 boolean hasActiveProbeImmunity = attacker.hasBAP() && !attacker.isStealthActive();
 
-                // Per errata: TAG-designated targets with semi-guided ammo are immune to ghost target
+                // Per TO:AR p.102: TAG-designated targets with semi-guided ammo are immune to ghost target
                 // defensive modifiers (TAG resolves before ghost targets, so the lock bypasses ghosts)
                 boolean isSemiGuidedTagged = (entityTarget != null)
                       && (entityTarget.getTaggedBy() != WeaponAttackAction.UNASSIGNED)

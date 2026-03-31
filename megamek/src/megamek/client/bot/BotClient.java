@@ -63,6 +63,7 @@ import megamek.common.Player;
 import megamek.common.Report;
 import megamek.common.ToHitData;
 import megamek.common.actions.EntityAction;
+import megamek.common.actions.GhostTargetAction;
 import megamek.common.actions.WeaponAttackAction;
 import megamek.common.annotations.Nullable;
 import megamek.common.board.Board;
@@ -100,6 +101,7 @@ import megamek.common.units.EntityListFile;
 import megamek.common.units.EntityMovementMode;
 import megamek.common.units.IBuilding;
 import megamek.common.units.Infantry;
+import megamek.common.units.Mek;
 import megamek.common.units.ProtoMek;
 import megamek.common.units.Terrains;
 import megamek.common.units.VTOL;
@@ -327,9 +329,7 @@ public abstract class BotClient extends Client {
 
         // Assign ghost targets in Standard mode during PRE_FIRING
         if ((entity != null) && game.getPhase().isPreFiring()
-              && game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
-              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
-              game.getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE))) {
+              && game.usesStandardGhostTargetMode()) {
             assignBotGhostTargets(entity);
         }
 
@@ -347,30 +347,7 @@ public abstract class BotClient extends Client {
         }
 
         for (MiscMounted m : source.getMisc()) {
-            if (m.isInoperable() || source.getCrew().isUnconscious()) {
-                continue;
-            }
-
-            boolean isGhostTargetEquipment = false;
-            MiscType type = m.getType();
-
-            if (type.hasFlag(MiscType.F_ECM)
-                  && (m.curMode().equals("Ghost Targets")
-                  || m.curMode().equals("ECM & Ghost Targets")
-                  || m.curMode().equals("ECCM & Ghost Targets"))) {
-                isGhostTargetEquipment = true;
-            }
-            if (type.hasFlag(MiscType.F_COMMUNICATIONS)
-                  && m.curMode().equals("Ghost Targets")
-                  && (source.getTotalCommGearTons() >= 7)) {
-                isGhostTargetEquipment = true;
-            }
-            if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
-                  && m.curMode().equals("Ghost Targets")) {
-                isGhostTargetEquipment = true;
-            }
-
-            if (!isGhostTargetEquipment) {
+            if (!source.isGhostTargetCapable(m)) {
                 continue;
             }
 
@@ -379,12 +356,11 @@ public abstract class BotClient extends Client {
         }
 
         // Mek Cockpit Command Console (cockpit type, not misc equipment)
-        if ((source instanceof megamek.common.units.Mek mek)
-              && (mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_COMMAND_CONSOLE
-              || mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
-              || mek.getCockpitType() == megamek.common.units.Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
-            assignBotGhostTargetForEquipment(source,
-                  megamek.common.actions.GhostTargetAction.CCC_EQUIPMENT_ID);
+        if ((source instanceof Mek mek)
+              && (mek.getCockpitType() == Mek.COCKPIT_COMMAND_CONSOLE
+              || mek.getCockpitType() == Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
+              || mek.getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
+            assignBotGhostTargetForEquipment(source, GhostTargetAction.CCC_EQUIPMENT_ID);
         }
     }
 

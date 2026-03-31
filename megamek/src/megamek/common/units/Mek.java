@@ -5055,6 +5055,20 @@ public abstract class Mek extends Entity {
               && (!isIndustrial() || hasWorkingMisc(MiscType.F_ADVANCED_FIRE_CONTROL));
     }
 
+    @Override
+    public boolean hasGhostTargetEquipment() {
+        // Mek Cockpit Command Console (cockpit type, not misc equipment).
+        // Simpler check than hasCommandConsoleBonus() which is designed for initiative
+        // and has phase-dependent conditions that don't apply to ghost targets.
+        boolean isCCC = (getCockpitType() == COCKPIT_COMMAND_CONSOLE)
+              || (getCockpitType() == COCKPIT_SUPERHEAVY_COMMAND_CONSOLE)
+              || (getCockpitType() == COCKPIT_SMALL_COMMAND_CONSOLE);
+        if (isCCC && !getCrew().isDead() && !getCrew().isUnconscious()) {
+            return true;
+        }
+        return super.hasGhostTargetEquipment();
+    }
+
     /**
      * Add the critical slots necessary for a standard gyro. Also set the gyro type variable. Note: This is part of the
      * mek creation public API, and might not be referenced by any MegaMek code.
