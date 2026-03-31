@@ -40,15 +40,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+
 import megamek.common.Hex;
 import megamek.common.ToHitData;
 import megamek.common.board.Board;
 import megamek.common.board.Coords;
+import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
 import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.game.Game;
 import megamek.common.rolls.TargetRoll;
 import megamek.common.units.Entity;
+import megamek.common.units.Mek;
 import megamek.common.units.Terrain;
 import megamek.common.units.Terrains;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,6 +89,19 @@ class WoodsClearingAttackActionTest {
         when(mockEntity.isImmobile()).thenReturn(false);
         when(mockEntity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW)).thenReturn(true);
         when(mockEntity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW)).thenReturn(false);
+        when(mockEntity.getSecondaryFacing()).thenReturn(3); // Facing south toward target
+
+        // Set up a mock chainsaw in the CT (forward arc) for arc checking
+        MiscMounted mockSaw = mock(MiscMounted.class);
+        MiscType mockSawType = mock(MiscType.class);
+        when(mockSaw.isReady()).thenReturn(true);
+        when(mockSaw.getType()).thenReturn(mockSawType);
+        when(mockSaw.getLocation()).thenReturn(Mek.LOC_CENTER_TORSO);
+        when(mockSaw.isRearMounted()).thenReturn(false);
+        when(mockSawType.hasFlag(MiscType.F_CLUB)).thenReturn(true);
+        when(mockSawType.hasFlag(MiscTypeFlag.S_CHAINSAW)).thenReturn(true);
+        when(mockSawType.hasFlag(MiscTypeFlag.S_DUAL_SAW)).thenReturn(false);
+        when(mockEntity.getMisc()).thenReturn(List.of(mockSaw));
 
         // Target hex has woods
         Hex woodsHex = new Hex();

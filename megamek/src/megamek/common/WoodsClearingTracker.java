@@ -51,8 +51,9 @@ import megamek.common.board.BoardLocation;
  * Instead of using the Terrain Factor damage system, a saw takes 2 turns to reduce a wooded hex one level (heavy to
  * light, light to rough). Two units clearing the same hex can reduce this to 1 turn.</p>
  *
- * <p>Work accumulates per-hex. If no entity clears a hex for a full round, the
- * accumulated work on that hex resets.</p>
+ * <p>Work accumulates per-hex and persists even if no entity works the hex for a round
+ * (a partially cut tree stays partially cut). Work only progresses when at least one
+ * entity actively declares clearing in a given round.</p>
  */
 public class WoodsClearingTracker implements Serializable {
     @Serial
@@ -98,8 +99,9 @@ public class WoodsClearingTracker implements Serializable {
      * Processes the round transition for all clearing operations.
      *
      * <p>For each hex that had contributors this round, increments accumulated work.
-     * If 2+ entities contributed in the same round, the hex is immediately complete. Hexes with no contributors this
-     * round retain their accumulated work (a partially cut tree stays partially cut) but do not progress.</p>
+     * A hex completes when accumulated work reaches the required threshold (2 turns for single unit,
+     * 1 turn for 2+ units). Hexes with no contributors this round retain their accumulated work
+     * (a partially cut tree stays partially cut) but do not progress.</p>
      *
      * @return list of hex locations that have completed clearing (ready for terrain reduction)
      */

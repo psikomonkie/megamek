@@ -164,8 +164,7 @@ public class TWGameManager extends AbstractGameManager {
     // canceling each other
     private final Vector<PhysicalResult> physicalResults = new Vector<>();
 
-    // Track multi-turn woods clearing operations with chainsaws and dual saws (TM pp.241-243)
-    private final WoodsClearingTracker woodsClearingTracker = new WoodsClearingTracker();
+    // Woods clearing tracker is stored on Game for serialization - access via game.getWoodsClearingTracker()
 
     private final List<DynamicTerrainProcessor> terrainProcessors = new ArrayList<>();
 
@@ -11355,6 +11354,10 @@ public class TWGameManager extends AbstractGameManager {
         // Physical phase header
         addReport(new Report(4000, Report.PUBLIC));
 
+        // Process completions from PRIOR round's clearing before resolving new attacks.
+        // Must be after the phase header so completion reports appear under "Physical Attack Phase".
+        processWoodsClearingCompletions();
+
         // add any pending charges
         for (Enumeration<AttackAction> i = game.getCharges(); i.hasMoreElements(); ) {
             game.addAction(i.nextElement());
@@ -15248,6 +15251,7 @@ public class TWGameManager extends AbstractGameManager {
         }
 
         // Front-mounted saw charge: override damage with flat saw value (TM pp.241-243)
+        boolean sawChargeVsInfantry = false;
         if (ChargeAttackAction.hasFrontMountedSaw(ae)) {
             damage = ChargeAttackAction.getSawChargeDamage(ae, te);
             // Attacker still takes normal charge self-damage (damageTaken unchanged)
@@ -15259,6 +15263,11 @@ public class TWGameManager extends AbstractGameManager {
                 } else {
                     toHit.setHitTable(ToHitData.HIT_KICK);
                 }
+            }
+
+            // vs infantry: damage applied as though from another infantry unit (no "in the open" doubling)
+            if (te.isConventionalInfantry()) {
+                sawChargeVsInfantry = true;
             }
         }
 
@@ -15440,6 +15449,10 @@ public class TWGameManager extends AbstractGameManager {
                 hit.setGeneralDamageType(HitData.DAMAGE_PHYSICAL);
                 if (bDirect) {
                     hit.makeDirectBlow(directBlowCritMod);
+                }
+                // Saw charge vs infantry: damage applied as from another infantry unit (no open-ground doubling)
+                if (sawChargeVsInfantry) {
+                    hit.setIgnoreInfantryDoubleDamage(true);
                 }
                 cluster = checkForSpikes(te, hit.getLocation(), cluster, ae, Mek.LOC_CENTER_TORSO);
 
@@ -16198,6 +16211,12 @@ public class TWGameManager extends AbstractGameManager {
 
         // Validate the action is still possible
         if (pr.toHit.getValue() == TargetRoll.IMPOSSIBLE) {
+            // Silently skip if the hex was just cleared this phase (no need to alarm the player)
+            Hex checkHex = game.getBoard().getHex(wca.getTargetCoords());
+            if (checkHex != null && !checkHex.containsTerrain(Terrains.WOODS)
+                  && !checkHex.containsTerrain(Terrains.JUNGLE)) {
+                return;
+            }
             Report r = new Report(4075);
             r.subject = ae.getId();
             r.add(pr.toHit.getDesc());
@@ -16214,10 +16233,10 @@ public class TWGameManager extends AbstractGameManager {
         BoardLocation targetHex = BoardLocation.of(targetCoords, targetBoardId);
 
         // Use "continues" if hex already has accumulated work, "begins" if fresh start
-        boolean continuing = woodsClearingTracker.hasAccumulatedWork(targetHex);
+        boolean continuing = game.getWoodsClearingTracker().hasAccumulatedWork(targetHex);
 
         // Register clearing with tracker
-        woodsClearingTracker.declareClearing(ae.getId(), targetHex);
+        game.getWoodsClearingTracker().declareClearing(ae.getId(), targetHex);
         ae.setClearingWoods(true);
 
         // Sync clearing state to Game for board view rendering and send to clients
@@ -16232,14 +16251,14 @@ public class TWGameManager extends AbstractGameManager {
     }
 
     /**
-     * Processes completed woods clearing operations at the start of a new round.
+     * Processes completed woods clearing operations at the start of the physical phase.
      *
      * <p>Checks all hexes being cleared and applies terrain reduction for any that
      * have accumulated enough work turns. Also sets the clearingWoods flag on entities that were clearing last round
      * (for the firing penalty).</p>
      */
     void processWoodsClearingCompletions() {
-        List<BoardLocation> completed = woodsClearingTracker.processNewRound();
+        List<BoardLocation> completed = game.getWoodsClearingTracker().processNewRound();
 
         for (BoardLocation loc : completed) {
             Hex hex = game.getBoard().getHex(loc.coords());
@@ -16295,7 +16314,7 @@ public class TWGameManager extends AbstractGameManager {
 
         // Set clearingWoods flag on entities that were clearing last round
         // (for firing penalty this round)
-        for (int entityId : woodsClearingTracker.getAllClearingEntities()) {
+        for (int entityId : game.getWoodsClearingTracker().getAllClearingEntities()) {
             Entity entity = game.getEntity(entityId);
             if (entity != null) {
                 entity.setClearingWoods(true);
@@ -27147,7 +27166,7 @@ public class TWGameManager extends AbstractGameManager {
      * clients so their board views can render the indicators.
      */
     private void sendCutHexesUpdate() {
-        Map<BoardLocation, Integer> cutHexes = woodsClearingTracker.getTurnsRemainingPerHex();
+        Map<BoardLocation, Integer> cutHexes = game.getWoodsClearingTracker().getTurnsRemainingPerHex();
         game.setHexesBeingCut(cutHexes);
         send(new Packet(PacketCommand.UPDATE_CUT_HEXES, new HashMap<>(cutHexes)));
     }
