@@ -1121,14 +1121,11 @@ public class TWGameManager extends AbstractGameManager {
             if (phase.isDeployment()) {
                 PlanetaryConditions conditions = game.getPlanetaryConditions();
                 boolean isDark = conditions.getLight().isDuskOrFullMoonOrMoonlessOrPitchBack();
-                boolean usingSL = false;
-                if (game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON)) {
-                    // Default to the on state
-                    usingSL = true;
-                    // Check if we override the behavior
-                    if (entity.getSearchlightOverride()) {
-                        usingSL = entity.isUsingSearchlight();
-                    }
+                // Get searchlight behavior (default is on)
+                boolean usingSL = game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON);
+                if (entity.getSearchlightOverride()) {
+                    // Override flips the default behavior. If on, they will be off. If off, it will be on.
+                    usingSL = !usingSL;
                 }
                 // Only turn them on when it is dark
                 boolean startSLOn = usingSL && isDark;

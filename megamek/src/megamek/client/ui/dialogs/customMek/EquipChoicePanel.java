@@ -1006,25 +1006,39 @@ public class EquipChoicePanel extends JPanel {
             panInfArmor.applyChoice();
         }
 
-        // update searchlight setting
+        // Get the game object. Used for both searchlights and DNI
+        Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
+
+        boolean searchlightsDefault = game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON);
+
+        // update searchlight setting for non-mek/tank entities
         if (!entity.getsAutoExternalSearchlight()) {
-            entity.setSearchlightOverride(true);
+            // Add the searchlight to the Entity
             entity.setExternalSearchlight(chSearchlight.isSelected());
             // If it is the first time enabling it, enable the status of the searchlight and set it to true
             if (!chSearchlightStatus.isEnabled() && chSearchlightStatus.isSelected()) {
                 chSearchlightStatus.setSelected(true);
             }
-            entity.setSearchlightState(chSearchlightStatus.isSelected());
+            // Only set the override if we are choosing something that is not the default behavior
+            if ((searchlightsDefault && !chSearchlightStatus.isSelected()) || (!searchlightsDefault
+                  && chSearchlight.isSelected())) {
+                entity.setSearchlightOverride(true);
+            } else {
+                entity.setSearchlightOverride(false);
+            }
         }
+        // Update searchlights for meks and tanks
         if (entity.getsAutoExternalSearchlight()) {
-            entity.setSearchlightOverride(true);
-            entity.setExternalSearchlight(true);
-            entity.setSearchlightState(chSearchlightStatus.isSelected());
+            // Only set the override if we are choosing something that is not the default behavior
+            if ((searchlightsDefault && !chSearchlightStatus.isSelected()) || (!searchlightsDefault
+                  && chSearchlight.isSelected())) {
+                entity.setSearchlightOverride(true);
+            } else {
+                entity.setSearchlightOverride(false);
+            }
         }
-
 
         // update DNI Cockpit Modification setting (IO p.83)
-        Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
             boolean wantsDNI = chDNICockpitMod.isSelected();
             boolean hasDNI = entity.hasDNICockpitMod();
