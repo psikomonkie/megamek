@@ -319,15 +319,20 @@ public class EquipChoicePanel extends JPanel {
                 chSearchlight.setSelected(entity.hasSearchlight() ||
                       entity.hasQuirk(OptionsConstants.QUIRK_POS_SEARCHLIGHT));
                 chSearchlight.setEnabled(!entity.hasQuirk(OptionsConstants.QUIRK_POS_SEARCHLIGHT));
+                chSearchlightStatus.setEnabled(true);
             }
 
             // Searchlights are on at the start
             boolean startSLOn = game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON);
+            JLabel labSearchLightStatus = new JLabel(Messages.getString("CustomMekDialog.labSearchlightStatus"),
+                  SwingConstants.RIGHT);
+            add(labSearchLightStatus, GBC.std());
+            add(chSearchlightStatus, GBC.eol());
             if (entity.getsAutoExternalSearchlight() || chSearchlight.isSelected()) {
-                JLabel labSearchLightStatus = new JLabel(Messages.getString("CustomMekDialog.labSearchlightStatus"),
-                      SwingConstants.RIGHT);
-                add(labSearchLightStatus, GBC.std());
-                add(chSearchlightStatus, GBC.eol());
+                chSearchlightStatus.setEnabled(true);
+                if (entity.getSearchlightOverride()) {
+                    startSLOn = !startSLOn;
+                }
                 chSearchlightStatus.setSelected(startSLOn);
             }
         }
@@ -885,6 +890,7 @@ public class EquipChoicePanel extends JPanel {
         chAutoEject.setEnabled(false);
         chSearchlight.setEnabled(false);
         chSearchlightStatus.setEnabled(false);
+
         chDamageInterruptCircuit.setEnabled(false);
         if (m_bombs != null) {
             m_bombs.setEnabled(false);
@@ -1010,31 +1016,33 @@ public class EquipChoicePanel extends JPanel {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
 
         boolean searchlightsDefault = game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON);
-
-        // update searchlight setting for non-mek/tank entities
-        if (!entity.getsAutoExternalSearchlight()) {
-            // Add the searchlight to the Entity
-            entity.setExternalSearchlight(chSearchlight.isSelected());
-            // If it is the first time enabling it, enable the status of the searchlight and set it to true
-            if (!chSearchlightStatus.isEnabled() && chSearchlightStatus.isSelected()) {
-                chSearchlightStatus.setSelected(true);
+        // Only apply changes to searchlights if the planetary conditions call for it
+        if (client.getGame().getPlanetaryConditions().getLight().isDuskOrFullMoonOrMoonlessOrPitchBack()) {
+            // update searchlight setting for non-mek/tank entities
+            if (!entity.getsAutoExternalSearchlight()) {
+                // Add the searchlight to the Entity
+                entity.setExternalSearchlight(chSearchlight.isSelected());
+                // If the searchlight is off, turn off the status
+                if (!chSearchlight.isSelected()) {
+                    chSearchlightStatus.setEnabled(false);
+                }
+                // Only set the override if we are choosing something that is not the default behavior
+                if ((searchlightsDefault && !chSearchlightStatus.isSelected()) || (!searchlightsDefault
+                      && chSearchlightStatus.isSelected())) {
+                    entity.setSearchlightOverride(true);
+                } else {
+                    entity.setSearchlightOverride(false);
+                }
             }
-            // Only set the override if we are choosing something that is not the default behavior
-            if ((searchlightsDefault && !chSearchlightStatus.isSelected()) || (!searchlightsDefault
-                  && chSearchlight.isSelected())) {
-                entity.setSearchlightOverride(true);
-            } else {
-                entity.setSearchlightOverride(false);
-            }
-        }
-        // Update searchlights for meks and tanks
-        if (entity.getsAutoExternalSearchlight()) {
-            // Only set the override if we are choosing something that is not the default behavior
-            if ((searchlightsDefault && !chSearchlightStatus.isSelected()) || (!searchlightsDefault
-                  && chSearchlight.isSelected())) {
-                entity.setSearchlightOverride(true);
-            } else {
-                entity.setSearchlightOverride(false);
+            // Update searchlights for meks and tanks
+            if (entity.getsAutoExternalSearchlight()) {
+                // Only set the override if we are choosing something that is not the default behavior
+                if ((searchlightsDefault && !chSearchlightStatus.isSelected()) || (!searchlightsDefault
+                      && chSearchlightStatus.isSelected())) {
+                    entity.setSearchlightOverride(true);
+                } else {
+                    entity.setSearchlightOverride(false);
+                }
             }
         }
 
