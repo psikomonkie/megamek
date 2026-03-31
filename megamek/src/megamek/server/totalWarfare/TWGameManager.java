@@ -15252,7 +15252,7 @@ public class TWGameManager extends AbstractGameManager {
 
         // Front-mounted saw charge: override damage with flat saw value (TM pp.241-243)
         boolean sawChargeVsInfantry = false;
-        if (ChargeAttackAction.hasFrontMountedSaw(ae)) {
+        if ((te != null) && ChargeAttackAction.hasFrontMountedSaw(ae)) {
             damage = ChargeAttackAction.getSawChargeDamage(ae, te);
             // Attacker still takes normal charge self-damage (damageTaken unchanged)
 
@@ -16212,7 +16212,7 @@ public class TWGameManager extends AbstractGameManager {
         // Validate the action is still possible
         if (pr.toHit.getValue() == TargetRoll.IMPOSSIBLE) {
             // Silently skip if the hex was just cleared this phase (no need to alarm the player)
-            Hex checkHex = game.getBoard().getHex(wca.getTargetCoords());
+            Hex checkHex = game.getBoard(wca.getTargetBoardId()).getHex(wca.getTargetCoords());
             if (checkHex != null && !checkHex.containsTerrain(Terrains.WOODS)
                   && !checkHex.containsTerrain(Terrains.JUNGLE)) {
                 return;
@@ -16261,7 +16261,7 @@ public class TWGameManager extends AbstractGameManager {
         List<BoardLocation> completed = game.getWoodsClearingTracker().processNewRound();
 
         for (BoardLocation loc : completed) {
-            Hex hex = game.getBoard().getHex(loc.coords());
+            Hex hex = game.getBoard(loc.boardId()).getHex(loc.coords());
             if (hex == null) {
                 continue;
             }
@@ -16312,8 +16312,13 @@ public class TWGameManager extends AbstractGameManager {
         // Sync remaining clearing state to Game for board view rendering and send to clients
         sendCutHexesUpdate();
 
-        // Set clearingWoods flag on entities that were clearing last round
-        // (for firing penalty this round)
+    }
+
+    /**
+     * Sets the clearingWoods flag on entities that declared clearing last round. Called during initiative phase (before
+     * firing) so the firing penalty applies correctly.
+     */
+    void applyClearingWoodsFlags() {
         for (int entityId : game.getWoodsClearingTracker().getAllClearingEntities()) {
             Entity entity = game.getEntity(entityId);
             if (entity != null) {

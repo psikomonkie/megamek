@@ -149,7 +149,6 @@ public enum PacketCommand {
     SENDING_MINEFIELDS,
     UPDATE_MINEFIELDS,
     UPDATE_GROUND_OBJECTS,
-    UPDATE_CUT_HEXES,
     REROLL_INITIATIVE,
     UNLOAD_STRANDED,
     SET_ARTILLERY_AUTO_HIT_HEXES,
@@ -205,7 +204,10 @@ public enum PacketCommand {
     ADD_TEMPORARY_ECM_FIELD,
 
     /** A packet syncing all temporary ECM fields to clients (replaces existing list). */
-    SYNC_TEMPORARY_ECM_FIELDS;
+    SYNC_TEMPORARY_ECM_FIELDS,
+
+    /** A packet updating hex locations being cleared by saws (for board view rendering). */
+    UPDATE_CUT_HEXES;
     //endregion Enum Declarations
 
     //region Boolean Comparison Methods

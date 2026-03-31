@@ -78,6 +78,7 @@ class WoodsClearingAttackActionTest {
         mockGame = mock(Game.class);
         mockBoard = mock(Board.class);
         when(mockGame.getBoard()).thenReturn(mockBoard);
+        when(mockGame.getBoard(0)).thenReturn(mockBoard);
 
         Coords entityPos = new Coords(5, 5);
         targetPos = new Coords(5, 6); // Adjacent hex
@@ -142,7 +143,7 @@ class WoodsClearingAttackActionTest {
         @Test
         @DisplayName("Valid clearing returns null (no error)")
         void validClearing() {
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNull(result, "Valid clearing should return null (no error)");
         }
 
@@ -152,7 +153,7 @@ class WoodsClearingAttackActionTest {
             when(mockEntity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW)).thenReturn(false);
             when(mockEntity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW)).thenReturn(false);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNotNull(result);
             assertEquals(TargetRoll.IMPOSSIBLE, result.getValue());
         }
@@ -165,7 +166,7 @@ class WoodsClearingAttackActionTest {
             farHex.addTerrain(new Terrain(Terrains.WOODS, 1));
             when(mockBoard.getHex(farPos)).thenReturn(farHex);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, farPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, farPos, 0);
             assertNotNull(result);
             assertEquals(TargetRoll.IMPOSSIBLE, result.getValue());
         }
@@ -176,7 +177,7 @@ class WoodsClearingAttackActionTest {
             Hex clearHex = new Hex(); // No woods terrain
             when(mockBoard.getHex(targetPos)).thenReturn(clearHex);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNotNull(result);
             assertEquals(TargetRoll.IMPOSSIBLE, result.getValue());
         }
@@ -188,7 +189,7 @@ class WoodsClearingAttackActionTest {
             jungleHex.addTerrain(new Terrain(Terrains.JUNGLE, 1));
             when(mockBoard.getHex(targetPos)).thenReturn(jungleHex);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNull(result, "Jungle hex should be a valid clearing target");
         }
 
@@ -197,7 +198,7 @@ class WoodsClearingAttackActionTest {
         void proneEntity() {
             when(mockEntity.isProne()).thenReturn(true);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNotNull(result);
             assertEquals(TargetRoll.IMPOSSIBLE, result.getValue());
         }
@@ -207,7 +208,7 @@ class WoodsClearingAttackActionTest {
         void immobileEntity() {
             when(mockEntity.isImmobile()).thenReturn(true);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNotNull(result);
             assertEquals(TargetRoll.IMPOSSIBLE, result.getValue());
         }
@@ -218,7 +219,7 @@ class WoodsClearingAttackActionTest {
             // Entity is at the same position as the target
             when(mockEntity.getPosition()).thenReturn(targetPos);
 
-            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos);
+            ToHitData result = WoodsClearingAttackAction.canClearWoods(mockGame, mockEntity, targetPos, 0);
             assertNull(result, "Entity in the target hex should be valid");
         }
     }

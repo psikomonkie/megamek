@@ -223,7 +223,12 @@ public class WoodsClearingTracker implements Serializable {
             ClearingState state = entry.getValue();
             int turnsNeeded = (state.contributorsThisRound.size() >= 2)
                   ? TURNS_REQUIRED_MULTI : TURNS_REQUIRED_SINGLE;
-            int remaining = Math.max(0, turnsNeeded - state.accumulatedWork);
+            // Count current round's contribution toward displayed remaining turns
+            int effectiveWork = state.accumulatedWork;
+            if (!state.contributorsThisRound.isEmpty()) {
+                effectiveWork++;
+            }
+            int remaining = Math.max(0, turnsNeeded - effectiveWork);
             result.put(entry.getKey(), remaining);
         }
         return result;

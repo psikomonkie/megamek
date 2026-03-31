@@ -50,8 +50,8 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link WoodsClearingTracker}.
  *
  * <p>Per TM pp.241-243, a chainsaw or dual saw takes 2 turns to reduce a wooded hex
- * one level. Two units clearing the same hex reduce this to 1 turn. Work accumulates per-hex and resets if no entity
- * clears for a full round.</p>
+ * one level. Two units clearing the same hex reduce this to 1 turn. Work accumulates per hex and persists across
+ * rounds (even if no entity clears in a given round) until a woods level is completely cleared.</p>
  */
 class WoodsClearingTrackerTest {
 

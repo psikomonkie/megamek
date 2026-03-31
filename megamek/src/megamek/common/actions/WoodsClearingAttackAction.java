@@ -116,7 +116,7 @@ public class WoodsClearingAttackAction extends AbstractAttackAction {
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Target not found");
         }
 
-        ToHitData validation = canClearWoods(game, ae, target.getPosition());
+        ToHitData validation = canClearWoods(game, ae, target.getPosition(), targetBoardId);
         if (validation != null) {
             return validation;
         }
@@ -133,7 +133,7 @@ public class WoodsClearingAttackAction extends AbstractAttackAction {
      *
      * @return a ToHitData with IMPOSSIBLE if clearing is not valid, or null if it is valid
      */
-    public static ToHitData canClearWoods(Game game, Entity entity, Coords targetCoords) {
+    public static ToHitData canClearWoods(Game game, Entity entity, Coords targetCoords, int boardId) {
         if (entity == null) {
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Entity is null");
         }
@@ -157,7 +157,7 @@ public class WoodsClearingAttackAction extends AbstractAttackAction {
         }
 
         // Target hex must have woods or jungle
-        Hex targetHex = game.getBoard().getHex(targetCoords);
+        Hex targetHex = game.getBoard(boardId).getHex(targetCoords);
         if (targetHex == null) {
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Target hex not found");
         }

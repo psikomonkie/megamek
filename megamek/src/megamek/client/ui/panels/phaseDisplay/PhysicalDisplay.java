@@ -493,7 +493,7 @@ public class PhysicalDisplay extends AttackPhaseDisplay {
         if (hasSaw && !entity.isProne() && !entity.isImmobile()) {
             boolean nearWoods = false;
             // Own hex is always in arc
-            Hex ownHex = game.getBoard().getHex(entity.getPosition());
+            Hex ownHex = game.getBoard(entity.getBoardId()).getHex(entity.getPosition());
             if (ownHex != null && (ownHex.containsTerrain(Terrains.WOODS) || ownHex.containsTerrain(Terrains.JUNGLE))) {
                 nearWoods = true;
                 logger.debug("  Entity's own hex has woods/jungle");
@@ -502,7 +502,7 @@ public class PhysicalDisplay extends AttackPhaseDisplay {
             if (!nearWoods) {
                 for (int dir = 0; dir < 6; dir++) {
                     Coords adj = entity.getPosition().translated(dir);
-                    Hex adjHex = game.getBoard().getHex(adj);
+                    Hex adjHex = game.getBoard(entity.getBoardId()).getHex(adj);
                     if (adjHex != null && (adjHex.containsTerrain(Terrains.WOODS)
                           || adjHex.containsTerrain(Terrains.JUNGLE))
                           && WoodsClearingAttackAction.isInSawArc(entity, adj)) {
@@ -1352,7 +1352,7 @@ public class PhysicalDisplay extends AttackPhaseDisplay {
         }
 
         // Validate the selected hex
-        ToHitData validation = WoodsClearingAttackAction.canClearWoods(game, entity, targetCoords);
+        ToHitData validation = WoodsClearingAttackAction.canClearWoods(game, entity, targetCoords, entity.getBoardId());
         if (validation != null) {
             setStatusBarText(validation.getDesc());
             return;

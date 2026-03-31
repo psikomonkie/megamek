@@ -304,11 +304,12 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
      * @param hexes the current map of hexes being cut to turns remaining
      */
     public void setHexesBeingCut(Map<BoardLocation, Integer> hexes) {
-        if (hexesBeingCut == null) {
+        if ((hexes == null) || hexes.isEmpty()) {
             hexesBeingCut = new HashMap<>();
+        } else {
+            hexesBeingCut = new HashMap<>(hexes);
         }
-        hexesBeingCut.clear();
-        hexesBeingCut.putAll(hexes);
+        processGameEvent(new GameBoardChangeEvent(this));
     }
 
     public void addMinefields(Vector<Minefield> mines) {

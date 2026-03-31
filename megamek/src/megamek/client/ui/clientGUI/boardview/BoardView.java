@@ -2007,6 +2007,13 @@ public final class BoardView extends AbstractBoardView
      * @param hexLocation    the top-left corner of the hex
      * @param turnsRemaining the number of turns remaining to complete clearing
      */
+    // Cached drawing resources for saw blade indicator (avoid per-frame allocations)
+    private static final Color SAW_TOOTH_COLOR = new Color(100, 100, 110);
+    private static final Color SAW_BLADE_COLOR = new Color(170, 170, 180);
+    private static final Color SAW_INNER_COLOR = new Color(130, 130, 140);
+    private static final Color SAW_TEXT_OUTLINE_COLOR = new Color(40, 40, 50);
+    private static final Color SAW_OUTLINE_COLOR = new Color(60, 60, 70);
+
     private void drawSawBladeIndicator(Graphics2D graphics2D, Point hexLocation, int turnsRemaining) {
         Object oldAntiAlias = graphics2D.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
         graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -2019,7 +2026,7 @@ public final class BoardView extends AbstractBoardView
         int numTeeth = 12;
 
         // Draw outer teeth (dark steel color)
-        graphics2D.setColor(new Color(100, 100, 110));
+        graphics2D.setColor(SAW_TOOTH_COLOR);
         for (int i = 0; i < numTeeth; i++) {
             double angle = (2 * Math.PI * i) / numTeeth;
             double nextAngle = (2 * Math.PI * (i + 0.5)) / numTeeth;
@@ -2035,13 +2042,13 @@ public final class BoardView extends AbstractBoardView
         }
 
         // Draw blade body (steel gray with slight gradient effect)
-        graphics2D.setColor(new Color(170, 170, 180));
+        graphics2D.setColor(SAW_BLADE_COLOR);
         graphics2D.fillOval(centerX - bladeRadius, centerY - bladeRadius,
               bladeRadius * 2, bladeRadius * 2);
 
         // Draw inner ring (darker)
         int innerRadius = (int) (6 * scale);
-        graphics2D.setColor(new Color(130, 130, 140));
+        graphics2D.setColor(SAW_INNER_COLOR);
         graphics2D.fillOval(centerX - innerRadius, centerY - innerRadius,
               innerRadius * 2, innerRadius * 2);
 
@@ -2055,7 +2062,7 @@ public final class BoardView extends AbstractBoardView
 
         // White text with dark outline for readability
         graphics2D.setFont(turnsFont);
-        graphics2D.setColor(new Color(40, 40, 50));
+        graphics2D.setColor(SAW_TEXT_OUTLINE_COLOR);
         graphics2D.drawString(turnsStr, textX - 1, textY);
         graphics2D.drawString(turnsStr, textX + 1, textY);
         graphics2D.drawString(turnsStr, textX, textY - 1);
@@ -2064,7 +2071,7 @@ public final class BoardView extends AbstractBoardView
         graphics2D.drawString(turnsStr, textX, textY);
 
         // Draw blade outline
-        graphics2D.setColor(new Color(60, 60, 70));
+        graphics2D.setColor(SAW_OUTLINE_COLOR);
         Stroke oldStroke = graphics2D.getStroke();
         graphics2D.setStroke(new BasicStroke(Math.max(1, scale)));
         graphics2D.drawOval(centerX - bladeRadius, centerY - bladeRadius,
