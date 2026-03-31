@@ -510,9 +510,9 @@ public class AreaEffectHelper {
                     // TO:AUE p.166 (all terrains but buildings are considered clear for cluster)
                     // Call the infantry in open check. If false, and they are not in a building, double the damage.
                     if (!ServerHelper.infantryInOpen(entity, hex, gameManager.getGame(), true, false, false)
-                          && !hex.containsTerrain(Terrains.BUILDING)) {
+                          && !hex.containsTerrain(Terrains.BUILDING) && !hex.containsTerrain(Terrains.FUEL_TANK)) {
                         hits *= 2;
-
+                        
                         // Report that we doubled the damage when not in the open
                         report = new Report(6046);
                         report.subject = entity.getId();
