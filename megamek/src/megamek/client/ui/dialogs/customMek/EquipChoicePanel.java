@@ -138,6 +138,7 @@ public class EquipChoicePanel extends JPanel {
     private final JCheckBox chCondEjectFuel = new JCheckBox();
     private final JCheckBox chCondEjectSIDest = new JCheckBox();
     private final JCheckBox chSearchlight = new JCheckBox();
+    private final JCheckBox chSearchlightStatus = new JCheckBox();
     private final JCheckBox chDNICockpitMod = new JCheckBox();
     private final JCheckBox chEICockpit = new JCheckBox();
     private final JCheckBox chDamageInterruptCircuit = new JCheckBox();
@@ -308,17 +309,27 @@ public class EquipChoicePanel extends JPanel {
             panInfArmor = new InfantryArmorPanel(entity);
             add(panInfArmor, GBC.eop().anchor(GridBagConstraints.CENTER));
         }
-
         // Set up searchlight
-        if (!entity.getsAutoExternalSearchlight() &&
-              client.getGame().getPlanetaryConditions().getLight().isDuskOrFullMoonOrMoonlessOrPitchBack()) {
-            JLabel labSearchlight = new JLabel(Messages.getString("CustomMekDialog.labSearchlight"),
-                  SwingConstants.RIGHT);
-            add(labSearchlight, GBC.std());
-            add(chSearchlight, GBC.eol());
-            chSearchlight.setSelected(entity.hasSearchlight() ||
-                  entity.hasQuirk(OptionsConstants.QUIRK_POS_SEARCHLIGHT));
-            chSearchlight.setEnabled(!entity.hasQuirk(OptionsConstants.QUIRK_POS_SEARCHLIGHT));
+        if (client.getGame().getPlanetaryConditions().getLight().isDuskOrFullMoonOrMoonlessOrPitchBack()) {
+            if (!entity.getsAutoExternalSearchlight()) {
+                JLabel labSearchlight = new JLabel(Messages.getString("CustomMekDialog.labSearchlight"),
+                      SwingConstants.RIGHT);
+                add(labSearchlight, GBC.std());
+                add(chSearchlight, GBC.eol());
+                chSearchlight.setSelected(entity.hasSearchlight() ||
+                      entity.hasQuirk(OptionsConstants.QUIRK_POS_SEARCHLIGHT));
+                chSearchlight.setEnabled(!entity.hasQuirk(OptionsConstants.QUIRK_POS_SEARCHLIGHT));
+            }
+
+            // Searchlights are on at the start
+            boolean startSLOn = game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON);
+            if (entity.getsAutoExternalSearchlight() || chSearchlight.isSelected()) {
+                JLabel labSearchLightStatus = new JLabel(Messages.getString("CustomMekDialog.labSearchlightStatus"),
+                      SwingConstants.RIGHT);
+                add(labSearchLightStatus, GBC.std());
+                add(chSearchlightStatus, GBC.eol());
+                chSearchlightStatus.setSelected(startSLOn);
+            }
         }
 
         // Set up DNI Cockpit Modification (IO p.83)
@@ -873,6 +884,7 @@ public class EquipChoicePanel extends JPanel {
         choC3.setEnabled(false);
         chAutoEject.setEnabled(false);
         chSearchlight.setEnabled(false);
+        chSearchlightStatus.setEnabled(false);
         chDamageInterruptCircuit.setEnabled(false);
         if (m_bombs != null) {
             m_bombs.setEnabled(false);
@@ -996,9 +1008,16 @@ public class EquipChoicePanel extends JPanel {
 
         // update searchlight setting
         if (!entity.getsAutoExternalSearchlight()) {
+            entity.setSearchlightOverride(true);
             entity.setExternalSearchlight(chSearchlight.isSelected());
-            entity.setSearchlightState(chSearchlight.isSelected());
+            entity.setSearchlightState(chSearchlightStatus.isSelected());
         }
+        if (entity.getsAutoExternalSearchlight()) {
+            entity.setSearchlightOverride(true);
+            entity.setExternalSearchlight(true);
+            entity.setSearchlightState(chSearchlightStatus.isSelected());
+        }
+
 
         // update DNI Cockpit Modification setting (IO p.83)
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
@@ -1115,8 +1134,9 @@ public class EquipChoicePanel extends JPanel {
      * Equipment tab to pick up changes made in the Pilot tab.
      *
      * <p>This method only auto-CHECKS the checkbox when an implant is detected but hardware is missing.
-     * It respects manual unchecking - if the user has unchecked the box (hardware not present and box unchecked),
-     * it won't force it back to checked. This allows testing scenarios where pilot has implant but unit lacks hardware.</p>
+     * It respects manual unchecking - if the user has unchecked the box (hardware not present and box unchecked), it
+     * won't force it back to checked. This allows testing scenarios where pilot has implant but unit lacks
+     * hardware.</p>
      */
     public void refreshNeuralInterfaceCheckboxes() {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
