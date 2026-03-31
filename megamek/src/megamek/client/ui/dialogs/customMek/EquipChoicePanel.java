@@ -1010,6 +1010,10 @@ public class EquipChoicePanel extends JPanel {
         if (!entity.getsAutoExternalSearchlight()) {
             entity.setSearchlightOverride(true);
             entity.setExternalSearchlight(chSearchlight.isSelected());
+            // If it is the first time enabling it, enable the status of the searchlight and set it to true
+            if (!chSearchlightStatus.isEnabled() && chSearchlightStatus.isSelected()) {
+                chSearchlightStatus.setSelected(true);
+            }
             entity.setSearchlightState(chSearchlightStatus.isSelected());
         }
         if (entity.getsAutoExternalSearchlight()) {
