@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, 2004 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2012-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2012-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
@@ -57,7 +56,6 @@ import megamek.client.Client;
 import megamek.client.ui.GBC;
 import megamek.client.ui.Messages;
 import megamek.client.ui.clientGUI.ClientGUI;
-import megamek.common.Configuration;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
 import megamek.common.battleArmor.BattleArmor;
@@ -71,6 +69,7 @@ import megamek.common.equipment.Mounted;
 import megamek.common.equipment.WeaponMounted;
 import megamek.common.equipment.WeaponType;
 import megamek.common.equipment.enums.AmmoTypeFlag;
+import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.game.Game;
 import megamek.common.options.IGameOptions;
 import megamek.common.options.OptionsConstants;
@@ -82,9 +81,6 @@ import megamek.common.units.IBomber;
 import megamek.common.units.Infantry;
 import megamek.common.units.Mek;
 import megamek.common.units.ProtoMek;
-import megamek.common.util.fileUtils.MegaMekFile;
-import megamek.common.verifier.EntityVerifier;
-import megamek.common.verifier.TestBattleArmor;
 import megamek.common.weapons.infantry.InfantryWeapon;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -112,17 +108,11 @@ public class EquipChoicePanel extends JPanel {
      */
     private final ArrayList<APWeaponChoicePanel> m_vAPMounts = new ArrayList<>();
     /**
-     * An <code>ArrayList</code> to keep track of all of the
-     * <code>MEAChoicePanels</code> that were added, so we can apply
-     * their choices when the dialog is closed.
-     */
-    private final ArrayList<MEAChoicePanel> m_vMEAdaptors = new ArrayList<>();
-    /**
      * Panel for adding components related to selecting which anti-personnel weapons are mounted in an AP Mount (armored
      * gloves are also considered AP mounts)
      **/
     private final JPanel panAPMounts = new JPanel();
-    private JPanel panMEAdaptors = new JPanel(new GridBagLayout());
+    private BaManipulatorChoicePanel panBaManipulators;
     private final JPanel panWeaponAmmoSelector = new JPanel();
     private final ArrayList<RapidFireMGPanel> m_vMGs = new ArrayList<>();
     private final JPanel panRapidFireMGs = new JPanel();
@@ -229,39 +219,65 @@ public class EquipChoicePanel extends JPanel {
             refreshC3();
         }
 
-        // Setup AP mounts
-        if ((entity instanceof BattleArmor) && entity.hasWorkingMisc(MiscType.F_AP_MOUNT)) {
-            setupAPMounts();
-            panAPMounts.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-                  Messages.getString("CustomMekDialog.APMountPanelTitle"),
-                  TitledBorder.TOP,
-                  TitledBorder.DEFAULT_POSITION));
+        if ((entity instanceof BattleArmor battleArmor)) {
+            List<WeaponType> apmWeaponTypes = new Vector<>(100);
+            List<WeaponType> agloveWeaponTypes = new Vector<>(100);
+            int gameYear;
+            SimpleTechLevel legalLevel;
+            if (clientgui == null) {
+                gameYear = client.getGame().getOptions().intOption(OptionsConstants.ALLOWED_YEAR);
+                legalLevel = SimpleTechLevel.getGameTechLevel(client.getGame());
+            } else {
+                gameYear = clientgui.getClient().getGame().getOptions().intOption(OptionsConstants.ALLOWED_YEAR);
+                legalLevel = SimpleTechLevel.getGameTechLevel(clientgui.getClient().getGame());
+            }
+            for (EquipmentType eq : EquipmentType.allTypes()) {
+                // Only non-melee infantry weapons are allowed, TM p.170
+                if (!(eq instanceof InfantryWeapon infantryWeapon)
+                      || !infantryWeapon.hasFlag(WeaponType.F_INFANTRY)
+                      || infantryWeapon.hasFlag(WeaponType.F_INF_POINT_BLANK)
+                      || infantryWeapon.hasFlag(WeaponType.F_INF_ARCHAIC)) {
+                    continue;
+                }
 
-            add(panAPMounts, GBC.eop().anchor(GridBagConstraints.CENTER));
-        }
+                // Check to see if the tech level of the equipment is legal
+                if (!eq.isLegal(gameYear,
+                      legalLevel,
+                      entity.isClan(),
+                      entity.isMixedTech(),
+                      entity.getGame().getOptions().booleanOption(OptionsConstants.ALLOWED_SHOW_EXTINCT))) {
+                    continue;
+                }
 
-        if ((entity instanceof BattleArmor battleArmor) && entity.hasWorkingMisc(MiscType.F_BA_MEA)) {
-            panMEAdaptors = new BAManipulatorChoicePanel(battleArmor);
-            panMEAdaptors.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-                  Messages.getString("CustomMekDialog.MEAPanelTitle"),
-                  TitledBorder.TOP,
-                  TitledBorder.DEFAULT_POSITION));
-            // We need to determine how much weight is free, so the user can pick legal combinations of manipulators
-            EntityVerifier verifier = EntityVerifier.getInstance(new MegaMekFile(Configuration.unitsDir(),
-                  EntityVerifier.CONFIG_FILENAME).getFile());
-            TestBattleArmor testBA = new TestBattleArmor(battleArmor, verifier.baOption, null);
-            double maxTrooperWeight = 0;
-            for (int i = 1; i < battleArmor.getTroopers(); i++) {
-                double trooperWeight = testBA.calculateWeight(i);
-                if (trooperWeight > maxTrooperWeight) {
-                    maxTrooperWeight = trooperWeight;
+                if (!infantryWeapon.hasFlag(WeaponType.F_INF_SUPPORT)) {
+                    apmWeaponTypes.add(infantryWeapon);
+                }
+                if (infantryWeapon.getCrew() < 2) {
+                    agloveWeaponTypes.add(infantryWeapon);
                 }
             }
-            String freeWeight = Messages.getString("CustomMekDialog.freeWeight") +
-                  String.format(": %d kg", (int) (maxTrooperWeight * 1000));
+            apmWeaponTypes.sort(Comparator.comparing(EquipmentType::getName));
+            agloveWeaponTypes.sort(Comparator.comparing(EquipmentType::getName));
 
-//            setupMEAdaptors(freeWeight, battleArmor);
-            add(panMEAdaptors, GBC.eop().anchor(GridBagConstraints.CENTER));
+            // AP mounts (not armored gloves)
+            if (entity.hasMisc(EquipmentTypeLookup.BA_APM)) {
+                setupAPMounts(apmWeaponTypes);
+                panAPMounts.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
+                      Messages.getString("CustomMekDialog.APMountPanelTitle"),
+                      TitledBorder.TOP,
+                      TitledBorder.DEFAULT_POSITION));
+                add(panAPMounts, GBC.eop().anchor(GridBagConstraints.CENTER));
+            }
+
+            // Manipulators and Armored Glove AP mounting
+            if (entity.hasWorkingMisc(MiscType.F_BA_MEA) || battleArmor.hasMisc(MiscTypeFlag.F_ARMORED_GLOVE)) {
+                panBaManipulators = new BaManipulatorChoicePanel(battleArmor, agloveWeaponTypes);
+                panBaManipulators.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
+                      Messages.getString("CustomMekDialog.MEAPanelTitle"),
+                      TitledBorder.TOP,
+                      TitledBorder.DEFAULT_POSITION));
+                add(panBaManipulators, GBC.eop().anchor(GridBagConstraints.CENTER));
+            }
         }
 
         // Can't set up munitions on infantry.
@@ -506,132 +522,14 @@ public class EquipChoicePanel extends JPanel {
      * Set up the layout of <code>panAPMounts</code>, which contains components for selecting which anti-personnel
      * weapons are mounted in an AP mount.
      */
-    private void setupAPMounts() {
-        GridBagLayout gbl = new GridBagLayout();
-        panAPMounts.setLayout(gbl);
-
-        // Weapons that can be used in an AP Mount
-        ArrayList<WeaponType> apWeaponTypes = new ArrayList<>(100);
-        // Weapons that can be used in an Armored Glove
-        ArrayList<WeaponType> agWeaponTypes = new ArrayList<>(100);
-        Enumeration<EquipmentType> allTypes = EquipmentType.getAllTypes();
-        int gameYear;
-        SimpleTechLevel legalLevel;
-        if (clientgui == null) {
-            gameYear = client.getGame().getOptions().intOption(OptionsConstants.ALLOWED_YEAR);
-            legalLevel = SimpleTechLevel.getGameTechLevel(client.getGame());
-        } else {
-            gameYear = clientgui.getClient().getGame().getOptions().intOption(OptionsConstants.ALLOWED_YEAR);
-            legalLevel = SimpleTechLevel.getGameTechLevel(clientgui.getClient().getGame());
-        }
-        while (allTypes.hasMoreElements()) {
-            EquipmentType eq = allTypes.nextElement();
-
-            // If it's not an infantry weapon, we don't care
-            if (!(eq instanceof InfantryWeapon infantryWeapon)) {
-                continue;
-            }
-
-            // Check to see if the tech level of the equipment is legal
-            if (!eq.isLegal(gameYear,
-                  legalLevel,
-                  entity.isClan(),
-                  entity.isMixedTech(),
-                  entity.getGame().getOptions().booleanOption(OptionsConstants.ALLOWED_SHOW_EXTINCT))) {
-                continue;
-            }
-
-            // Check to see if we've got a valid infantry weapon
-            if (infantryWeapon.hasFlag(WeaponType.F_INFANTRY) &&
-                  !infantryWeapon.hasFlag(WeaponType.F_INF_POINT_BLANK) &&
-                  !infantryWeapon.hasFlag(WeaponType.F_INF_ARCHAIC) &&
-                  !infantryWeapon.hasFlag(WeaponType.F_INF_SUPPORT)) {
-                apWeaponTypes.add(infantryWeapon);
-            }
-            if (infantryWeapon.hasFlag(WeaponType.F_INFANTRY) &&
-                  !infantryWeapon.hasFlag(WeaponType.F_INF_POINT_BLANK) &&
-                  !infantryWeapon.hasFlag(WeaponType.F_INF_ARCHAIC) &&
-                  (infantryWeapon.getCrew() < 2)) {
-                agWeaponTypes.add(infantryWeapon);
-            }
-        }
-        apWeaponTypes.sort(Comparator.comparing(EquipmentType::getName));
-        agWeaponTypes.sort(Comparator.comparing(EquipmentType::getName));
-
-        ArrayList<Mounted<?>> armoredGloves = new ArrayList<>(2);
+    private void setupAPMounts(List<WeaponType> apWeaponTypes) {
+        panAPMounts.setLayout(new GridBagLayout());
         for (Mounted<?> m : entity.getMisc()) {
-            if (!m.getType().hasFlag(MiscType.F_AP_MOUNT)) {
-                continue;
-            }
-            APWeaponChoicePanel apWeaponChoicePanel = null;
-            // Armored gloves need to be treated slightly differently, since
-            // 1 or 2 armored gloves allow 1 additional AP weapon
-            if (m.getType().hasFlag(MiscType.F_ARMORED_GLOVE)) {
-                armoredGloves.add(m);
-            } else {
-                apWeaponChoicePanel = new APWeaponChoicePanel(entity, m, apWeaponTypes);
-            }
-            if (apWeaponChoicePanel != null) {
+            if (m.is(EquipmentTypeLookup.BA_APM)) {
+                APWeaponChoicePanel apWeaponChoicePanel = new APWeaponChoicePanel(entity, m, apWeaponTypes);
                 panAPMounts.add(apWeaponChoicePanel, GBC.eol());
                 m_vAPMounts.add(apWeaponChoicePanel);
             }
-        }
-
-        // If there is an armored glove with a weapon already mounted, we need to ensure that that glove is
-        // displayed, and not the empty glove
-        Mounted<?> aGlove = null;
-        for (Mounted<?> ag : armoredGloves) {
-            if (aGlove == null) {
-                aGlove = ag;
-            } else if ((aGlove.getLinked() == null) && (ag.getLinked() != null)) {
-                aGlove = ag;
-            }
-            // If both are linked, TestBattleArmor will mark unit as invalid
-        }
-        if (aGlove != null) {
-            APWeaponChoicePanel apWeaponChoicePanel = new APWeaponChoicePanel(entity, aGlove, agWeaponTypes);
-            panAPMounts.add(apWeaponChoicePanel, GBC.eol());
-            m_vAPMounts.add(apWeaponChoicePanel);
-        }
-    }
-
-    /**
-     * Set up the layout of <code>panMEAdaptors</code>, which contains components for selecting which manipulators are
-     * mounted in a modular equipment adaptor
-     */
-    private void setupMEAdaptors(String freeWeight, BattleArmor battleArmor) {
-        JLabel lblFreeWeight = new JLabel(freeWeight);
-        panMEAdaptors.add(lblFreeWeight, GBC.eol().anchor(GridBagConstraints.CENTER));
-
-        ArrayList<MiscType> manipulatorTypes = new ArrayList<>();
-
-        for (String manipulatorTypeName : BattleArmor.MANIPULATOR_TYPE_STRINGS) {
-            // Ignore the "None" option
-            if (manipulatorTypeName.equals(BattleArmor.MANIPULATOR_TYPE_STRINGS[0])) {
-                continue;
-            }
-            MiscType miscType = (MiscType) EquipmentType.get(manipulatorTypeName);
-            manipulatorTypes.add(miscType);
-        }
-
-        for (Mounted<?> m : battleArmor.getMisc()) {
-            if (!m.is(EquipmentTypeLookup.BA_MODULAR_EQUIPMENT_ADAPTOR)) {
-                continue;
-            }
-            Mounted<?> currentManipulator;
-            if (m.getBaMountLoc() == BattleArmor.MOUNT_LOC_LEFT_ARM) {
-                currentManipulator = battleArmor.getLeftManipulator();
-            } else if (m.getBaMountLoc() == BattleArmor.MOUNT_LOC_RIGHT_ARM) {
-                currentManipulator = battleArmor.getRightManipulator();
-            } else {
-                // We can only have MEA's in an arm
-                continue;
-            }
-            var meaChoicePanel = new MEAChoicePanel(battleArmor, m.getBaMountLoc(), currentManipulator,
-                  manipulatorTypes);
-
-            panMEAdaptors.add(meaChoicePanel, GBC.eol());
-            m_vMEAdaptors.add(meaChoicePanel);
         }
     }
 
@@ -896,9 +794,7 @@ public class EquipChoicePanel extends JPanel {
     }
 
     private void disableMEAEditing() {
-        for (MEAChoicePanel mVMEAdaptor : m_vMEAdaptors) {
-            mVMEAdaptor.setEnabled(false);
-        }
+        panBaManipulators.setEnabled(false);
     }
 
     private void disableMGSetting() {
@@ -951,9 +847,7 @@ public class EquipChoicePanel extends JPanel {
         }
 
         // update modular equipment adaptor selections
-        for (MEAChoicePanel meaChoicePanel : m_vMEAdaptors) {
-            meaChoicePanel.applyChoice();
-        }
+        panBaManipulators.applyChoice();
 
         // update munitions selections
         for (final MunitionChoicePanel munitions : m_vMunitions) {

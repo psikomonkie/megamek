@@ -1,4 +1,35 @@
-
+/*
+ * Copyright (C) 2026 The MegaMek Team. All Rights Reserved.
+ *
+ * This file is part of MegaMek.
+ *
+ * MegaMek is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License (GPL),
+ * version 3 or (at your option) any later version,
+ * as published by the Free Software Foundation.
+ *
+ * MegaMek is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * A copy of the GPL should have been included with this project;
+ * if not, see <https://www.gnu.org/licenses/>.
+ *
+ * NOTICE: The MegaMek organization is a non-profit group of volunteers
+ * creating free software for the BattleTech community.
+ *
+ * MechWarrior, BattleMech, `Mech and AeroTech are registered trademarks
+ * of The Topps Company, Inc. All Rights Reserved.
+ *
+ * Catalyst Game Labs and the Catalyst Game Labs logo are trademarks of
+ * InMediaRes Productions, LLC.
+ *
+ * MechWarrior Copyright Microsoft Corporation. MegaMek was created under
+ * Microsoft's "Game Content Usage Rules"
+ * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
+ * affiliated with Microsoft.
+ */
 package megamek.client.ui.dialogs.customMek;
 
 import static megamek.common.battleArmor.BattleArmor.MOUNT_LOC_LEFT_ARM;
@@ -11,28 +42,39 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Vector;
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
 
 import megamek.client.ui.Messages;
 import megamek.common.annotations.Nullable;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.equipment.EquipmentType;
+import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.MiscMounted;
 import megamek.common.equipment.MiscType;
+import megamek.common.equipment.Mounted;
+import megamek.common.equipment.WeaponType;
+import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.exceptions.LocationFullException;
+import megamek.common.units.BaConstructionUtil;
+import megamek.common.units.ConstructionUtil;
 import megamek.common.verifier.TestBattleArmor;
 import megamek.common.verifier.TestEntity;
 import megamek.logging.MMLogger;
 
 import static megamek.common.verifier.TestBattleArmor.BAManipulator;
 
-public class BAManipulatorChoicePanel extends JPanel {
+/**
+ * This class shows selectors for a BA's Manipulators; these are enabled only when there are respective Modular
+ * Equipment Adaptors; if there is an Armored Glove selected, a selector for an AP weapon for the glove(s) is also
+ * shown.
+ */
+class BaManipulatorChoicePanel extends JPanel {
 
-    private static final MMLogger LOGGER = MMLogger.create(BAManipulatorChoicePanel.class);
+    private static final MMLogger LOGGER = MMLogger.create(BaManipulatorChoicePanel.class);
 
     private final JCheckBox leftModularSelector = new JCheckBox("Modular Equipment Adaptor");
     private final JCheckBox rightModularSelector = new JCheckBox("Modular Equipment Adaptor");
@@ -44,13 +86,24 @@ public class BAManipulatorChoicePanel extends JPanel {
     private final JSpinner cargoLifterCapacity = new JSpinner(cargoLifterCapacityModel);
     private final JLabel lblSize = createLabel("Capacity:");
 
+    private final JComboBox<String> armoredGloveWeaponSelect = new JComboBox<>();
+
     private final BattleArmor battleArmor;
 
     private boolean ignoreEvents = false;
+    private boolean allowEditing = true;
 
-    public BAManipulatorChoicePanel(BattleArmor battleArmor) {
-        //        this.techManager = techManager;
+    private final List<WeaponType> agWeaponTypes = new Vector<>();
+
+    BaManipulatorChoicePanel(BattleArmor battleArmor, List<WeaponType> agWeaponTypes) {
         this.battleArmor = battleArmor;
+        this.agWeaponTypes.addAll(agWeaponTypes);
+
+        Vector<String> agWeaponNames = new Vector<>();
+        agWeaponNames.add("None");
+        agWeaponNames.addAll(agWeaponTypes.stream().map(EquipmentType::getName).toList());
+        armoredGloveWeaponSelect.setModel(new DefaultComboBoxModel<>(agWeaponNames));
+
         // We need to determine how much weight is free, so the user can pick legal combinations of manipulators
         double maxActualTrooperTonnage = getMaxTrooperWeight(battleArmor);
         double freeTonnage = battleArmor.getTrooperWeight() - maxActualTrooperTonnage;
@@ -95,12 +148,13 @@ public class BAManipulatorChoicePanel extends JPanel {
         add(lblSize, gbc);
         add(cargoLifterCapacity, gbc);
 
-        setValuesFromBattleArmor();
+        gbc.gridy++;
+        add(createLabel("Armored Glove:"), gbc);
+        add(armoredGloveWeaponSelect, gbc);
 
+        setValuesFromBattleArmor();
         leftManipulatorSelect.addActionListener(this::manipulatorSelected);
         rightManipulatorSelect.addActionListener(this::manipulatorSelected);
-        cargoLifterCapacity.addChangeListener(this::cargoSizeEdited);
-
         updateAfterChange();
     }
 
@@ -116,7 +170,7 @@ public class BAManipulatorChoicePanel extends JPanel {
         return maxTrooperWeight;
     }
 
-    public JLabel createLabel(String text) {
+    private JLabel createLabel(String text) {
         return new JLabel(text, SwingConstants.RIGHT);
     }
 
@@ -151,6 +205,14 @@ public class BAManipulatorChoicePanel extends JPanel {
 
             leftModularSelector.setEnabled(false);
             rightModularSelector.setEnabled(false);
+
+            findArmoredGloveWithWeapon()
+                  .ifPresent(glove -> armoredGloveWeaponSelect.setSelectedItem(glove.getLinked().getName()));
+
+            MiscMounted manipulator = battleArmor.getManipulator(BattleArmor.MOUNT_LOC_LEFT_ARM);
+            if (manipulator != null && manipulator.is(EquipmentTypeLookup.BA_MANIPULATOR_CARGO_LIFTER)) {
+                cargoLifterCapacityModel.setValue(manipulator.getSize());
+            }
         } finally {
             ignoreEvents = false;
         }
@@ -160,11 +222,17 @@ public class BAManipulatorChoicePanel extends JPanel {
      * Updates the GUI elements (enable/visible) after a selection change.
      */
     private void updateAfterChange() {
-        leftManipulatorSelect.setEnabled(leftModularSelector.isSelected());
+        leftManipulatorSelect.setEnabled(allowEditing && leftModularSelector.isSelected());
         BAManipulator leftManipulatorItem = selectedManipulatorItem(leftManipulatorSelect);
-        rightManipulatorSelect.setEnabled(!leftManipulatorItem.pairMounted && rightModularSelector.isSelected());
+        rightManipulatorSelect.setEnabled(allowEditing
+              && !leftManipulatorItem.pairMounted
+              && rightModularSelector.isSelected());
         cargoLifterCapacity.setVisible(leftManipulatorItem == BAManipulator.CARGO_LIFTER);
         lblSize.setVisible(cargoLifterCapacity.isVisible());
+        cargoLifterCapacity.setEnabled(allowEditing);
+        boolean hasArmoredGlove = selectedManipulatorItem(leftManipulatorSelect) == BAManipulator.ARMORED_GLOVE
+              || selectedManipulatorItem(rightManipulatorSelect) == BAManipulator.ARMORED_GLOVE;
+        armoredGloveWeaponSelect.setVisible(hasArmoredGlove);
     }
 
     public void manipulatorSelected(ActionEvent event) {
@@ -207,86 +275,125 @@ public class BAManipulatorChoicePanel extends JPanel {
         return Objects.requireNonNullElse((BAManipulator) manipulatorSelector.getSelectedItem(), BAManipulator.NONE);
     }
 
-    public void cargoSizeEdited(ChangeEvent event) {
-        if (ignoreEvents) {
-            return;
-        }
-//        setManipulatorSize(BattleArmor.MOUNT_LOC_LEFT_ARM, cargoLifterCapacityModel.getNumber().doubleValue());
-//        setManipulatorSize(BattleArmor.MOUNT_LOC_RIGHT_ARM, cargoLifterCapacityModel.getNumber().doubleValue());
-    }
-
-    /**
-     * Adds and removes manipulator MiscMounteds on the unit so that the manipulator on the given mountLoc arm is the
-     * one given as newManipulator (which may be none). Also updates the other arm if necessary.
-     *
-     * @param newManipulator The new manipulator type
-     * @param mountLoc       one of the two arm locations (MOUNT_LOC_x_ARM)
-     */
-    private void setManipulators(TestBattleArmor.BAManipulator newManipulator, int mountLoc) {
-        MiscMounted currentManipulator = battleArmor.getManipulator(mountLoc);
-        if (currentManipulator != null) {
-            //            UnitUtil.removeMounted(battleArmor, currentManipulator);
-        }
-        setManipulator(newManipulator, mountLoc);
-
-        if (newManipulator.pairMounted) {
-            setManipulator(newManipulator, otherArm(mountLoc));
-
-        } else if (currentManipulator != null && isPairedManipulator(currentManipulator.getType())) {
-            // when the previous manipulator was pair-mounted but the new one is not, remove the old on the other arm
-            MiscMounted secondManipulator = battleArmor.getManipulator(otherArm(mountLoc));
-            if (secondManipulator != null) {
-                //                UnitUtil.removeMounted(battleArmor, currentManipulator);
-            }
-        }
-    }
-
-    /**
-     * Adds and removes manipulator MiscMounteds on the unit so that the manipulator on the given mountLoc arm is the
-     * one given as newManipulator (which may be none). Does not touch the other arm. Should only be called from
-     * setManipulators().
-     *
-     * @param newManipulator The new manipulator type
-     * @param mountLoc       one of the two arm locations (MOUNT_LOC_x_ARM)
-     */
-    private void setManipulator(TestBattleArmor.BAManipulator newManipulator, int mountLoc) {
-        Optional<MiscMounted> currentManipulator = getManipulator(mountLoc);
-        //        currentManipulator.ifPresent(miscMounted -> UnitUtil.removeMounted(battleArmor, miscMounted));
-        if (newManipulator != TestBattleArmor.BAManipulator.NONE) {
-            MiscMounted newMount = new MiscMounted(battleArmor, getMisc(newManipulator));
-            newMount.setBaMountLoc(mountLoc);
-            try {
-                battleArmor.addEquipment(newMount, BattleArmor.LOC_SQUAD, false);
-            } catch (LocationFullException ex) {
-                LOGGER.error("Could not mount {}", newManipulator, ex);
-            }
-        }
-    }
-
     private MiscType getMisc(TestBattleArmor.BAManipulator baManipulator) {
         return (MiscType) EquipmentType.get(baManipulator.internalName);
     }
 
-    private int otherArm(int armLocation) {
-        return armLocation == MOUNT_LOC_LEFT_ARM ? MOUNT_LOC_RIGHT_ARM : MOUNT_LOC_LEFT_ARM;
+    void applyChoice() {
+        setManipulator(selectedManipulatorItem(leftManipulatorSelect), MOUNT_LOC_LEFT_ARM);
+        setManipulator(selectedManipulatorItem(rightManipulatorSelect), MOUNT_LOC_RIGHT_ARM);
+        applyApWeapon();
     }
 
-    private Optional<MiscMounted> getManipulator(int mountLoc) {
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        allowEditing = enabled;
+        updateAfterChange();
+    }
+
+    /**
+     * Adds and removes manipulator MiscMounteds on the unit so that the manipulator on the given mountLoc arm is the
+     * one given as newManipulator (which may be none). Does not touch the other arm.
+     *
+     * @param newManipulator The new manipulator type
+     * @param mountLoc       one of the two arm locations (MOUNT_LOC_x_ARM)
+     */
+    private void setManipulator(BAManipulator newManipulator, int mountLoc) {
+        // If there is a manipulator in this arm and it's different from the selected one, remove it
+        MiscMounted currentManipulator = battleArmor.getManipulator(mountLoc);
+        if (currentManipulator != null && !currentManipulator.is(newManipulator.internalName)) {
+            removeManipulator(mountLoc);
+        }
+
+        // When this arm is now empty, add the selected manipulator (which may be none)
+        if (battleArmor.getManipulator(mountLoc) == null) {
+            addManipulator(newManipulator, mountLoc);
+        }
+
+        // set a cargo lifter's size
+        if (newManipulator == BAManipulator.CARGO_LIFTER) {
+            battleArmor.getManipulator(mountLoc).setSize(cargoLifterCapacityModel.getNumber().doubleValue());
+        }
+    }
+
+    /**
+     * Adds a manipulator MiscMounted on the unit so that the manipulator on the given mountLoc arm is the one given as
+     * newManipulator (which may be none, in which case, this method does nothing). Does not touch the other arm.
+     *
+     * @param newManipulator The new manipulator type (possibly NONE)
+     * @param mountLoc       one of the two arm locations (MOUNT_LOC_x_ARM)
+     */
+    private void addManipulator(BAManipulator newManipulator, int mountLoc) {
+        if (newManipulator != TestBattleArmor.BAManipulator.NONE) {
+            try {
+                Mounted<?> manipulator = battleArmor.addEquipment(getMisc(newManipulator), BattleArmor.LOC_SQUAD);
+                manipulator.setBaMountLoc(mountLoc);
+            } catch (LocationFullException ex) {
+                // This is currently not thrown on BA
+            }
+        }
+    }
+
+    void applyApWeapon() {
+        // when there is no armored glove selected, any AP weapons have already been removed by manipulator changes
+
+        int selectedIndex = armoredGloveWeaponSelect.getSelectedIndex();
+        WeaponType selectedWeaponType = null;
+        if ((selectedIndex > 0) && (selectedIndex <= agWeaponTypes.size())) {
+            // Need to account for the "None" selection
+            selectedWeaponType = agWeaponTypes.get(selectedIndex - 1);
+        }
+
+        // when there is a glove with a weapon but it's different from the selected, remove the weapon first
+        var gloveWithWeapon = findArmoredGloveWithWeapon();
+        if (gloveWithWeapon.isPresent() && gloveWithWeapon.get().getLinked().getType() != selectedWeaponType) {
+            Mounted<?> apWeapon = gloveWithWeapon.get().getLinked();
+            ConstructionUtil.removeMounted(battleArmor, apWeapon);
+        }
+
+        // When there is now no AG with a weapon, but there is an AG, add the selected weapon (which may be none)
+        if (findArmoredGloveWithWeapon().isEmpty() && selectedWeaponType != null) {
+            try {
+                Optional<MiscMounted> glove = battleArmor.getMisc().stream()
+                      .filter(m -> m.getType().hasFlag(MiscTypeFlag.F_ARMORED_GLOVE))
+                      .findFirst();
+                if (glove.isPresent()) {
+                    Mounted<?> newWeapon = battleArmor.addEquipment(selectedWeaponType, glove.get().getLocation());
+                    BaConstructionUtil.mountOnApm(newWeapon, glove.get());
+                }
+            } catch (LocationFullException ex) {
+                // this is not thrown for BA
+            }
+        }
+    }
+
+    Optional<MiscMounted> findArmoredGloveWithWeapon() {
         return battleArmor.getMisc().stream()
-              .filter(m -> m.getBaMountLoc() == mountLoc)
-              .filter(m -> m.getType().hasFlag(MiscType.F_BA_MANIPULATOR))
+              .filter(m -> m.getType().hasFlag(MiscTypeFlag.F_ARMORED_GLOVE))
+              .filter(m -> m.getLinked() != null)
               .findFirst();
     }
 
-    private boolean isPairedManipulator(EquipmentType eq) {
-        TestBattleArmor.BAManipulator manipulator = TestBattleArmor.BAManipulator.getManipulator(eq.getInternalName());
-        return manipulator != null && manipulator.pairMounted;
+    /**
+     * Removes the manipulator in the given arm location, if there is one. Also removes an attached AP weapon if there
+     * is one. (Remove means delete from the unit entirely)
+     *
+     * @param mountLoc A BA arm location (MOUNT_LOC_x_ARM)
+     */
+    private void removeManipulator(int mountLoc) {
+        MiscMounted manipulator = battleArmor.getManipulator(mountLoc);
+        if (manipulator != null) {
+            // save an attached weapon to remove it from the unit
+            Mounted<?> apWeapon = manipulator.getLinked();
+            if (apWeapon != null) {
+                ConstructionUtil.removeMounted(battleArmor, apWeapon);
+            }
+            ConstructionUtil.removeMounted(battleArmor, manipulator);
+        }
     }
 
-    private void setManipulatorSize(int mountLoc, double size) {
-        getManipulator(mountLoc).ifPresent(manipulator -> manipulator.setSize(size));
-    }
-
+    // === JComboBox Renderer to write display names and indicate weight
     private class ManipulatorRenderer extends DefaultListCellRenderer {
 
         private final JComboBox<BAManipulator> comboBox;
@@ -316,7 +423,7 @@ public class BAManipulatorChoicePanel extends JPanel {
                     text = "%s (%s)".formatted(name, tonnage);
                 } else {
                     // when disabled, this item is either the second arm of a pair-mounted (no need to show the
-                    // weight twice) or has no modular adaptor anyway and its weight is already part of the trooper
+                    // weight twice) or has no modular adaptor, so no need to show its weight
                     text = name;
                 }
             }

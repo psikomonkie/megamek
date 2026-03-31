@@ -179,6 +179,10 @@ public class TestBattleArmor extends TestEntity {
             }
             return null;
         }
+
+        public MiscType getMiscMounted() {
+            return (MiscType) EquipmentType.get(internalName);
+        }
     }
 
     public enum BAMotiveSystems {
