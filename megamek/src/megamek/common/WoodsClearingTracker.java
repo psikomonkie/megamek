@@ -212,15 +212,6 @@ public class WoodsClearingTracker implements Serializable {
     }
 
     /**
-     * Returns all hex locations that have any accumulated clearing work.
-     *
-     * @return set of hex locations with pending clearing work
-     */
-    public Set<BoardLocation> getAllHexesWithWork() {
-        return new HashSet<>(clearingOperations.keySet());
-    }
-
-    /**
      * Returns a map of hex locations to the number of turns remaining to complete clearing. Accounts for the number of
      * contributors this round when calculating remaining turns.
      *

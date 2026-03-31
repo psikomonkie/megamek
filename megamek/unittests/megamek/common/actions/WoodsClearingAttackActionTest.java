@@ -71,7 +71,6 @@ class WoodsClearingAttackActionTest {
     private Game mockGame;
     private Board mockBoard;
     private Entity mockEntity;
-    private Coords entityPos;
     private Coords targetPos;
 
     @BeforeEach
@@ -80,7 +79,7 @@ class WoodsClearingAttackActionTest {
         mockBoard = mock(Board.class);
         when(mockGame.getBoard()).thenReturn(mockBoard);
 
-        entityPos = new Coords(5, 5);
+        Coords entityPos = new Coords(5, 5);
         targetPos = new Coords(5, 6); // Adjacent hex
 
         mockEntity = mock(Entity.class);
