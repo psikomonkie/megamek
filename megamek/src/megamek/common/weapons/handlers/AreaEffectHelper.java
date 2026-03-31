@@ -68,6 +68,7 @@ import megamek.common.rolls.TargetRoll;
 import megamek.common.units.*;
 import megamek.common.weapons.DamageType;
 import megamek.logging.MMLogger;
+import megamek.server.ServerHelper;
 import megamek.server.totalWarfare.TWGameManager;
 
 /**
@@ -506,15 +507,10 @@ public class AreaEffectHelper {
         if (ammo != null) {
             if (ammo.getMunitionType().contains(AmmoType.Munitions.M_CLUSTER)) {
                 if (hex != null && entity.isConventionalInfantry()) {
-                    // TO:AUE p.166 (all terrains not buildings
-                    if (hex.containsTerrain(Terrains.FORTIFIED)
-                          || hex.containsTerrain(Terrains.WOODS)
-                          || hex.containsTerrain(Terrains.JUNGLE)
-                          || hex.containsTerrain(Terrains.ROUGH)
-                          || hex.containsTerrain(Terrains.RUBBLE)
-                          || hex.containsTerrain(Terrains.SWAMP)
-                          || hex.containsTerrain(Terrains.PAVEMENT)
-                          || hex.containsTerrain(Terrains.ROAD)) {
+                    // TO:AUE p.166 (all terrains but buildings are considered clear for cluster)
+                    // Call the infantry in open check. If false, and they are not in a building, double the damage.
+                    if (!ServerHelper.infantryInOpen(entity, hex, gameManager.getGame(), true, false, false)
+                          && !hex.containsTerrain(Terrains.BUILDING)) {
                         hits *= 2;
 
                         // Report that we doubled the damage when not in the open
