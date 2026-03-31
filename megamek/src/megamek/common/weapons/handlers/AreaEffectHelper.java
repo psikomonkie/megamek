@@ -505,10 +505,24 @@ public class AreaEffectHelper {
         // Entity/ammo specific damage modifiers
         if (ammo != null) {
             if (ammo.getMunitionType().contains(AmmoType.Munitions.M_CLUSTER)) {
-                if (hex != null &&
-                      (hex.containsTerrain(Terrains.FORTIFIED) || hex.containsTerrain(Terrains.WOODS)) &&
-                      entity.isConventionalInfantry()) {
-                    hits *= 2;
+                if (hex != null && entity.isConventionalInfantry()) {
+                    // TO:AUE p.166 (all terrains not buildings
+                    if (hex.containsTerrain(Terrains.FORTIFIED)
+                          || hex.containsTerrain(Terrains.WOODS)
+                          || hex.containsTerrain(Terrains.JUNGLE)
+                          || hex.containsTerrain(Terrains.ROUGH)
+                          || hex.containsTerrain(Terrains.RUBBLE)
+                          || hex.containsTerrain(Terrains.SWAMP)
+                          || hex.containsTerrain(Terrains.PAVEMENT)
+                          || hex.containsTerrain(Terrains.ROAD)) {
+                        hits *= 2;
+
+                        // Report that we doubled the damage when not in the open
+                        report = new Report(6046);
+                        report.subject = entity.getId();
+                        report.indent(2);
+                        vPhaseReport.addElement(report);
+                    }
                 }
             }
             // fuel-air bombs do an additional 2x damage to infantry
