@@ -57,6 +57,7 @@ import megamek.client.ui.Messages;
 import megamek.client.ui.clientGUI.ClientGUI;
 import megamek.client.ui.clientGUI.boardview.BoardView;
 import megamek.client.ui.clientGUI.boardview.IBoardView;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.dialogs.phaseDisplay.AimedShotDialog;
 import megamek.client.ui.dialogs.phaseDisplay.TargetChoiceDialog;
 import megamek.client.ui.util.KeyCommandBind;
@@ -1326,8 +1327,8 @@ public class PhysicalDisplay extends AttackPhaseDisplay {
 
         // If the entity can't brush off, display an error message and abort.
         if (!canHitLeft && !canHitRight) {
-            clientgui.doAlertDialog(Messages.getString("PhysicalDisplay.AlertDialog.title"),
-                  Messages.getString("PhysicalDisplay.AlertDialog.message"));
+            clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                  Messages.getString("PhysicalDisplay.AlertDialog.message"), currentEntity());
             return;
         }
 

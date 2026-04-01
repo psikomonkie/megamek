@@ -58,6 +58,7 @@ import megamek.client.ui.clientGUI.boardview.BoardView;
 import megamek.client.ui.clientGUI.boardview.CollapseWarning;
 import megamek.client.ui.clientGUI.boardview.IBoardView;
 import megamek.client.ui.clientGUI.boardview.overlay.AbstractBoardViewOverlay;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.clientGUI.boardview.sprite.FlyOverSprite;
 import megamek.client.ui.dialogs.ChoiceDialog;
 import megamek.client.ui.dialogs.ConfirmDialog;
@@ -1576,9 +1577,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
                       !cmd.contains(MoveStepType.VERTICAL_LAND) &&
                       !cmd.contains(MoveStepType.EJECT) &&
                       !cmd.contains(MoveStepType.FLEE)) {
-                    String title = Messages.getString("MovementDisplay.VelocityLeft.title");
-                    String body = Messages.getString("MovementDisplay.VelocityLeft.message");
-                    clientgui.doAlertDialog(title, body);
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.VelocityLeft.title") + ": "
+                                + Messages.getString("MovementDisplay.VelocityLeft.message"), currentEntity());
                     // always return true here, or airborne units will make illegal moves.
                     return true;
                 }
@@ -1940,8 +1941,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
                 // check if the target is valid
                 final Targetable target = chooseTarget(boardViewEvent.getCoords());
                 if ((target == null) || target.equals(currentlySelectedEntity) || !target.isAero()) {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantRam"),
-                          Messages.getString("MovementDisplay.NoTarget"));
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.CantRam") + ": "
+                                + Messages.getString("MovementDisplay.NoTarget"), currentEntity());
                     clear();
                     return;
                 }
@@ -1997,17 +1999,19 @@ public class MovementDisplay extends ActionPhaseDisplay {
                     return;
                 }
                 // if not valid, tell why
-                clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantRam"), toHit.getDesc());
+                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                      Messages.getString("MovementDisplay.CantRam") + ": " + toHit.getDesc(), currentEntity());
                 clear();
                 return;
             } else if (gear == MovementDisplay.GEAR_CHARGE) {
                 // check if the target is valid
                 final Targetable target = chooseTarget(boardViewEvent.getCoords());
                 if (currentlySelectedEntity != null && ((target == null) || target.equals(currentlySelectedEntity))) {
-                    clientgui.doAlertDialog(Messages.getString(currentlySelectedEntity.isAirborneVTOLorWIGE() ?
+                    String cantMsg = Messages.getString(currentlySelectedEntity.isAirborneVTOLorWIGE() ?
                                 "MovementDisplay.CantRam" :
-                                "MovementDisplay.CantCharge"),
-                          Messages.getString("MovementDisplay.NoTarget"));
+                          "MovementDisplay.CantCharge");
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          cantMsg + ": " + Messages.getString("MovementDisplay.NoTarget"), currentEntity());
                     clear();
                     computeMovementEnvelope(currentlySelectedEntity);
                     return;
@@ -2083,11 +2087,10 @@ public class MovementDisplay extends ActionPhaseDisplay {
                     return;
                 }
                 // if not valid, tell why
-                if (toHit != null) {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantCharge"), toHit.getDesc());
-                } else {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantCharge"), "toHit Value Is Null");
-                }
+                String chargeReason = (toHit != null) ? toHit.getDesc()
+                      : Messages.getString("MovementDisplay.CantCharge.unknown");
+                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                      Messages.getString("MovementDisplay.CantCharge") + ": " + chargeReason, currentEntity());
 
                 clear();
 
@@ -2100,8 +2103,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
                 // check if the target is valid
                 final Targetable target = chooseTarget(boardViewEvent.getCoords());
                 if ((target == null) || target.equals(currentlySelectedEntity)) {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantDFA"),
-                          Messages.getString("MovementDisplay.NoTarget"));
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.CantDFA") + ": "
+                                + Messages.getString("MovementDisplay.NoTarget"), currentEntity());
                     clear();
 
                     if (currentlySelectedEntity != null) {
@@ -2147,7 +2151,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
 
                 if (toHit != null) {
                     // if not valid, tell why
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantDFA"), toHit.getDesc());
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.CantDFA") + ": " + toHit.getDesc(), currentEntity());
                 }
 
                 clear();
@@ -3292,13 +3297,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
             // Only one choice.
             choice = choices.get(0);
             // Notify user
-            JOptionPane.showMessageDialog(clientgui.getFrame(),
-                  Messages.getString(
-                        "DeploymentDisplay.loadUnitToDefault.message",
-                        currentEntity().getShortName(),
-                        choice.getShortName()),
-                  Messages.getString("DeploymentDisplay.loadUnitDialog.title"), JOptionPane.INFORMATION_MESSAGE
-            );
+            clientgui.getToastOverlay().show(ToastLevel.INFO,
+                  Messages.getString("DeploymentDisplay.loadUnitToDefault.message",
+                        currentEntity().getShortName(), choice.getShortName()), currentEntity());
         }
 
         // Handle canceled dialog
@@ -3317,15 +3318,10 @@ public class MovementDisplay extends ActionPhaseDisplay {
         }
 
         if (bayChoices.size() == 1) {
-            JOptionPane.showMessageDialog(clientgui.getFrame(),
-                  Messages.getString(
-                        "MovementDisplay.loadUnitBayNumberDefault.message",
-                        currentEntity().getShortName(),
-                        choice.getShortName(),
-                        String.format("Bay %s", bayChoices.get(0))
-                  ),
-                  Messages.getString("MovementDisplay.loadUnitBayNumberDialog.title"), JOptionPane.INFORMATION_MESSAGE
-            );
+            clientgui.getToastOverlay().show(ToastLevel.INFO,
+                  Messages.getString("MovementDisplay.loadUnitBayNumberDefault.message",
+                        currentEntity().getShortName(), choice.getShortName(),
+                        String.format("Bay %s", bayChoices.get(0))), currentEntity());
             choice.setTargetBay(bayChoices.get(0));
         } else if (bayChoices.size() > 1) {
             String[] bayChoicesArray = new String[bayChoices.size()];
@@ -3684,9 +3680,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
         ring.removeAll(toRemove);
 
         if (ring.isEmpty()) {
-            String title = Messages.getString("MovementDisplay.NoPlaceToUnload.title");
-            String body = Messages.getString("MovementDisplay.NoPlaceToUnload.message");
-            clientgui.doAlertDialog(title, body);
+            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                  Messages.getString("MovementDisplay.NoPlaceToUnload.message"), currentEntity());
             return null;
         }
         String[] choices = new String[ring.size()];
@@ -3737,9 +3732,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
         // ok, now we need to go through the ring and identify available Positions
         ring = Compute.getAcceptableUnloadPositions(ring, finalBoardId(), crew, game, elev);
         if (ring.isEmpty()) {
-            String title = Messages.getString("MovementDisplay.NoPlaceToEject.title");
-            String body = Messages.getString("MovementDisplay.NoPlaceToEject.message");
-            clientgui.doAlertDialog(title, body);
+            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                  Messages.getString("MovementDisplay.NoPlaceToEject.message"), currentEntity());
             return null;
         }
         String[] choices = new String[ring.size()];
@@ -4536,17 +4530,15 @@ public class MovementDisplay extends ActionPhaseDisplay {
             report.indent(1);
             if (diceRoll.getIntValue() < psr.getValue()) {
                 report.choose(false);
-                String title = Messages.getString("MovementDisplay.DumpingBombs.title");
-                String body = Messages.getString("MovementDisplay.DumpFailure.message");
-                clientgui.doAlertDialog(title, body);
+                clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                      Messages.getString("MovementDisplay.DumpFailure.message"), currentEntity());
                 // failed the roll, so dump all bombs
                 currentEntity().getBombLoadout();
             } else {
                 // avoided damage
                 report.choose(true);
-                String title = Messages.getString("MovementDisplay.DumpingBombs.title");
-                String body = Messages.getString("MovementDisplay.DumpSuccessful.message");
-                clientgui.doAlertDialog(title, body);
+                clientgui.getToastOverlay().show(ToastLevel.SUCCESS,
+                      Messages.getString("MovementDisplay.DumpSuccessful.message"), currentEntity());
             }
         }
 
@@ -5079,9 +5071,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
         } else if (actionCmd.equals(MoveCommand.MOVE_CLEAR.getCmd())) {
             clear();
             if (!game.containsMinefield(entity.getPosition())) {
-                String title = Messages.getString("MovementDisplay.CantClearMinefield");
-                String body = Messages.getString("MovementDisplay.NoMinefield");
-                clientgui.doAlertDialog(title, body);
+                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                      Messages.getString("MovementDisplay.CantClearMinefield") + ": "
+                            + Messages.getString("MovementDisplay.NoMinefield"), currentEntity());
                 return;
             }
 
@@ -5601,10 +5593,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
             dumpBombs();
         } else if (actionCmd.equals(MoveCommand.MOVE_TAKE_OFF.getCmd())) {
             if (currentEntity().isAero() && (null != ((IAero) currentEntity()).hasRoomForHorizontalTakeOff())) {
-                String title = Messages.getString("MovementDisplay.NoTakeOffDialog.title");
-                String body = Messages.getString("MovementDisplay.NoTakeOffDialog.message",
-                      ((IAero) currentEntity()).hasRoomForHorizontalTakeOff());
-                clientgui.doAlertDialog(title, body);
+                clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                      Messages.getString("MovementDisplay.NoTakeOffDialog.message",
+                            ((IAero) currentEntity()).hasRoomForHorizontalTakeOff()), currentEntity());
             } else {
                 if (clientgui.doYesNoDialog(Messages.getString("MovementDisplay.TakeOffDialog.title"),
                       Messages.getString("MovementDisplay.TakeOffDialog.message"))) {
@@ -5654,9 +5645,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
 
             // No players available?
             if (idx == 0) {
-                JOptionPane.showMessageDialog(clientgui.getFrame(),
-                      "No players available. Units cannot turn traitor to players " +
-                            "that aren't assigned to a team.");
+                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                      Messages.getString("MovementDisplay.NoTraitorPlayers"));
                 return;
             }
 
@@ -6482,9 +6472,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
         }
         String failMessage = aero.hasRoomForLanding(landingDirection);
         if (failMessage != null) {
-            String title = Messages.getString("MovementDisplay.NoLandingDialog.title");
-            String body = Messages.getString("MovementDisplay.NoLandingDialog.message", failMessage);
-            clientgui.doAlertDialog(title, body);
+            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                  Messages.getString("MovementDisplay.NoLandingDialog.message", failMessage), currentEntity());
         } else {
             landingConfirmation.ask();
             if (landingConfirmation.isOkSelected()) {
@@ -6521,9 +6510,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
         LandingDirection landingDirection = cmd.contains(MoveStepType.LAND) ? HORIZONTAL : VERTICAL;
         String failMessage = aero.hasRoomForLanding(event.getBoardId(), event.getCoords(), landingDirection);
         if (failMessage != null) {
-            String title = Messages.getString("MovementDisplay.NoLandingDialog.title");
-            String body = Messages.getString("MovementDisplay.NoLandingDialog.message", failMessage);
-            clientgui.doAlertDialog(title, body);
+            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                  Messages.getString("MovementDisplay.NoLandingDialog.message", failMessage), currentEntity());
         } else {
             landingConfirmation.ask();
             if (landingConfirmation.isOkSelected()) {

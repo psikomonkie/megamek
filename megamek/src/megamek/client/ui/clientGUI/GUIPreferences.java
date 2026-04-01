@@ -141,6 +141,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
     public static final String PLANETARY_CONDITIONS_SHOW_INDICATORS = "PlanetaryConditionsShowIndicators";
     public static final String PLANETARY_CONDITIONS_BACKGROUND_TRANSPARENCY =
           "PlanetaryConditionsBackgroundTransparency";
+    public static final String TOAST_DURATION_SECONDS = "ToastDurationSeconds";
 
     public static final String TRACE_OVERLAY_TRANSPARENCY = "TraceOverlayTransparency";
     public static final String TRACE_OVERLAY_SCALE = "TraceOverlayScale";
@@ -547,6 +548,7 @@ public class GUIPreferences extends PreferenceStoreProxy {
         setDefault(PLANETARY_CONDITIONS_SHOW_VALUES, true);
         setDefault(PLANETARY_CONDITIONS_SHOW_INDICATORS, true);
         setDefault(PLANETARY_CONDITIONS_BACKGROUND_TRANSPARENCY, 200);
+        setDefault(TOAST_DURATION_SECONDS, 3);
 
         setDefault(TRACE_OVERLAY_TRANSPARENCY, 64);
         setDefault(TRACE_OVERLAY_SCALE, 100);
@@ -3257,6 +3259,14 @@ public class GUIPreferences extends PreferenceStoreProxy {
 
     public void setPlanetaryConditionsBackgroundTransparency(int i) {
         store.setValue(PLANETARY_CONDITIONS_BACKGROUND_TRANSPARENCY, i);
+    }
+
+    public int getToastDurationSeconds() {
+        return getInt(TOAST_DURATION_SECONDS);
+    }
+
+    public void setToastDurationSeconds(int seconds) {
+        store.setValue(TOAST_DURATION_SECONDS, seconds);
     }
 
     public int getTraceOverlayTransparency() {

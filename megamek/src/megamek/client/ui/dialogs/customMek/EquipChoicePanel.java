@@ -57,6 +57,7 @@ import megamek.client.Client;
 import megamek.client.ui.GBC;
 import megamek.client.ui.Messages;
 import megamek.client.ui.clientGUI.ClientGUI;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.common.Configuration;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
@@ -1093,13 +1094,13 @@ public class EquipChoicePanel extends JPanel {
                       entC3nodeCount,
                       choC3nodeCount,
                       Entity.MAX_C3_NODES);
-                if (clientgui == null) {
+                if (clientgui == null || clientgui.getToastOverlay() == null) {
                     JOptionPane.showMessageDialog(this,
                           Messages.getString("CustomMekDialog.NetworkTooBig.title"),
                           message,
                           JOptionPane.WARNING_MESSAGE);
                 } else {
-                    clientgui.doAlertDialog(Messages.getString("CustomMekDialog.NetworkTooBig.title"), message);
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING, message);
                 }
                 refreshC3();
             }
