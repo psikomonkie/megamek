@@ -355,7 +355,7 @@ public class DeployMinefieldDisplay extends StatusBarPhaseDisplay {
                       || (deployingActiveMinefields() && (mf.getType() == Minefield.TYPE_ACTIVE))
                       || (deployingInfernoMinefields() && (mf.getType() == Minefield.TYPE_INFERNO))
                       || (deployingEMPMinefields() && (mf.getType() == Minefield.TYPE_EMP))) {
-                    clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                    clientgui.addToast(ToastLevel.ERROR,
                           Messages.getString("DeployMinefieldDisplay.DuplicateMinefield"));
                     return;
                 }
@@ -363,7 +363,7 @@ public class DeployMinefieldDisplay extends StatusBarPhaseDisplay {
 
             Minefield mf = null;
             if (sea && !(deployingConventionalMinefields() || deployingInfernoMinefields())) {
-                clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                clientgui.addToast(ToastLevel.ERROR,
                       Messages.getString("DeployMinefieldDisplay.WaterPlacement"));
                 return;
             }
@@ -451,7 +451,7 @@ public class DeployMinefieldDisplay extends StatusBarPhaseDisplay {
             } else if (deployingEMPMinefields()) {
                 // EMP mines cannot be placed in water
                 if (sea) {
-                    clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                    clientgui.addToast(ToastLevel.ERROR,
                           Messages.getString("DeployMinefieldDisplay.WaterPlacement"));
                     return;
                 }

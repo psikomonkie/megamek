@@ -175,7 +175,7 @@ public class InfantryVsInfantryCombatDisplay extends AttackPhaseDisplay {
 
         // Check if already in combat
         if (inf.getInfantryCombatTargetId() != Entity.NONE) {
-            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+            clientgui.addToast(ToastLevel.ERROR,
                   Messages.getString("InfantryVsInfantryCombatDisplay.alreadyEngaged"));
             return;
         }
@@ -183,14 +183,14 @@ public class InfantryVsInfantryCombatDisplay extends AttackPhaseDisplay {
         // Check if target is a building
         Entity targetEntity = game.getEntity(target.getId());
         if (!(targetEntity instanceof AbstractBuildingEntity)) {
-            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+            clientgui.addToast(ToastLevel.ERROR,
                   Messages.getString("InfantryVsInfantryCombatDisplay.targetMustBeBuilding"));
             return;
         }
 
         // Check if same hex
         if (!ce.getPosition().equals(targetEntity.getPosition())) {
-            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+            clientgui.addToast(ToastLevel.ERROR,
                   Messages.getString("InfantryVsInfantryCombatDisplay.mustBeSameHex"));
             return;
         }
@@ -203,7 +203,7 @@ public class InfantryVsInfantryCombatDisplay extends AttackPhaseDisplay {
               .anyMatch(e -> e.getInfantryCombatTargetId() != Entity.NONE);
 
         if (!combatExists) {
-            clientgui.getToastOverlay().show(ToastLevel.WARNING,
+            clientgui.addToast(ToastLevel.WARNING,
                   Messages.getString("InfantryVsInfantryCombatDisplay.noCombatExists"));
             return;
         }
@@ -237,7 +237,7 @@ public class InfantryVsInfantryCombatDisplay extends AttackPhaseDisplay {
 
         // Only attackers can withdraw
         if (!inf.isInfantryCombatAttacker()) {
-            clientgui.getToastOverlay().show(ToastLevel.ERROR,
+            clientgui.addToast(ToastLevel.ERROR,
                   Messages.getString("InfantryVsInfantryCombatDisplay.onlyAttackersWithdraw"));
             return;
         }

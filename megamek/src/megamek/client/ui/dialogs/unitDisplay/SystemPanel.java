@@ -516,7 +516,7 @@ class SystemPanel extends PicMap
                                     }
                                 }
                             } else {
-                                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                                clientgui.addToast(ToastLevel.WARNING,
                                       Messages.getString("MekDisplay.BoobyTrapMode"));
                                 return;
                             }

@@ -406,7 +406,7 @@ public class DeploymentDisplay extends StatusBarPhaseDisplay {
             boolean crushesBuildingHex = allPositions.stream()
                   .anyMatch(c -> game.getBoard(entity.getBoardId()).getBuildingAt(c) != null);
             if (crushesBuildingHex) {
-                clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                clientgui.addToast(ToastLevel.ERROR,
                       Messages.getString("DeploymentDisplay.dropshipBuildingDeploy"), entity);
                 return true;
             }
@@ -808,17 +808,17 @@ public class DeploymentDisplay extends StatusBarPhaseDisplay {
             case GROUND -> "Ground";
         };
         String msg = Messages.getString("DeploymentDisplay.wrongMapType", currentEntity().getShortName(), boardType);
-        clientgui.getToastOverlay().show(ToastLevel.ERROR, msg, currentEntity());
+        clientgui.addToast(ToastLevel.ERROR, msg, currentEntity());
     }
 
     private void showOutsideDeployAreaMessage() {
         String msg = Messages.getString("DeploymentDisplay.outsideDeployArea");
-        clientgui.getToastOverlay().show(ToastLevel.ERROR, msg);
+        clientgui.addToast(ToastLevel.ERROR, msg);
     }
 
     private void showCannotDeployHereMessage(Coords coords) {
         String msg = Messages.getString("DeploymentDisplay.cantDeployInto", currentEntity().getShortName(), coords.getBoardNum());
-        clientgui.getToastOverlay().show(ToastLevel.ERROR, msg, currentEntity());
+        clientgui.addToast(ToastLevel.ERROR, msg, currentEntity());
     }
 
     private void processTurn(Entity entity, Coords coords) {
@@ -967,7 +967,7 @@ public class DeploymentDisplay extends StatusBarPhaseDisplay {
                 clientgui.getUnitDisplay().displayEntity(currentEntity());
                 setUnloadEnabled(true);
             } else {
-                clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                clientgui.addToast(ToastLevel.ERROR,
                       Messages.getString("DeploymentDisplay.alertDialog1.message",
                             currentEntity().getShortName()), currentEntity());
             }
@@ -1004,7 +1004,7 @@ public class DeploymentDisplay extends StatusBarPhaseDisplay {
                     }
                 }
             } else {
-                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                clientgui.addToast(ToastLevel.WARNING,
                       Messages.getString("DeploymentDisplay.alertDialog2.message",
                             currentEntity().getShortName()), currentEntity());
             }

@@ -541,6 +541,32 @@ public class ClientGUI extends AbstractClientGUI
         return toastOverlay;
     }
 
+    /**
+     * Shows a toast notification on the board view. Safe to call even when the toast overlay
+     * has not been initialized yet (e.g., during the lobby phase).
+     *
+     * @param level the severity level determining color and default duration
+     * @param text  the message text to display
+     */
+    public void addToast(ToastLevel level, String text) {
+        if (toastOverlay != null) {
+            toastOverlay.show(level, text);
+        }
+    }
+
+    /**
+     * Shows a toast notification with the given entity's sprite icon on the board view.
+     *
+     * @param level  the severity level determining color and default duration
+     * @param text   the message text to display
+     * @param entity the entity whose icon to show, or null for text-only
+     */
+    public void addToast(ToastLevel level, String text, @Nullable Entity entity) {
+        if (toastOverlay != null) {
+            toastOverlay.show(level, text, entity);
+        }
+    }
+
     @Override
     public UnitDisplayPanel getUnitDisplay() {
         return unitDisplayPanel;
@@ -1073,10 +1099,8 @@ public class ClientGUI extends AbstractClientGUI
             case FILE_UNITS_REINFORCE_RAT:
                 ignoreHotKeys = true;
                 if (client.getLocalPlayer().getTeam() == Player.TEAM_UNASSIGNED) {
-                    if (toastOverlay != null) {
-                        toastOverlay.show(ToastLevel.ERROR,
-                              Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"));
-                    }
+                    addToast(ToastLevel.ERROR,
+                          Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"));
                     return;
                 }
                 getRandomArmyDialog().setVisible(true);
@@ -2269,10 +2293,8 @@ public class ClientGUI extends AbstractClientGUI
             boolean addedUnits = false;
 
             if (reinforce && (player.getTeam() == Player.TEAM_UNASSIGNED)) {
-                if (toastOverlay != null) {
-                    toastOverlay.show(ToastLevel.ERROR,
-                          Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"));
-                }
+                addToast(ToastLevel.ERROR,
+                      Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"));
                 return;
             }
             // Build the "load unit" dialog, if necessary.
@@ -2837,14 +2859,14 @@ public class ClientGUI extends AbstractClientGUI
                 // opponent got and used one) and if so activates it.
                 reportDisplayResetRerollInitiative();
 
-                if (!(getClient() instanceof BotClient) && (toastOverlay != null)) {
-                    toastOverlay.show(ToastLevel.INFO,
+                if (!(getClient() instanceof BotClient)) {
+                    addToast(ToastLevel.INFO,
                           Messages.getString("ClientGUI.dialogTacticalGeniusReport") + ": " + e.getReport());
                 }
             } else {
                 // Continued movement after getting up
-                if (!(getClient() instanceof BotClient) && (toastOverlay != null)) {
-                    toastOverlay.show(ToastLevel.INFO,
+                if (!(getClient() instanceof BotClient)) {
+                    addToast(ToastLevel.INFO,
                           Messages.getString("ClientGUI.dialogMovementReport") + ": " + e.getReport());
                 }
             }

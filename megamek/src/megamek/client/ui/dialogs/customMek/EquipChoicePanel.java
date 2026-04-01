@@ -1094,13 +1094,13 @@ public class EquipChoicePanel extends JPanel {
                       entC3nodeCount,
                       choC3nodeCount,
                       Entity.MAX_C3_NODES);
-                if (clientgui == null || clientgui.getToastOverlay() == null) {
+                if (clientgui == null) {
                     JOptionPane.showMessageDialog(this,
                           Messages.getString("CustomMekDialog.NetworkTooBig.title"),
                           message,
                           JOptionPane.WARNING_MESSAGE);
                 } else {
-                    clientgui.getToastOverlay().show(ToastLevel.WARNING, message);
+                    clientgui.addToast(ToastLevel.WARNING, message);
                 }
                 refreshC3();
             }

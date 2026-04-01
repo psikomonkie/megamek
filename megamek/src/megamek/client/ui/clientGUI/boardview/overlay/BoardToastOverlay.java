@@ -48,7 +48,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import megamek.MMConstants;
 import megamek.client.ui.IDisplayable;
 import megamek.client.ui.clientGUI.ClientGUI;
-import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.clientGUI.boardview.BoardView;
 import megamek.client.ui.util.StringDrawer;
 import megamek.client.ui.util.UIUtil;
@@ -114,25 +113,37 @@ public class BoardToastOverlay implements IDisplayable {
     }
 
     /**
-     * Shows a toast notification with no associated entity icon.
+     * Shows a toast notification with no associated entity icon, using the level's default duration.
      *
      * @param level the severity level determining color and default duration
      * @param text  the message text to display
      */
     public void show(ToastLevel level, String text) {
-        show(level, text, null);
+        show(level, text, null, level.getDefaultDurationMs());
     }
 
     /**
-     * Shows a toast notification, optionally displaying the given entity's sprite icon.
+     * Shows a toast notification, optionally displaying the given entity's sprite icon,
+     * using the level's default duration.
      *
      * @param level  the severity level determining color and default duration
      * @param text   the message text to display
      * @param entity the entity whose icon to show, or null for text-only
      */
     public void show(ToastLevel level, String text, @Nullable Entity entity) {
+        show(level, text, entity, level.getDefaultDurationMs());
+    }
+
+    /**
+     * Shows a toast notification with explicit duration control.
+     *
+     * @param level      the severity level determining color
+     * @param text       the message text to display
+     * @param entity     the entity whose icon to show, or null for text-only
+     * @param durationMs how long the toast remains visible in milliseconds
+     */
+    public void show(ToastLevel level, String text, @Nullable Entity entity, int durationMs) {
         int entityId = (entity != null) ? entity.getId() : -1;
-        int durationMs = GUIPreferences.getInstance().getToastDurationSeconds() * 1000;
         pendingToasts.add(new ToastMessage(text, level, entityId, durationMs));
         boardView.getPanel().repaint();
     }

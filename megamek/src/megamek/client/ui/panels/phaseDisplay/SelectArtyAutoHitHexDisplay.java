@@ -252,12 +252,12 @@ public class SelectArtyAutoHitHexDisplay extends StatusBarPhaseDisplay {
     }
 
     private void showTooManyTargetsMessage() {
-        clientgui.getToastOverlay().show(ToastLevel.WARNING,
+        clientgui.addToast(ToastLevel.WARNING,
               Messages.getString("SelectArtyAutoHitHexDisplay.TooManyTargets.message"));
     }
 
     private void showInvalidLocationMessage() {
-        clientgui.getToastOverlay().show(ToastLevel.ERROR,
+        clientgui.addToast(ToastLevel.ERROR,
               Messages.getString("SelectArtyAutoHitHexDisplay.NotAllowed.message"));
     }
 
