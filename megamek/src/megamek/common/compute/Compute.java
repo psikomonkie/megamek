@@ -5869,6 +5869,12 @@ public class Compute {
             }
         }
 
+        // Mountain Troops anti-Mek bonus - TO:AUE p.153
+        // "Mountain troops apply a -2 modifier to any Anti-Mek Skill Rolls"
+        if (attacker.hasSpecialization(Infantry.MOUNTAIN_TROOPS)) {
+            data.addModifier(-2, Messages.getString("Compute.MountainTroops"));
+        }
+
         // Enhanced Imaging bonus for anti-Mek attacks - IO p.69
         // "All Piloting Skill rolls required for the EI-equipped unit receives a -1
         // target number modifier. This includes checks made for physical attacks,
