@@ -1327,7 +1327,7 @@ public class PhysicalDisplay extends AttackPhaseDisplay {
 
         // If the entity can't brush off, display an error message and abort.
         if (!canHitLeft && !canHitRight) {
-            clientgui.getToastOverlay().show(ToastLevel.WARNING,
+            clientgui.addToast(ToastLevel.WARNING,
                   Messages.getString("PhysicalDisplay.AlertDialog.message"), currentEntity());
             return;
         }

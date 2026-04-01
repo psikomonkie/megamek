@@ -1423,7 +1423,7 @@ public class FiringDisplay extends AttackPhaseDisplay implements ListSelectionLi
         }
 
         if (currentEntity().isINarcedWith(INarcPod.HAYWIRE)) {
-            clientgui.getToastOverlay().show(ToastLevel.WARNING,
+            clientgui.addToast(ToastLevel.WARNING,
                   Messages.getString("FiringDisplay.CantSpotDialog.message"), currentEntity());
             return;
         }
