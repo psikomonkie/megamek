@@ -34,6 +34,7 @@ package megamek.client.ui.dialogs.customMek;
 
 import java.awt.GridBagLayout;
 import java.util.List;
+import java.util.Objects;
 import java.util.Vector;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
@@ -63,30 +64,26 @@ class APWeaponChoicePanel extends JPanel {
     private final JComboBox<String> comboChoices = new JComboBox<>();
     private final Mounted<?> apMount;
 
-    APWeaponChoicePanel(Entity entity, Mounted<?> mounted, List<WeaponType> weapons) {
+    APWeaponChoicePanel(Entity entity, Mounted<?> apMount, List<WeaponType> suitableWeapons) {
+        Objects.requireNonNull(apMount);
         this.entity = entity;
-        weaponTypes = weapons;
-        apMount = mounted;
+        weaponTypes = suitableWeapons;
+        this.apMount = apMount;
         EquipmentType equipmentType = null;
 
-        if ((mounted != null) && (mounted.getLinked() != null)) {
-            equipmentType = mounted.getLinked().getType();
+        if (apMount.getLinked() != null) {
+            equipmentType = apMount.getLinked().getType();
         }
 
         Vector<String> agWeaponNames = new Vector<>();
         agWeaponNames.add("None");
-        agWeaponNames.addAll(weapons.stream().map(EquipmentType::getName).toList());
+        agWeaponNames.addAll(suitableWeapons.stream().map(EquipmentType::getName).toList());
         comboChoices.setModel(new DefaultComboBoxModel<>(agWeaponNames));
         if (equipmentType != null) {
             comboChoices.setSelectedItem(equipmentType.getName());
         }
 
-        String labelDescription = "";
-        if ((mounted != null) && (mounted.getBaMountLoc() != BattleArmor.MOUNT_LOC_NONE)) {
-            labelDescription += " (" + BattleArmor.MOUNT_LOC_NAMES[mounted.getBaMountLoc()] + ')';
-        } else {
-            labelDescription = "None";
-        }
+        String labelDescription = BattleArmor.MOUNT_LOC_NAMES[apMount.getBaMountLoc()] + ": ";
         setLayout(new GridBagLayout());
         add(new JLabel(labelDescription), GBC.std());
         add(comboChoices, GBC.std());

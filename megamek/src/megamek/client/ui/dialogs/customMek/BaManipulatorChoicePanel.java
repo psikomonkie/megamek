@@ -63,7 +63,6 @@ import megamek.common.units.BaConstructionUtil;
 import megamek.common.units.ConstructionUtil;
 import megamek.common.verifier.TestBattleArmor;
 import megamek.common.verifier.TestEntity;
-import megamek.logging.MMLogger;
 
 import static megamek.common.verifier.TestBattleArmor.BAManipulator;
 
@@ -73,8 +72,6 @@ import static megamek.common.verifier.TestBattleArmor.BAManipulator;
  * shown.
  */
 class BaManipulatorChoicePanel extends JPanel {
-
-    private static final MMLogger LOGGER = MMLogger.create(BaManipulatorChoicePanel.class);
 
     private final JCheckBox leftModularSelector = new JCheckBox("Modular Equipment Adaptor");
     private final JCheckBox rightModularSelector = new JCheckBox("Modular Equipment Adaptor");
