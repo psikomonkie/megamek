@@ -3143,6 +3143,7 @@ public class CommonSettingsDialog extends AbstractButtonDialog
         GUIP.setPlanetaryConditionsShowIndicators(planetaryConditionsShowIndicators.isSelected());
         GUIP.setPlanetaryConditionsBackgroundTransparency(
               (Integer) planetaryConditionsBackgroundTransparency.getValue());
+        GUIP.setToastDurationSeconds((Integer) toastDurationSpinner.getValue());
 
         GUIP.setTraceOverlayTransparency(traceOverlayTransparencySlider.getValue());
         GUIP.setTraceOverlayScale(traceOverlayScaleSlider.getValue());

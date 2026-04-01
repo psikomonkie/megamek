@@ -2087,7 +2087,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
                     return;
                 }
                 // if not valid, tell why
-                String chargeReason = (toHit != null) ? toHit.getDesc() : "toHit Value Is Null";
+                String chargeReason = (toHit != null) ? toHit.getDesc()
+                      : Messages.getString("MovementDisplay.CantCharge.unknown");
                 clientgui.getToastOverlay().show(ToastLevel.WARNING,
                       Messages.getString("MovementDisplay.CantCharge") + ": " + chargeReason, currentEntity());
 

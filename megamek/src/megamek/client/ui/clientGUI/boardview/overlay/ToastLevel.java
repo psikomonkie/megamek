@@ -35,28 +35,22 @@ package megamek.client.ui.clientGUI.boardview.overlay;
 import java.awt.Color;
 
 /**
- * Severity levels for board toast notifications. Each level defines a background color and default display duration
+ * Severity levels for board toast notifications. Each level defines a background color
  * appropriate for the urgency of the message.
  */
 public enum ToastLevel {
-    INFO(new Color(41, 98, 168), 3000),
-    SUCCESS(new Color(46, 125, 50), 3000),
-    WARNING(new Color(183, 134, 11), 4000),
-    ERROR(new Color(176, 42, 42), 5000);
+    INFO(new Color(41, 98, 168)),
+    SUCCESS(new Color(46, 125, 50)),
+    WARNING(new Color(183, 134, 11)),
+    ERROR(new Color(176, 42, 42));
 
     private final Color backgroundColor;
-    private final int defaultDurationMs;
 
-    ToastLevel(Color backgroundColor, int defaultDurationMs) {
+    ToastLevel(Color backgroundColor) {
         this.backgroundColor = backgroundColor;
-        this.defaultDurationMs = defaultDurationMs;
     }
 
     public Color getBackgroundColor() {
         return backgroundColor;
-    }
-
-    public int getDefaultDurationMs() {
-        return defaultDurationMs;
     }
 }

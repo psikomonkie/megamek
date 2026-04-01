@@ -139,15 +139,7 @@ public class BoardToastOverlay implements IDisplayable {
 
     @Override
     public boolean isSliding() {
-        if (!pendingToasts.isEmpty()) {
-            return true;
-        }
-        for (ToastMessage toast : activeToasts) {
-            if (toast.phase != ToastPhase.DONE) {
-                return true;
-            }
-        }
-        return false;
+        return !pendingToasts.isEmpty() || !activeToasts.isEmpty();
     }
 
     @Override
@@ -173,6 +165,7 @@ public class BoardToastOverlay implements IDisplayable {
                     if (elapsed >= toast.durationMs) {
                         toast.phase = ToastPhase.FADE_OUT;
                         toast.phaseStartTimeMs = now;
+                        animating = true;
                     }
                     break;
                 case FADE_OUT:
@@ -205,7 +198,7 @@ public class BoardToastOverlay implements IDisplayable {
             }
         }
 
-        return animating || !activeToasts.isEmpty();
+        return animating;
     }
 
     @Override
@@ -254,6 +247,10 @@ public class BoardToastOverlay implements IDisplayable {
                 toastW += iconW + gap;
             }
 
+            // Clamp toast width to viewport
+            int maxToastW = clipBounds.width - 2 * padX;
+            toastW = Math.min(toastW, maxToastW);
+
             // Center horizontally in viewport
             int toastX = clipBounds.x + (clipBounds.width - toastW) / 2;
             int toastY = clipBounds.y + (int) toast.currentY;
@@ -289,9 +286,16 @@ public class BoardToastOverlay implements IDisplayable {
     private void drainPending() {
         ToastMessage pending;
         while ((pending = pendingToasts.poll()) != null) {
-            // If at capacity, force the oldest holding toast to fade out
+            // Remove completed toasts first to free capacity
+            activeToasts.removeIf(t -> t.phase == ToastPhase.DONE);
+            // If still at capacity, force the oldest to fade out
             if (activeToasts.size() >= MAX_VISIBLE) {
                 forceExpireOldest();
+                activeToasts.removeIf(t -> t.phase == ToastPhase.DONE);
+            }
+            // Drop the toast if we still can't fit it
+            if (activeToasts.size() >= MAX_VISIBLE) {
+                continue;
             }
             activeToasts.add(pending);
         }
