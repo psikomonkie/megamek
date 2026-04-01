@@ -83,6 +83,7 @@ import megamek.client.ui.clientGUI.boardview.BoardView;
 import megamek.client.ui.clientGUI.boardview.CollapseWarning;
 import megamek.client.ui.clientGUI.boardview.IBoardView;
 import megamek.client.ui.clientGUI.boardview.RulerDialog;
+import megamek.client.ui.clientGUI.boardview.overlay.BoardToastOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.ChatterBoxOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.KeyBindingsOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.OffBoardTargetOverlay;
@@ -371,6 +372,7 @@ public class ClientGUI extends AbstractClientGUI
     protected JComponent curPanel;
     public ChatLounge chatlounge;
     private OffBoardTargetOverlay offBoardOverlay;
+    private BoardToastOverlay toastOverlay;
 
     // some dialogs...
     private GameOptionsDialog gameOptionsDialog;
@@ -532,6 +534,10 @@ public class ClientGUI extends AbstractClientGUI
     @Override
     public BoardView getBoardView() {
         return (BoardView) boardViews.get(0);
+    }
+
+    public BoardToastOverlay getToastOverlay() {
+        return toastOverlay;
     }
 
     @Override
@@ -2708,6 +2714,8 @@ public class ClientGUI extends AbstractClientGUI
                     boardView.addOverlay(new KeyBindingsOverlay(boardView));
                     boardView.addOverlay(new PlanetaryConditionsOverlay(boardView));
                     boardView.addOverlay(new TurnDetailsOverlay(boardView));
+                    toastOverlay = new BoardToastOverlay(boardView, ClientGUI.this);
+                    boardView.addOverlay(toastOverlay);
                     boardView.setTooltipProvider(new TWBoardViewTooltip(client.getGame(), ClientGUI.this, boardView));
                     boardViewsContainer.updateMapTabs();
                     ruler = new RulerDialog(frame, boardView, client.getGame());

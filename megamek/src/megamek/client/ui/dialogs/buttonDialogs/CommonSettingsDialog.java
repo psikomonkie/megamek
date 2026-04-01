@@ -518,6 +518,7 @@ public class CommonSettingsDialog extends AbstractButtonDialog
     private final JCheckBox planetaryConditionsShowIndicators = new JCheckBox(Messages.getString(
           "CommonSettingsDialog.planetaryConditionsShowIndicators"));
     private JSpinner planetaryConditionsBackgroundTransparency;
+    private JSpinner toastDurationSpinner;
     private JSlider traceOverlayTransparencySlider;
     private JSlider traceOverlayScaleSlider;
     private JSlider traceOverlayOriginXSlider;
@@ -1719,6 +1720,19 @@ public class CommonSettingsDialog extends AbstractButtonDialog
         row.add(planetaryConditionsBackgroundTransparencyLabel);
         planetaryConditionsBackgroundTransparency.setToolTipText(Messages.getString(
               "CommonSettingsDialog.colors.PlanetaryConditionsBackgroundTransparency.tooltip"));
+        comps.add(row);
+
+        SpinnerNumberModel mToastDuration = new SpinnerNumberModel(GUIP.getToastDurationSeconds(), 1, 10, 1);
+        toastDurationSpinner = new JSpinner(mToastDuration);
+        toastDurationSpinner.setMaximumSize(new Dimension(150, 40));
+        toastDurationSpinner.setToolTipText(Messages.getString("CommonSettingsDialog.toastDurationSeconds.tooltip"));
+        JLabel toastDurationLabel = new JLabel(
+              Messages.getString("CommonSettingsDialog.toastDurationSeconds"));
+        toastDurationLabel.setToolTipText(
+              Messages.getString("CommonSettingsDialog.toastDurationSeconds.tooltip"));
+        row = new ArrayList<>();
+        row.add(toastDurationSpinner);
+        row.add(toastDurationLabel);
         comps.add(row);
 
         addLineSpacer(comps);

@@ -58,6 +58,7 @@ import megamek.client.ui.clientGUI.boardview.BoardView;
 import megamek.client.ui.clientGUI.boardview.CollapseWarning;
 import megamek.client.ui.clientGUI.boardview.IBoardView;
 import megamek.client.ui.clientGUI.boardview.overlay.AbstractBoardViewOverlay;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.clientGUI.boardview.sprite.FlyOverSprite;
 import megamek.client.ui.dialogs.ChoiceDialog;
 import megamek.client.ui.dialogs.ConfirmDialog;
@@ -1940,8 +1941,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
                 // check if the target is valid
                 final Targetable target = chooseTarget(boardViewEvent.getCoords());
                 if ((target == null) || target.equals(currentlySelectedEntity) || !target.isAero()) {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantRam"),
-                          Messages.getString("MovementDisplay.NoTarget"));
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.CantRam") + ": "
+                                + Messages.getString("MovementDisplay.NoTarget"), currentEntity());
                     clear();
                     return;
                 }
@@ -1997,17 +1999,19 @@ public class MovementDisplay extends ActionPhaseDisplay {
                     return;
                 }
                 // if not valid, tell why
-                clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantRam"), toHit.getDesc());
+                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                      Messages.getString("MovementDisplay.CantRam") + ": " + toHit.getDesc(), currentEntity());
                 clear();
                 return;
             } else if (gear == MovementDisplay.GEAR_CHARGE) {
                 // check if the target is valid
                 final Targetable target = chooseTarget(boardViewEvent.getCoords());
                 if (currentlySelectedEntity != null && ((target == null) || target.equals(currentlySelectedEntity))) {
-                    clientgui.doAlertDialog(Messages.getString(currentlySelectedEntity.isAirborneVTOLorWIGE() ?
+                    String cantMsg = Messages.getString(currentlySelectedEntity.isAirborneVTOLorWIGE() ?
                                 "MovementDisplay.CantRam" :
-                                "MovementDisplay.CantCharge"),
-                          Messages.getString("MovementDisplay.NoTarget"));
+                          "MovementDisplay.CantCharge");
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          cantMsg + ": " + Messages.getString("MovementDisplay.NoTarget"), currentEntity());
                     clear();
                     computeMovementEnvelope(currentlySelectedEntity);
                     return;
@@ -2083,11 +2087,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
                     return;
                 }
                 // if not valid, tell why
-                if (toHit != null) {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantCharge"), toHit.getDesc());
-                } else {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantCharge"), "toHit Value Is Null");
-                }
+                String chargeReason = (toHit != null) ? toHit.getDesc() : "toHit Value Is Null";
+                clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                      Messages.getString("MovementDisplay.CantCharge") + ": " + chargeReason, currentEntity());
 
                 clear();
 
@@ -2100,8 +2102,9 @@ public class MovementDisplay extends ActionPhaseDisplay {
                 // check if the target is valid
                 final Targetable target = chooseTarget(boardViewEvent.getCoords());
                 if ((target == null) || target.equals(currentlySelectedEntity)) {
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantDFA"),
-                          Messages.getString("MovementDisplay.NoTarget"));
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.CantDFA") + ": "
+                                + Messages.getString("MovementDisplay.NoTarget"), currentEntity());
                     clear();
 
                     if (currentlySelectedEntity != null) {
@@ -2147,7 +2150,8 @@ public class MovementDisplay extends ActionPhaseDisplay {
 
                 if (toHit != null) {
                     // if not valid, tell why
-                    clientgui.doAlertDialog(Messages.getString("MovementDisplay.CantDFA"), toHit.getDesc());
+                    clientgui.getToastOverlay().show(ToastLevel.WARNING,
+                          Messages.getString("MovementDisplay.CantDFA") + ": " + toHit.getDesc(), currentEntity());
                 }
 
                 clear();
@@ -4536,17 +4540,15 @@ public class MovementDisplay extends ActionPhaseDisplay {
             report.indent(1);
             if (diceRoll.getIntValue() < psr.getValue()) {
                 report.choose(false);
-                String title = Messages.getString("MovementDisplay.DumpingBombs.title");
-                String body = Messages.getString("MovementDisplay.DumpFailure.message");
-                clientgui.doAlertDialog(title, body);
+                clientgui.getToastOverlay().show(ToastLevel.ERROR,
+                      Messages.getString("MovementDisplay.DumpFailure.message"), currentEntity());
                 // failed the roll, so dump all bombs
                 currentEntity().getBombLoadout();
             } else {
                 // avoided damage
                 report.choose(true);
-                String title = Messages.getString("MovementDisplay.DumpingBombs.title");
-                String body = Messages.getString("MovementDisplay.DumpSuccessful.message");
-                clientgui.doAlertDialog(title, body);
+                clientgui.getToastOverlay().show(ToastLevel.SUCCESS,
+                      Messages.getString("MovementDisplay.DumpSuccessful.message"), currentEntity());
             }
         }
 
