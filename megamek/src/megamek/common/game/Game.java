@@ -452,6 +452,18 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
     }
 
     /**
+     * Returns true if the Standard (Targeted) ghost target mode is active (TO:AR p.100). This requires both the ghost
+     * target option to be enabled and the mode set to Standard.
+     *
+     * @return true if Standard ghost target mode is active
+     */
+    public boolean usesStandardGhostTargetMode() {
+        return getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+              && OptionsConstants.GHOST_TARGET_MODE_STANDARD.equals(
+              getOptions().stringOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE));
+    }
+
+    /**
      * Set up the teams vector. Each player on a team (Team 1 ... Team X) is placed in the appropriate vector. Any
      * player on 'No Team', is placed in their own object
      */

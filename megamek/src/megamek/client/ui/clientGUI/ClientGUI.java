@@ -83,7 +83,9 @@ import megamek.client.ui.clientGUI.boardview.BoardView;
 import megamek.client.ui.clientGUI.boardview.CollapseWarning;
 import megamek.client.ui.clientGUI.boardview.IBoardView;
 import megamek.client.ui.clientGUI.boardview.RulerDialog;
+import megamek.client.ui.clientGUI.boardview.overlay.BoardToastOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.ChatterBoxOverlay;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.clientGUI.boardview.overlay.KeyBindingsOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.OffBoardTargetOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.PlanetaryConditionsOverlay;
@@ -371,6 +373,7 @@ public class ClientGUI extends AbstractClientGUI
     protected JComponent curPanel;
     public ChatLounge chatlounge;
     private OffBoardTargetOverlay offBoardOverlay;
+    private BoardToastOverlay toastOverlay;
 
     // some dialogs...
     private GameOptionsDialog gameOptionsDialog;
@@ -532,6 +535,36 @@ public class ClientGUI extends AbstractClientGUI
     @Override
     public BoardView getBoardView() {
         return (BoardView) boardViews.get(0);
+    }
+
+    public BoardToastOverlay getToastOverlay() {
+        return toastOverlay;
+    }
+
+    /**
+     * Shows a toast notification on the board view. Safe to call even when the toast overlay
+     * has not been initialized yet (e.g., during the lobby phase).
+     *
+     * @param level the severity level determining color and default duration
+     * @param text  the message text to display
+     */
+    public void addToast(ToastLevel level, String text) {
+        if (toastOverlay != null) {
+            toastOverlay.show(level, text);
+        }
+    }
+
+    /**
+     * Shows a toast notification with the given entity's sprite icon on the board view.
+     *
+     * @param level  the severity level determining color and default duration
+     * @param text   the message text to display
+     * @param entity the entity whose icon to show, or null for text-only
+     */
+    public void addToast(ToastLevel level, String text, @Nullable Entity entity) {
+        if (toastOverlay != null) {
+            toastOverlay.show(level, text, entity);
+        }
     }
 
     @Override
@@ -1066,9 +1099,8 @@ public class ClientGUI extends AbstractClientGUI
             case FILE_UNITS_REINFORCE_RAT:
                 ignoreHotKeys = true;
                 if (client.getLocalPlayer().getTeam() == Player.TEAM_UNASSIGNED) {
-                    doAlertDialog(Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"),
-                          Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceTitle"),
-                          JOptionPane.ERROR_MESSAGE);
+                    addToast(ToastLevel.ERROR,
+                          Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"));
                     return;
                 }
                 getRandomArmyDialog().setVisible(true);
@@ -2261,9 +2293,8 @@ public class ClientGUI extends AbstractClientGUI
             boolean addedUnits = false;
 
             if (reinforce && (player.getTeam() == Player.TEAM_UNASSIGNED)) {
-                doAlertDialog(Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"),
-                      Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceTitle"),
-                      JOptionPane.ERROR_MESSAGE);
+                addToast(ToastLevel.ERROR,
+                      Messages.getString("ClientGUI.openUnitListFileDialog.noReinforceMessage"));
                 return;
             }
             // Build the "load unit" dialog, if necessary.
@@ -2708,6 +2739,8 @@ public class ClientGUI extends AbstractClientGUI
                     boardView.addOverlay(new KeyBindingsOverlay(boardView));
                     boardView.addOverlay(new PlanetaryConditionsOverlay(boardView));
                     boardView.addOverlay(new TurnDetailsOverlay(boardView));
+                    toastOverlay = new BoardToastOverlay(boardView, ClientGUI.this);
+                    boardView.addOverlay(toastOverlay);
                     boardView.setTooltipProvider(new TWBoardViewTooltip(client.getGame(), ClientGUI.this, boardView));
                     boardViewsContainer.updateMapTabs();
                     ruler = new RulerDialog(frame, boardView, client.getGame());
@@ -2827,12 +2860,14 @@ public class ClientGUI extends AbstractClientGUI
                 reportDisplayResetRerollInitiative();
 
                 if (!(getClient() instanceof BotClient)) {
-                    doAlertDialog(Messages.getString("ClientGUI.dialogTacticalGeniusReport"), e.getReport());
+                    addToast(ToastLevel.INFO,
+                          Messages.getString("ClientGUI.dialogTacticalGeniusReport") + ": " + e.getReport());
                 }
             } else {
                 // Continued movement after getting up
                 if (!(getClient() instanceof BotClient)) {
-                    doAlertDialog(Messages.getString("ClientGUI.dialogMovementReport"), e.getReport());
+                    addToast(ToastLevel.INFO,
+                          Messages.getString("ClientGUI.dialogMovementReport") + ": " + e.getReport());
                 }
             }
         }

@@ -872,10 +872,16 @@ public abstract class Entity extends TurnOrdered
     // roll for sensor check
     private int sensorCheck;
 
-    // the roll for ghost targets
+    // the roll for ghost targets (Legacy mode)
     private Roll ghostTargetRoll;
-    // the roll to override ghost targets
+    // the roll to override ghost targets (Legacy mode)
     private int ghostTargetOverride;
+
+    // Standard mode ghost target bonuses (per TO:AR rules)
+    // Accumulated +N to-hit for attacks AGAINST this unit (from friendly ghost targets)
+    private int ghostTargetDefensiveBonus;
+    // Accumulated +N to-hit for attacks BY this unit (from enemy ghost targets)
+    private int ghostTargetOffensiveBonus;
 
     // Tac Ops HeatSink Coolant Failure number
     protected int heatSinkCoolantFailureFactor;
@@ -5994,26 +6000,59 @@ public abstract class Entity extends TurnOrdered
         if ((ghostTargetRoll == null) || (active && (getGhostTargetRollMoS() < 0)) || isShutDown()) {
             return false;
         }
-        boolean hasGhost = false;
         for (MiscMounted m : getMisc()) {
-            MiscType type = m.getType();
-            // TacOps p. 100 Angle ECM can have ECM/ECCM and Ghost Targets at
-            // the same time
-            if (type.hasFlag(MiscType.F_ECM) &&
-                  (m.curMode().equals("Ghost Targets") ||
-                        m.curMode().equals("ECM & Ghost Targets") ||
-                        m.curMode().equals("ECCM & Ghost Targets")) &&
-                  !(m.isInoperable() || getCrew().isUnconscious())) {
-                hasGhost = true;
-            }
-            if (type.hasFlag(MiscType.F_COMMUNICATIONS) &&
-                  m.curMode().equals("Ghost Targets") &&
-                  (getTotalCommGearTons() >= 7) &&
-                  !(m.isInoperable() || getCrew().isUnconscious())) {
-                hasGhost = true;
+            if (isGhostTargetCapable(m)) {
+                return true;
             }
         }
-        return hasGhost;
+        return false;
+    }
+
+    /**
+     * Checks if this entity has any equipment set to a Ghost Targets mode, without checking PSR success, spaceborne
+     * status, or shutdown state. Used for determining turn eligibility in the PRE_FIRING phase (Standard ghost target
+     * mode).
+     *
+     * @return true if the entity has qualifying equipment in a Ghost Targets mode
+     */
+    public boolean hasGhostTargetEquipment() {
+        for (MiscMounted m : getMisc()) {
+            if (isGhostTargetCapable(m)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the given equipment is currently set to a Ghost Targets mode and is operational. Used by both
+     * turn eligibility checks and equipment selection in the PRE_FIRING phase.
+     *
+     * @param equipment the misc equipment to check
+     *
+     * @return true if this equipment is generating ghost targets
+     */
+    public boolean isGhostTargetCapable(MiscMounted equipment) {
+        if (equipment.isInoperable() || getCrew().isUnconscious()) {
+            return false;
+        }
+        MiscType type = equipment.getType();
+        if (type.hasFlag(MiscType.F_ECM)
+              && (equipment.curMode().equals("Ghost Targets")
+              || equipment.curMode().equals("ECM & Ghost Targets")
+              || equipment.curMode().equals("ECCM & Ghost Targets"))) {
+            return true;
+        }
+        if (type.hasFlag(MiscType.F_COMMUNICATIONS)
+              && equipment.curMode().equals("Ghost Targets")
+              && (getTotalCommGearTons() >= 7)) {
+            return true;
+        }
+        if (type.hasFlag(MiscType.F_COMMAND_CONSOLE)
+              && equipment.curMode().equals("Ghost Targets")) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -7318,9 +7357,13 @@ public abstract class Entity extends TurnOrdered
             activeSensor = nextSensor;
         }
 
-        // ghost target roll
+        // ghost target roll (Legacy mode)
         ghostTargetRoll = Compute.rollD6(2);
         ghostTargetOverride = Compute.d6(2);
+
+        // clear Standard mode ghost target bonuses
+        ghostTargetDefensiveBonus = 0;
+        ghostTargetOffensiveBonus = 0;
 
         // update fatigue count
         if ((null != crew) && isDeployed()) {
@@ -10761,7 +10804,17 @@ public abstract class Entity extends TurnOrdered
 
         // Hidden units are always eligible for PRE phases
         if (phase.isPremovement() || phase.isPreFiring()) {
-            return isHidden();
+            if (isHidden()) {
+                return true;
+            }
+            // Standard ghost target mode: entities with ghost target equipment
+            // are eligible during PRE_FIRING to assign targets
+            if (phase.isPreFiring() && hasGhostTargetEquipment()
+                  && (game != null)
+                  && game.usesStandardGhostTargetMode()) {
+                return true;
+            }
+            return false;
         }
 
         // Hidden units shouldn't be counted for turn order, unless deploying or firing (spotting)
@@ -13197,6 +13250,16 @@ public abstract class Entity extends TurnOrdered
 
                 misc.getType().setModes(modes.toArray(stringArray));
             }
+
+            // Vehicle Cockpit Command Console: add Ghost Targets mode when option is enabled
+            if (misc.getType().hasFlag(MiscType.F_COMMAND_CONSOLE)
+                  && gameOpts.booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)) {
+                ArrayList<String> modes = new ArrayList<>();
+                modes.add("Default");
+                modes.add("Ghost Targets");
+                misc.getType().setModes(modes.toArray(new String[0]));
+                misc.getType().setInstantModeSwitch(false);
+            }
         }
     }
 
@@ -13400,6 +13463,40 @@ public abstract class Entity extends TurnOrdered
 
     public int getGhostTargetOverride() {
         return ghostTargetOverride;
+    }
+
+    /**
+     * @return the accumulated to-hit bonus for attacks AGAINST this unit from friendly ghost targets (Standard mode
+     *       only, per TO:AR)
+     */
+    public int getGhostTargetDefensiveBonus() {
+        return ghostTargetDefensiveBonus;
+    }
+
+    /**
+     * @return the accumulated to-hit bonus for attacks BY this unit from enemy ghost targets (Standard mode only, per
+     *       TO:AR)
+     */
+    public int getGhostTargetOffensiveBonus() {
+        return ghostTargetOffensiveBonus;
+    }
+
+    /**
+     * Increment the defensive ghost target bonus (attacks against this unit are harder). Capped at +3 per TO:AR rules.
+     *
+     * @param amount the amount to add (typically +1 per successful ghost target roll)
+     */
+    public void addGhostTargetDefensiveBonus(int amount) {
+        ghostTargetDefensiveBonus = Math.min(3, ghostTargetDefensiveBonus + amount);
+    }
+
+    /**
+     * Increment the offensive ghost target bonus (attacks by this unit are harder). Capped at +3 per TO:AR rules.
+     *
+     * @param amount the amount to add (typically +1 per successful ghost target roll)
+     */
+    public void addGhostTargetOffensiveBonus(int amount) {
+        ghostTargetOffensiveBonus = Math.min(3, ghostTargetOffensiveBonus + amount);
     }
 
     public int getCoolantFailureAmount() {

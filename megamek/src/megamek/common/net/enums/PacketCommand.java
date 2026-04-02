@@ -77,6 +77,7 @@ public enum PacketCommand {
     ENTITY_ATTACK,
 
     ENTITY_PREPHASE,
+    ENTITY_GHOST_TARGET,
     ENTITY_GTA_HEX_SELECT,
 
     /** A packet informing the receiver of an unspecified change to a unit. */
