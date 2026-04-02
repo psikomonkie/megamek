@@ -6670,7 +6670,7 @@ public class Compute {
      */
     public static int computeTotalDamage(WeaponMounted weapon) {
         int totalDmg = 0;
-        if (!weapon.isBombMounted() && !weapon.isCrippled()) {
+        if (!weapon.isCrippled()) {
             WeaponType type = weapon.getType();
             if (type.getDamage() == WeaponType.DAMAGE_VARIABLE) {
                 // Estimate rather than compute exact bay / trooper damage sum.
