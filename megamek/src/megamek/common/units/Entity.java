@@ -1105,7 +1105,7 @@ public abstract class Entity extends TurnOrdered
         boolean hasRangeSixPlus = false;
         List<WeaponMounted> weaponList = getTotalWeaponList();
         for (WeaponMounted weapon : weaponList) {
-            if (weapon.isCrippled()) {
+            if (weapon.isBombMounted() || weapon.isCrippled()) {
                 continue;
             }
             if (weapon.getType().getLongRange() >= 6) {
