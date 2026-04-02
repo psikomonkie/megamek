@@ -361,6 +361,9 @@ public class TWGameManager extends AbstractGameManager {
         this.game.getForces().setGame(this.game);
 
         rebuildCombatTrackerFromEntityStates(infantryActionTracker);
+
+        // Rebuild cut hex rendering state from the serialized tracker
+        sendCutHexesUpdate();
     }
 
     /**
@@ -11354,10 +11357,6 @@ public class TWGameManager extends AbstractGameManager {
         // Physical phase header
         addReport(new Report(4000, Report.PUBLIC));
 
-        // Process completions from PRIOR round's clearing before resolving new attacks.
-        // Must be after the phase header so completion reports appear under "Physical Attack Phase".
-        processWoodsClearingCompletions();
-
         // add any pending charges
         for (Enumeration<AttackAction> i = game.getCharges(); i.hasMoreElements(); ) {
             game.addAction(i.nextElement());
@@ -16251,11 +16250,12 @@ public class TWGameManager extends AbstractGameManager {
     }
 
     /**
-     * Processes completed woods clearing operations at the start of the physical phase.
+     * Processes completed woods clearing operations at the end of the physical phase.
      *
-     * <p>Checks all hexes being cleared and applies terrain reduction for any that
-     * have accumulated enough work turns. Also sets the clearingWoods flag on entities that were clearing last round
-     * (for the firing penalty).</p>
+     * <p>Called after all clearing declarations are resolved. Per TW p.112, terrain converts
+     * immediately when the threshold is met, so this runs in the same phase as the declarations.
+     * Checks all hexes being cleared and applies terrain reduction for any that
+     * have accumulated enough work turns.</p>
      */
     void processWoodsClearingCompletions() {
         List<BoardLocation> completed = game.getWoodsClearingTracker().processNewRound();

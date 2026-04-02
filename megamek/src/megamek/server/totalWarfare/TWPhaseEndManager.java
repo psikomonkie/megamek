@@ -175,6 +175,9 @@ record TWPhaseEndManager(TWGameManager gameManager) {
             case PHYSICAL:
                 gameManager.resolveWhatPlayersCanSeeWhatUnits();
                 gameManager.resolvePhysicalAttacks();
+                // Process woods clearing completions after all declarations are resolved.
+                // Per TW p.112, terrain converts immediately when threshold is met.
+                gameManager.processWoodsClearingCompletions();
                 gameManager.resolveBoobyTraps(); // booby trap says it resolves "immediately"... could be problematic
                 gameManager.applyBuildingDamage();
                 gameManager.checkForPSRFromDamage();
