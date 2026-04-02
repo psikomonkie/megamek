@@ -421,6 +421,7 @@ public abstract class Entity extends TurnOrdered
      * 1slot) searchlight.
      */
     protected boolean hasExternalSearchlight = false;
+    protected boolean searchlightOverride = false;
     protected boolean illuminated = false;
     protected boolean searchlightIsActive = false;
     protected boolean usedSearchlight = false;
@@ -4473,8 +4474,8 @@ public abstract class Entity extends TurnOrdered
      * Adds the given mounted equipment to the unit in the given location, possibly rear-facing depending on the given
      * parameter. This method adds the mounted to the right equipment lists, updates the unit's tech level and adds
      * one-shot ammo where necessary. Overriding methods may perform more tasks. This method, by default, does *NOT*
-     * create crit slots, update or add linkages nor handle secondary locations. Overrides for unit types may however
-     * do that.
+     * create crit slots, update or add linkages nor handle secondary locations. Overrides for unit types may however do
+     * that.
      *
      * @param mounted     The new equipment
      * @param loc         The location; may be Entity.LOC_NONE
@@ -5128,7 +5129,7 @@ public abstract class Entity extends TurnOrdered
     /**
      * Check if the entity has an arbitrary type of misc equipment
      *
-     * @param flag      A MiscType.F_XXX
+     * @param flag          A MiscType.F_XXX
      * @param secondaryFlag A MiscType.S_XXX or null for don't care
      *
      * @return true if at least one ready item.
@@ -5292,9 +5293,9 @@ public abstract class Entity extends TurnOrdered
     /**
      * Check if the entity has an arbitrary type of misc equipment
      *
-     * @param flag      A MiscType.F_XXX
+     * @param flag          A MiscType.F_XXX
      * @param secondaryFlag A MiscType.S_XXX or null for don't care
-     * @param location  The location to check e.g. Mek.LOC_LEFT_ARM
+     * @param location      The location to check e.g. Mek.LOC_LEFT_ARM
      *
      * @return true if at least one ready item.
      */
@@ -5471,8 +5472,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Adds a critical to the first available slot in the location. If the location is invalid or Entity.LOC_NONE,
-     * this method does nothing.
+     * Adds a critical to the first available slot in the location. If the location is invalid or Entity.LOC_NONE, this
+     * method does nothing.
      *
      * @return true if there was room for the critical
      */
@@ -6316,9 +6317,9 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Returns whether this entity has a Targeting Computer or EI Interface that is in aimed shot mode.
-     * This also returns true for Triple-Core Processor + VDNI/BVDNI combinations,
-     * which grant aimed shot capability as if equipped with a Targeting Computer.
+     * Returns whether this entity has a Targeting Computer or EI Interface that is in aimed shot mode. This also
+     * returns true for Triple-Core Processor + VDNI/BVDNI combinations, which grant aimed shot capability as if
+     * equipped with a Targeting Computer.
      */
     public boolean hasAimModeTargComp() {
         // Active EI Interface grants aimed shot capability (IO p.69)
@@ -6928,8 +6929,7 @@ public abstract class Entity extends TurnOrdered
                 master = m.getC3Master();
             } else if ((m.hasBoostedC3() &&
                   !ComputeECM.isAffectedByAngelECM(m, m.getPosition(), master.getPosition())) ||
-                  !(ComputeECM.isAffectedByECM(m, m.getPosition(), master.getPosition())))
-            {
+                  !(ComputeECM.isAffectedByECM(m, m.getPosition(), master.getPosition()))) {
                 if ((master.hasBoostedC3() &&
                       !ComputeECM.isAffectedByAngelECM(master, master.getPosition(), master.getPosition())) ||
                       !(ComputeECM.isAffectedByECM(master, master.getPosition(), master.getPosition()))) {
@@ -6940,9 +6940,13 @@ public abstract class Entity extends TurnOrdered
                     // Somehow still failed; this should not be possible!
                     throw new IllegalStateException(
                           "C3 slave/master connection not affected by ECM/AECM but master is!" +
-                          String.format(
-                            "\nSlave: %s @ %s\nMaster: %s @ %s", m, master, m.getPosition(), master.getPosition()
-                          )
+                                String.format(
+                                      "\nSlave: %s @ %s\nMaster: %s @ %s",
+                                      m,
+                                      master,
+                                      m.getPosition(),
+                                      master.getPosition()
+                                )
                     );
                 }
             } else {
@@ -9398,8 +9402,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     *  Clear the Vector of picked-up MekWarrior IDs so that MegaMek issue #3191 does not recur.
-     *  Called when units are initially added to the game (as they should have no carried pilots then).
+     * Clear the Vector of picked-up MekWarrior IDs so that MegaMek issue #3191 does not recur. Called when units are
+     * initially added to the game (as they should have no carried pilots then).
      */
     public void resetPickedUpMekWarriors() {
         pickedUpMekWarriors.clear();
@@ -11086,9 +11090,9 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Determines if this entity can be boarded by infantry for interior combat.
-     * Used for TO:AR p. 167 Infantry vs Infantry combat eligibility as a target for initiation.
-     * This will eventually include dropships, large naval vessels, and other boardable entities.
+     * Determines if this entity can be boarded by infantry for interior combat. Used for TO:AR p. 167 Infantry vs
+     * Infantry combat eligibility as a target for initiation. This will eventually include dropships, large naval
+     * vessels, and other boardable entities.
      *
      * @return true if infantry can board this entity to initiate interior combat
      */
@@ -11389,6 +11393,14 @@ public abstract class Entity extends TurnOrdered
             setSearchlightState(false);
         }
 
+    }
+
+    public void setSearchlightOverride(boolean arg) {
+        searchlightOverride = arg;
+    }
+
+    public boolean getSearchlightOverride() {
+        return searchlightOverride;
     }
 
     public void setSearchlightState(boolean arg) {
@@ -11991,14 +12003,14 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Checks if a neural interface system is active based on implant and hardware requirements.
-     * When tracking neural interface hardware, requires both implant and hardware.
-     * When not tracking, implant alone is sufficient.
+     * Checks if a neural interface system is active based on implant and hardware requirements. When tracking neural
+     * interface hardware, requires both implant and hardware. When not tracking, implant alone is sufficient.
      *
      * <p>This is a shared helper for DNI and EI systems which follow the same pattern.</p>
      *
-     * @param hasImplant whether the pilot has the required implant
+     * @param hasImplant  whether the pilot has the required implant
      * @param hasHardware whether the unit has the required hardware
+     *
      * @return true if the neural interface is considered active
      */
     private boolean isNeuralInterfaceActive(boolean hasImplant, boolean hasHardware) {
@@ -12041,8 +12053,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Sets the EI shutdown state by changing the EI Interface equipment mode. ProtoMeks and units with MDI cannot
-     * shut down EI. Per IO p.69, EI can be voluntarily shut down during the End Phase.
+     * Sets the EI shutdown state by changing the EI Interface equipment mode. ProtoMeks and units with MDI cannot shut
+     * down EI. Per IO p.69, EI can be voluntarily shut down during the End Phase.
      *
      * @param shutdown true to shut down EI (set to "Off" mode), false to activate it (set to "On" mode)
      */
@@ -13988,8 +14000,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Gets the obsolete quirk value as a raw string.
-     * Format is comma-separated years: "obsoleteYear,reintroYear,obsoleteYear2,reintroYear2,..."
+     * Gets the obsolete quirk value as a raw string. Format is comma-separated years:
+     * "obsoleteYear,reintroYear,obsoleteYear2,reintroYear2,..."
      *
      * @return The raw obsolete quirk string, or empty string if not set
      */
@@ -14006,8 +14018,8 @@ public abstract class Entity extends TurnOrdered
     public static final String OBSOLETE_UNKNOWN_MARKER = "unknown";
 
     /**
-     * Parses the obsolete quirk value into a list of years.
-     * Format: "obsoleteYear,reintroYear,obsoleteYear2,..." where pairs define obsolete periods.
+     * Parses the obsolete quirk value into a list of years. Format: "obsoleteYear,reintroYear,obsoleteYear2,..." where
+     * pairs define obsolete periods.
      *
      * @return List of years parsed from the obsolete quirk, empty list if not set or if set to "unknown"
      */
@@ -14041,8 +14053,8 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Gets the first year when production of this obsolete unit ceased.
-     * Kept for backward compatibility - use isObsoleteInYear() for full cycle support.
+     * Gets the first year when production of this obsolete unit ceased. Kept for backward compatibility - use
+     * isObsoleteInYear() for full cycle support.
      *
      * @return The first year production ceased, or 0 if the unit doesn't have the Obsolete quirk
      */
@@ -14117,10 +14129,11 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Calculates the repair/parts target number modifier for an obsolete unit.
-     * Per the rules: +1 TN per 15 years after production ceased, maximum +5.
+     * Calculates the repair/parts target number modifier for an obsolete unit. Per the rules: +1 TN per 15 years after
+     * production ceased, maximum +5.
      *
      * @param gameYear The current game year
+     *
      * @return The TN modifier (0 to +5), or 0 if not obsolete
      */
     public int getObsoleteRepairModifier(int gameYear) {
@@ -14134,10 +14147,11 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Calculates the resale price modifier for an obsolete unit.
-     * Per the rules: -10% per 20 years after production ceased, minimum 50%.
+     * Calculates the resale price modifier for an obsolete unit. Per the rules: -10% per 20 years after production
+     * ceased, minimum 50%.
      *
      * @param gameYear The current game year
+     *
      * @return The resale multiplier (0.5 to 1.0), or 1.0 if not obsolete
      */
     public double getObsoleteResaleModifier(int gameYear) {
