@@ -61,7 +61,6 @@ import megamek.client.ui.clientGUI.ClientGUI;
 import megamek.client.ui.util.StringDrawer;
 import megamek.client.ui.util.UIUtil;
 import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
-import megamek.common.Configuration;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
 import megamek.common.battleArmor.BattleArmor;
