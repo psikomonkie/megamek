@@ -47,6 +47,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Vector;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.ChangeEvent;
 
 import megamek.client.ui.Messages;
 import megamek.common.annotations.Nullable;
@@ -59,8 +61,10 @@ import megamek.common.equipment.Mounted;
 import megamek.common.equipment.WeaponType;
 import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.exceptions.LocationFullException;
+import megamek.common.ui.SmallFontHelpTextLabel;
 import megamek.common.units.BaConstructionUtil;
 import megamek.common.units.ConstructionUtil;
+import megamek.common.util.RoundWeight;
 import megamek.common.verifier.TestBattleArmor;
 import megamek.common.verifier.TestEntity;
 
@@ -81,11 +85,19 @@ class BaManipulatorChoicePanel extends JPanel {
 
     private final SpinnerNumberModel cargoLifterCapacityModel = new SpinnerNumberModel(0.5, 0.5, 80, 0.5);
     private final JSpinner cargoLifterCapacity = new JSpinner(cargoLifterCapacityModel);
-    private final JLabel lblSize = createLabel("Capacity:");
+    private final JLabel cargoLiftWeightInfo = new SmallFontHelpTextLabel();
+    private final JLabel cargoLifterSizeLabel = new JLabel(Messages.getString("CustomMekDialog.ba.cargoCapacity"),
+          SwingConstants.RIGHT);
+    private final JLabel gloveChoiceLabel = new JLabel(Messages.getString("CustomMekDialog.ba.armGloveWeapon"),
+          SwingConstants.RIGHT);
+    private final JLabel lblfreeWeight = new JLabel("", SwingConstants.CENTER);
 
     private final JComboBox<String> armoredGloveWeaponSelect = new JComboBox<>();
 
     private final BattleArmor battleArmor;
+
+    /** Used for weight calculation only, not added to the unit. */
+    private final MiscMounted cargoLifterTemporaryItem;
 
     private boolean ignoreEvents = false;
     private boolean allowEditing = true;
@@ -95,19 +107,18 @@ class BaManipulatorChoicePanel extends JPanel {
     BaManipulatorChoicePanel(BattleArmor battleArmor, List<WeaponType> agWeaponTypes) {
         this.battleArmor = battleArmor;
         this.agWeaponTypes.addAll(agWeaponTypes);
+        cargoLifterTemporaryItem = new MiscMounted(battleArmor,
+              (MiscType) EquipmentType.get(EquipmentTypeLookup.BA_MANIPULATOR_CARGO_LIFTER));
 
         Vector<String> agWeaponNames = new Vector<>();
         agWeaponNames.add("None");
         agWeaponNames.addAll(agWeaponTypes.stream().map(EquipmentType::getName).toList());
         armoredGloveWeaponSelect.setModel(new DefaultComboBoxModel<>(agWeaponNames));
 
-        // We need to determine how much weight is free, so the user can pick legal combinations of manipulators
-        double maxActualTrooperTonnage = getMaxTrooperWeight(battleArmor);
-        double freeTonnage = battleArmor.getTrooperWeight() - maxActualTrooperTonnage;
-        String freeWeight = Messages.getString("CustomMekDialog.freeWeight", (int) (freeTonnage * 1000));
-
         leftManipulatorSelect.setRenderer(new ManipulatorRenderer(leftManipulatorSelect));
         rightManipulatorSelect.setRenderer(new ManipulatorRenderer(rightManipulatorSelect));
+
+        lblfreeWeight.setBorder(new EmptyBorder(10, 0, 0, 0));
 
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -116,11 +127,14 @@ class BaManipulatorChoicePanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         gbc.gridwidth = GridBagConstraints.REMAINDER;
-        add(new JLabel(freeWeight, SwingConstants.CENTER), gbc);
+        add(lblfreeWeight, gbc);
         gbc.gridwidth = 1;
 
         gbc.gridy++;
-        add(createLabel("Left Arm:"), gbc);
+        add(Box.createVerticalStrut(10), gbc);
+
+        gbc.gridy++;
+        add(new JLabel(Messages.getString("CustomMekDialog.ba.leftArm"), SwingConstants.RIGHT), gbc);
         add(leftManipulatorSelect, gbc);
 
         gbc.gridy++;
@@ -131,7 +145,7 @@ class BaManipulatorChoicePanel extends JPanel {
         add(Box.createVerticalStrut(10), gbc);
 
         gbc.gridy++;
-        add(createLabel("Right Arm:"), gbc);
+        add(new JLabel(Messages.getString("CustomMekDialog.ba.rightArm"), SwingConstants.RIGHT), gbc);
         add(rightManipulatorSelect, gbc);
 
         gbc.gridy++;
@@ -142,16 +156,21 @@ class BaManipulatorChoicePanel extends JPanel {
         add(Box.createVerticalStrut(10), gbc);
 
         gbc.gridy++;
-        add(lblSize, gbc);
+        add(cargoLifterSizeLabel, gbc);
         add(cargoLifterCapacity, gbc);
 
         gbc.gridy++;
-        add(createLabel("Armored Glove:"), gbc);
+        add(new JLabel(), gbc);
+        add(cargoLiftWeightInfo, gbc);
+
+        gbc.gridy++;
+        add(gloveChoiceLabel, gbc);
         add(armoredGloveWeaponSelect, gbc);
 
         setValuesFromBattleArmor();
         leftManipulatorSelect.addActionListener(this::manipulatorSelected);
         rightManipulatorSelect.addActionListener(this::manipulatorSelected);
+        cargoLifterCapacity.addChangeListener(this::cargoLifterSizeChanged);
         updateAfterChange();
     }
 
@@ -164,11 +183,7 @@ class BaManipulatorChoicePanel extends JPanel {
                 maxTrooperWeight = trooperWeight;
             }
         }
-        return maxTrooperWeight;
-    }
-
-    private JLabel createLabel(String text) {
-        return new JLabel(text, SwingConstants.RIGHT);
+        return maxTrooperWeight * 1000;
     }
 
     /**
@@ -177,6 +192,17 @@ class BaManipulatorChoicePanel extends JPanel {
     void setValuesFromBattleArmor() {
         try {
             ignoreEvents = true;
+
+            boolean hasLeftModularEquipmentAdaptor =
+                  battleArmor.hasMiscInMountLocation(BA_MODULAR_EQUIPMENT_ADAPTOR, MOUNT_LOC_LEFT_ARM);
+            boolean hasRightModularEquipmentAdaptor =
+                  battleArmor.hasMiscInMountLocation(BA_MODULAR_EQUIPMENT_ADAPTOR, MOUNT_LOC_RIGHT_ARM);
+
+            double maxActualTrooperKg = getMaxTrooperWeight(battleArmor);
+            double freeKg =
+                  Math.round(battleArmor.getTrooperWeight() * 1000 - maxActualTrooperKg + totalManipulatorKg());
+            lblfreeWeight.setText(Messages.getString("CustomMekDialog.ba.freeWeight", freeKg));
+            lblfreeWeight.setVisible(hasLeftModularEquipmentAdaptor || hasRightModularEquipmentAdaptor);
 
             Vector<BAManipulator> validManipulators = new Vector<>(Arrays.asList(BAManipulator.values()));
             if (battleArmor.countMisc(BA_MODULAR_EQUIPMENT_ADAPTOR) == 1) {
@@ -195,10 +221,8 @@ class BaManipulatorChoicePanel extends JPanel {
                 rightManipulatorSelect.setSelectedItem(rightManipulator);
             }
 
-            leftModularSelector.setSelected(
-                  battleArmor.hasMiscInMountLocation(BA_MODULAR_EQUIPMENT_ADAPTOR, MOUNT_LOC_LEFT_ARM));
-            rightModularSelector.setSelected(
-                  battleArmor.hasMiscInMountLocation(BA_MODULAR_EQUIPMENT_ADAPTOR, MOUNT_LOC_RIGHT_ARM));
+            leftModularSelector.setSelected(hasLeftModularEquipmentAdaptor);
+            rightModularSelector.setSelected(hasRightModularEquipmentAdaptor);
 
             leftModularSelector.setEnabled(false);
             rightModularSelector.setEnabled(false);
@@ -224,14 +248,27 @@ class BaManipulatorChoicePanel extends JPanel {
         rightManipulatorSelect.setEnabled(allowEditing
               && !leftManipulatorItem.pairMounted
               && rightModularSelector.isSelected());
+
         cargoLifterCapacity.setVisible(leftManipulatorItem == BAManipulator.CARGO_LIFTER);
-        lblSize.setVisible(cargoLifterCapacity.isVisible());
+        cargoLifterSizeLabel.setVisible(cargoLifterCapacity.isVisible());
         cargoLifterCapacity.setEnabled(allowEditing);
+
+        cargoLifterTemporaryItem.setSize(cargoLifterCapacityModel.getNumber().doubleValue());
+        cargoLiftWeightInfo.setText(Messages.getString("CustomMekDialog.ba.cargoLifterWeight",
+              cargoLifterTemporaryItem.getTonnage(RoundWeight.NEAREST_KG) * 2 * 1000));
+        cargoLiftWeightInfo.setVisible(cargoLifterCapacity.isVisible());
+
         boolean hasArmoredGlove = selectedManipulatorItem(leftManipulatorSelect) == BAManipulator.ARMORED_GLOVE
               || selectedManipulatorItem(rightManipulatorSelect) == BAManipulator.ARMORED_GLOVE;
         armoredGloveWeaponSelect.setVisible(hasArmoredGlove);
+        gloveChoiceLabel.setVisible(hasArmoredGlove);
     }
 
+    /**
+     * Eventhandler for selecting a manipulator in one of the two dropdowns
+     *
+     * @param event the Swing event
+     */
     public void manipulatorSelected(ActionEvent event) {
         if (ignoreEvents) {
             return;
@@ -257,6 +294,18 @@ class BaManipulatorChoicePanel extends JPanel {
         } finally {
             ignoreEvents = false;
         }
+    }
+
+    /**
+     * Eventhandler for changing Cargo Lifter size
+     *
+     * @param event the Swing event
+     */
+    public void cargoLifterSizeChanged(ChangeEvent event) {
+        if (ignoreEvents) {
+            return;
+        }
+        updateAfterChange();
     }
 
     /**
@@ -426,5 +475,13 @@ class BaManipulatorChoicePanel extends JPanel {
             }
             return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus);
         }
+    }
+
+    private double totalManipulatorKg() {
+        return 1000 * battleArmor.getMisc()
+              .stream()
+              .filter(m -> m.getType().hasFlag(MiscTypeFlag.F_BA_MANIPULATOR))
+              .mapToDouble(Mounted::getTonnage)
+              .sum();
     }
 }

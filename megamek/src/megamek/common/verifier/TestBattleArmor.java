@@ -180,7 +180,7 @@ public class TestBattleArmor extends TestEntity {
             return null;
         }
 
-        public MiscType getMiscMounted() {
+        public MiscType miscType() {
             return (MiscType) EquipmentType.get(internalName);
         }
     }

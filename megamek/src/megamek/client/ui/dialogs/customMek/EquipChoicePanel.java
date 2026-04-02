@@ -33,6 +33,7 @@
  */
 package megamek.client.ui.dialogs.customMek;
 
+import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.io.Serial;
@@ -50,12 +51,15 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 import javax.swing.border.TitledBorder;
 
 import megamek.client.Client;
 import megamek.client.ui.GBC;
 import megamek.client.ui.Messages;
 import megamek.client.ui.clientGUI.ClientGUI;
+import megamek.client.ui.util.StringDrawer;
+import megamek.client.ui.util.UIUtil;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
 import megamek.common.battleArmor.BattleArmor;
@@ -140,14 +144,19 @@ public class EquipChoicePanel extends JPanel {
     private InfantryArmorPanel panInfArmor;
     private BombChoicePanel m_bombs;
 
+    StringDrawer nothingToConfigureText =
+          new StringDrawer("No configurable equipment.")
+//                .at(getWidth() / 2, getHeight() / 2)
+                .center()
+                .color(UIManager.getColor("Label.disabledForeground"));
+
     public EquipChoicePanel(Entity entity, ClientGUI clientgui, Client client) {
         this.entity = entity;
         this.clientgui = clientgui;
         this.client = client;
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
 
-        GridBagLayout g = new GridBagLayout();
-        setLayout(g);
+        setLayout(new GridBagLayout());
 
         // **EQUIPMENT TAB**//
         // Auto-eject checkbox and conditional ejections.
@@ -288,7 +297,9 @@ public class EquipChoicePanel extends JPanel {
                   Messages.getString("CustomMekDialog.MunitionsPanelTitle"),
                   TitledBorder.TOP,
                   TitledBorder.DEFAULT_POSITION));
-            add(panMunitions, GBC.eop().anchor(GridBagConstraints.CENTER));
+            if (panMunitions.getComponentCount() > 0) {
+                add(panMunitions, GBC.eop().anchor(GridBagConstraints.CENTER));
+            }
 
             // We have a starting loadout only if we have a ClientGUI
             if (clientgui != null) {
@@ -297,7 +308,9 @@ public class EquipChoicePanel extends JPanel {
                       Messages.getString("CustomMekDialog.WeaponSelectionTitle"),
                       TitledBorder.TOP,
                       TitledBorder.DEFAULT_POSITION));
-                add(panWeaponAmmoSelector, GBC.eop().anchor(GridBagConstraints.CENTER));
+                if (panWeaponAmmoSelector.getComponentCount() > 0) {
+                    add(panWeaponAmmoSelector, GBC.eop().anchor(GridBagConstraints.CENTER));
+                }
             }
         }
 
@@ -409,7 +422,9 @@ public class EquipChoicePanel extends JPanel {
 
         // Set up mines
         setupMines();
-        add(panMines, GBC.eop().anchor(GridBagConstraints.CENTER));
+        if (panMines.getComponentCount()>0) {
+            add(panMines, GBC.eop().anchor(GridBagConstraints.CENTER));
+        }
     }
 
     private void refreshC3() {
@@ -847,7 +862,9 @@ public class EquipChoicePanel extends JPanel {
         }
 
         // update modular equipment adaptor selections
-        panBaManipulators.applyChoice();
+        if (panBaManipulators != null) {
+            panBaManipulators.applyChoice();
+        }
 
         // update munitions selections
         for (final MunitionChoicePanel munitions : m_vMunitions) {
@@ -1046,5 +1063,14 @@ public class EquipChoicePanel extends JPanel {
      */
     public void setEICockpitSelected(boolean selected) {
         chEICockpit.setSelected(selected);
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (getComponentCount() == 0) {
+            UIUtil.setHighQualityRendering(g);
+            nothingToConfigureText.at(getWidth() / 2, getHeight() / 2).draw(g);
+        }
     }
 }
