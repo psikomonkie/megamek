@@ -362,8 +362,11 @@ public class TWGameManager extends AbstractGameManager {
 
         rebuildCombatTrackerFromEntityStates(infantryActionTracker);
 
-        // Rebuild cut hex rendering state from the serialized tracker
-        sendCutHexesUpdate();
+        // Rebuild cut hex rendering state from the serialized tracker.
+        // Only update the Game object here - clients aren't connected yet during load.
+        // The packet will be sent when clients reconnect and receive the full game state.
+        Map<BoardLocation, Integer> cutHexes = this.game.getWoodsClearingTracker().getTurnsRemainingPerHex();
+        this.game.setHexesBeingCut(cutHexes);
     }
 
     /**
