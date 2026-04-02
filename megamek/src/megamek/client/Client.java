@@ -355,6 +355,19 @@ public class Client extends AbstractClient {
     }
 
     /**
+     * Send a ghost target action to the server (Standard mode, TO:AR rules). The server performs the Piloting+3 roll
+     * and derives friendliness from entity ownership.
+     *
+     * @param sourceEntityId   the entity generating the ghost target
+     * @param equipmentId      the equipment number on the source entity
+     * @param targetEntityId   the entity being targeted
+     */
+    public void sendGhostTargetAction(int sourceEntityId, int equipmentId, int targetEntityId) {
+        send(new Packet(PacketCommand.ENTITY_GHOST_TARGET,
+              sourceEntityId, equipmentId, targetEntityId));
+    }
+
+    /**
      * Send the game options to the server
      */
     public void sendGameOptions(String password, Vector<IBasicOption> options) {
