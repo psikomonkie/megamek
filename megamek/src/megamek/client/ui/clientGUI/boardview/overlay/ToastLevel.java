@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -30,40 +30,33 @@
  * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
  * affiliated with Microsoft.
  */
+package megamek.client.ui.clientGUI.boardview.overlay;
 
-package megamek.common.turns;
-
-import megamek.common.annotations.Nullable;
-import megamek.common.game.Game;
-import megamek.common.game.GameTurn;
-import megamek.common.units.Entity;
+import java.awt.Color;
 
 /**
- * Prephase turn used for revealing hidden units and for Standard mode ghost target assignment during PRE_FIRING.
+ * Severity levels for board toast notifications. Each level defines a background color and default display duration
+ * appropriate for the urgency of the message. Callers may override the duration for specific toasts.
  */
-public class PrephaseTurn extends GameTurn {
+public enum ToastLevel {
+    INFO(new Color(41, 98, 168), 3000),
+    SUCCESS(new Color(46, 125, 50), 3000),
+    WARNING(new Color(183, 134, 11), 4000),
+    ERROR(new Color(176, 42, 42), 5000);
 
-    public PrephaseTurn(int playerId) {
-        super(playerId);
+    private final Color backgroundColor;
+    private final int defaultDurationMs;
+
+    ToastLevel(Color backgroundColor, int defaultDurationMs) {
+        this.backgroundColor = backgroundColor;
+        this.defaultDurationMs = defaultDurationMs;
     }
 
-    @Override
-    public boolean isValidEntity(@Nullable Entity entity, Game game, boolean useValidNonInfantryCheck) {
-        if (!super.isValidEntity(entity, game, useValidNonInfantryCheck)) {
-            return false;
-        }
+    public Color getBackgroundColor() {
+        return backgroundColor;
+    }
 
-        if (entity.isHidden()) {
-            return true;
-        }
-
-        // Standard ghost target mode: entities with ghost target equipment are valid during PRE_FIRING
-        if (game.getPhase().isPreFiring()
-              && entity.hasGhostTargetEquipment()
-              && game.usesStandardGhostTargetMode()) {
-            return true;
-        }
-
-        return false;
+    public int getDefaultDurationMs() {
+        return defaultDurationMs;
     }
 }

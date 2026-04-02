@@ -191,6 +191,7 @@ public record TWPhasePreparationManager(TWGameManager gameManager) {
                 gameManager.addReport(gameManager.checkForTraitors());
                 // write End Phase header
                 gameManager.addReport(new Report(5005, Report.PUBLIC));
+                gameManager.reportGhostTargetModeChanges();
                 gameManager.addReport(gameManager.resolveInternalBombHits());
                 gameManager.checkLayExplosives();
                 gameManager.resolveInfantryActions();

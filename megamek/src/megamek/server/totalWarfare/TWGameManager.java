@@ -175,6 +175,8 @@ public class TWGameManager extends AbstractGameManager {
 
     private final List<DemolitionCharge> explodingCharges = new ArrayList<>();
 
+    private final GhostTargetHelper ghostTargetHelper = new GhostTargetHelper(this);
+
     /**
      * Keeps track of what team a player requested to join.
      */
@@ -762,6 +764,9 @@ public class TWGameManager extends AbstractGameManager {
                     break;
                 case ENTITY_PREPHASE:
                     receivePrephase(packet, connId);
+                    break;
+                case ENTITY_GHOST_TARGET:
+                    ghostTargetHelper.receiveGhostTargetAction(packet, connId);
                     break;
                 case ENTITY_GTA_HEX_SELECT:
                     receiveGroundToAirHexSelectPacket(packet, connId);
@@ -10634,17 +10639,64 @@ public class TWGameManager extends AbstractGameManager {
         addReport(vDesc);
     }
 
+    /**
+     * Reports Ghost Target mode changes during the End Phase. Scans all deployed entities for ECM/Comms/CCC equipment
+     * that has a pending Ghost Targets mode change and reports the activation or deactivation to all players.
+     */
+    void reportGhostTargetModeChanges() {
+        if (!game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)) {
+            return;
+        }
+
+        for (Entity ent : game.inGameTWEntities()) {
+            if (!ent.isDeployed() || ent.isDestroyed()) {
+                continue;
+            }
+            for (MiscMounted m : ent.getMisc()) {
+                String curModeName = m.curMode().getName();
+                String pendModeName = m.pendingMode().getName();
+
+                // Skip if no pending change
+                if ("None".equals(pendModeName)) {
+                    continue;
+                }
+
+                boolean curIsGT = curModeName.contains("Ghost Targets");
+                boolean pendIsGT = pendModeName.contains("Ghost Targets");
+
+                if (pendIsGT && !curIsGT) {
+                    Report r = new Report(3640, Report.PUBLIC);
+                    r.subject = ent.getId();
+                    r.addDesc(ent);
+                    r.add(m.getName());
+                    addReport(r);
+                } else if (!pendIsGT && curIsGT) {
+                    Report r = new Report(3641, Report.PUBLIC);
+                    r.subject = ent.getId();
+                    r.addDesc(ent);
+                    r.add(m.getName());
+                    addReport(r);
+                }
+            }
+        }
+    }
+
     void reportGhostTargetRolls() {
         // run through an enumeration of deployed game entities. If they have
-        // ghost targets, then check the roll
-        // and report it
+        // ghost targets, then check the roll and report it
         Report r;
+        boolean hasGhostTargets = false;
         for (Entity ent : game.inGameTWEntities()) {
             if (ent.isDeployed() && ent.hasGhostTargets(false)) {
+                if (!hasGhostTargets) {
+                    addReport(new Report(3636, Report.PUBLIC));
+                    hasGhostTargets = true;
+                }
                 r = new Report(3630);
                 r.subject = ent.getId();
                 r.addDesc(ent);
                 // Ghost target mod is +3 per errata
+                // For BA, getCrew().getPiloting() returns the Anti-Mek skill per errata
                 int target = ent.getCrew().getPiloting() + 3;
                 if (ent.hasETypeFlag(Entity.ETYPE_PROTOMEK)) {
                     target = ent.getCrew().getGunnery() + 3;
@@ -10655,7 +10707,27 @@ public class TWGameManager extends AbstractGameManager {
                 addReport(r);
             }
         }
+        // Report override rolls for entities that may be affected by ghost targets
+        if (hasGhostTargets) {
+            for (Entity ent : game.inGameTWEntities()) {
+                if (ent.isDeployed() && !ent.isConventionalInfantry()) {
+                    Report overrideReport = new Report(3644);
+                    overrideReport.subject = ent.getId();
+                    overrideReport.addDesc(ent);
+                    overrideReport.add(ent.getGhostTargetOverride());
+                    addReport(overrideReport);
+                }
+            }
+        }
         addNewLines();
+    }
+
+    void resolveStandardGhostTargets() {
+        ghostTargetHelper.resolveStandardGhostTargets();
+    }
+
+    void addGhostTargetReports() {
+        ghostTargetHelper.addGhostTargetReports();
     }
 
     /**
@@ -26244,6 +26316,7 @@ public class TWGameManager extends AbstractGameManager {
                     }
                 }
             }
+
         } catch (Exception ex) {
             LOGGER.error("", ex);
         }
