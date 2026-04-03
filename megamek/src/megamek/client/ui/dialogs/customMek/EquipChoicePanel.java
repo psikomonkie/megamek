@@ -339,9 +339,11 @@ public class EquipChoicePanel extends JPanel {
         }
 
         // Set up DNI Cockpit Modification (IO p.83)
-        // Only show when tracking neural interface hardware is enabled
+        // Only show in Full Tracking mode (hardware + pilot required)
         // DNI is Inner Sphere tech (E/X-X-E-F) - not available for pure Clan units
-        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
+        boolean isFullTracking = OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(
+              game.getOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE));
+        if (isFullTracking) {
             // DNI cockpit mod is available for Meks, Tanks, Fighters, BA, and Support Vehicles
             // Must be IS, Mixed IS, or Mixed Clan (not pure Clan)
             boolean validUnitType = entity.isMek() || entity.isCombatVehicle() || entity.isFighter()
@@ -366,9 +368,9 @@ public class EquipChoicePanel extends JPanel {
         }
 
         // Set up EI Interface (IO p.69)
-        // Only show when tracking neural interface hardware is enabled
+        // Only show in Full Tracking mode (hardware + pilot required)
         // EI is Clan tech (F/X-X-D-D) - not available for pure IS units
-        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
+        if (isFullTracking) {
             // EI Interface is available for Meks, BA, and ProtoMeks
             // Must be Clan, Mixed Clan, or Mixed IS (not pure IS)
             boolean validUnitType = entity.isMek() || (entity instanceof BattleArmor) || entity.isProtoMek();
@@ -1047,8 +1049,10 @@ public class EquipChoicePanel extends JPanel {
             }
         }
 
-        // update DNI Cockpit Modification setting (IO p.83)
-        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
+        // update DNI Cockpit Modification setting (IO p.83) - only in Full Tracking mode
+        boolean isFullTrackingMode = OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(
+              game.getOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE));
+        if (isFullTrackingMode) {
             boolean wantsDNI = chDNICockpitMod.isSelected();
             boolean hasDNI = entity.hasDNICockpitMod();
             if (wantsDNI && !hasDNI) {
@@ -1073,8 +1077,8 @@ public class EquipChoicePanel extends JPanel {
             }
         }
 
-        // update EI Interface setting (IO p.69)
-        if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
+        // update EI Interface setting (IO p.69) - only in Full Tracking mode
+        if (isFullTrackingMode) {
             boolean wantsEI = chEICockpit.isSelected();
             boolean hasEI = entity.hasEiCockpit();
             if (wantsEI && !hasEI) {
@@ -1167,7 +1171,8 @@ public class EquipChoicePanel extends JPanel {
      */
     public void refreshNeuralInterfaceCheckboxes() {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
-        if (!game.getOptions().booleanOption(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
+        if (!OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(
+              game.getOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE))) {
             return;
         }
 

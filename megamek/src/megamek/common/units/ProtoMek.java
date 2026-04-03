@@ -1040,25 +1040,28 @@ public class ProtoMek extends Entity {
     }
 
     /**
-     * ProtoMeks always have EI built-in per IO:AE p.69. The tracking option only affects whether
-     * EI equipment counts toward tech level (handled in {@code recalculateTechAdvancement}).
+     * ProtoMeks have EI built-in per IO:AE p.69, but it is only active when neural interface rules are enabled
+     * (Pilot Abilities Only or Full Tracking mode). When Off, ProtoMeks behave as standard TW units.
      *
-     * @return always true for ProtoMeks
+     * @return true if neural interface rules are enabled, false otherwise
      */
     @Override
     public boolean hasEiCockpit() {
-        return true;
+        return isNeuralInterfaceEnabled();
     }
 
     /**
      * ProtoMeks have EI built-in and always active unless the head is damaged. Unlike other units,
      * ProtoMek pilots don't need the EI Implant option - they are neurally connected by default
-     * per IO:AE p.69.
+     * per IO:AE p.69. Returns false if neural interface rules are disabled (Off mode).
      *
-     * @return true if head is undamaged, false otherwise
+     * @return true if neural interface is enabled and head is undamaged, false otherwise
      */
     @Override
     public boolean hasActiveEiCockpit() {
+        if (!hasEiCockpit()) {
+            return false;
+        }
         return (getCritsHit(LOC_HEAD) == 0);
     }
 
