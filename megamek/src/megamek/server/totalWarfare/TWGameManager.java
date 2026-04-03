@@ -101,7 +101,6 @@ import megamek.common.options.OptionsConstants;
 import megamek.common.planetaryConditions.Atmosphere;
 import megamek.common.planetaryConditions.PlanetaryConditions;
 import megamek.common.planetaryConditions.Wind;
-import megamek.common.preference.PreferenceManager;
 import megamek.common.rolls.PilotingRollData;
 import megamek.common.rolls.Roll;
 import megamek.common.rolls.TargetRoll;
@@ -1134,13 +1133,21 @@ public class TWGameManager extends AbstractGameManager {
             // If deployment phase, set Searchlight state based on startSearchLightsOn;
             if (phase.isDeployment()) {
                 PlanetaryConditions conditions = game.getPlanetaryConditions();
-                boolean startSLOn = PreferenceManager.getClientPreferences().getStartSearchlightsOn() &&
-                      conditions.getLight().isDuskOrFullMoonOrMoonlessOrPitchBack();
+                boolean isDark = conditions.getLight().isDuskOrFullMoonOrMoonlessOrPitchBack();
+                // Get searchlight behavior (default is on)
+                boolean usingSL = game.getOptions().booleanOption(OptionsConstants.SEARCHLIGHTS_ON);
+                if (entity.getSearchlightOverride()) {
+                    // Override flips the default behavior. If on, they will be off. If off, it will be on.
+                    usingSL = !usingSL;
+                }
+                // Only turn them on when it is dark
+                boolean startSLOn = usingSL && isDark;
                 entity.setSearchlightState(startSLOn);
                 entity.setIlluminated(startSLOn);
+            } else {
+                entity.setIlluminated(false);
+                entity.setUsedSearchlight(false);
             }
-            entity.setIlluminated(false);
-            entity.setUsedSearchlight(false);
 
             entity.setCarefulStand(false);
 
@@ -6349,7 +6356,8 @@ public class TWGameManager extends AbstractGameManager {
                 // Check packet came from right ID
                 if (rp.getConnectionId() != playerId) {
                     // Re-queue packet for other handlers - don't discard it
-                    LOGGER.trace("processTeleguidedMissileCFR: re-queuing packet from wrong player {}", rp.getConnectionId());
+                    LOGGER.trace("processTeleguidedMissileCFR: re-queuing packet from wrong player {}",
+                          rp.getConnectionId());
                     cfrPacketQueue.add(rp);
                     continue;
                 }
@@ -7995,9 +8003,9 @@ public class TWGameManager extends AbstractGameManager {
      * scenario (one-use).
      * </p>
      *
-     * @param entity       The entity to check for triggering EMP mines
-     * @param coords       The coordinates to check for EMP mines
-     * @param vMineReport  Vector to collect reports from mine detonation
+     * @param entity      The entity to check for triggering EMP mines
+     * @param coords      The coordinates to check for EMP mines
+     * @param vMineReport Vector to collect reports from mine detonation
      *
      * @return true if any EMP mines were triggered
      */
@@ -29710,15 +29718,13 @@ public class TWGameManager extends AbstractGameManager {
     /**
      * Launches a Combat Vehicle Escape Pod per TO:AUE p.121.
      * <p>
-     * The crew attempts to escape via the CVEP:
-     * 1. Piloting Skill Roll +2 for launch
-     * 2. Pod travels up to 4 hexes directly behind the vehicle
-     * 3. Landing roll (MekWarrior Ejection roll) +2
-     * 4. Each failed roll results in one crewman taking a hit
-     * 5. Surviving crew become conventional foot infantry
-     * 6. Vehicle is destroyed (Crew Killed result)
+     * The crew attempts to escape via the CVEP: 1. Piloting Skill Roll +2 for launch 2. Pod travels up to 4 hexes
+     * directly behind the vehicle 3. Landing roll (MekWarrior Ejection roll) +2 4. Each failed roll results in one
+     * crewman taking a hit 5. Surviving crew become conventional foot infantry 6. Vehicle is destroyed (Crew Killed
+     * result)
      *
      * @param tank The Tank launching the escape pod
+     *
      * @return Vector of Reports for the game log
      */
     public Vector<Report> launchCombatVehicleEscapePod(Tank tank, Coords chosenLandingHex) {
@@ -29943,10 +29949,9 @@ public class TWGameManager extends AbstractGameManager {
     }
 
     /**
-     * Processes pending Mek abandonments per TacOps:AR p.165.
-     * Called during End Phase to:
-     * 1. Execute abandonments that were announced in the previous End Phase
-     * 2. Cancel abandonments if the Mek is no longer prone and shutdown (Meks only)
+     * Processes pending Mek abandonments per TacOps:AR p.165. Called during End Phase to: 1. Execute abandonments that
+     * were announced in the previous End Phase 2. Cancel abandonments if the Mek is no longer prone and shutdown (Meks
+     * only)
      */
     void processUnitAbandonments() {
         int currentRound = game.getRoundCount();
