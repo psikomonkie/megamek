@@ -36,6 +36,7 @@ package megamek.common.units;
 import megamek.common.equipment.EquipmentType;
 import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.Mounted;
+import megamek.logging.MMLogger;
 
 /**
  * Helper methods for constructing/changing Mek units. This happens mostly in MML but some units have modular
@@ -46,6 +47,8 @@ import megamek.common.equipment.Mounted;
  */
 
 public class MekConstructionUtil {
+
+    private static final MMLogger LOGGER = MMLogger.create(MekConstructionUtil.class);
 
     /**
      * For the given Mek, removes all existing Clan CASE and then re-adds it to every location that has potentially
@@ -100,6 +103,7 @@ public class MekConstructionUtil {
                 try {
                     mek.addEquipment(Mounted.createMounted(mek, clCase), i, false);
                 } catch (Exception ignored) {
+                    LOGGER.error("Unable to add Clan CASE to Mek!");
                     // 0-crit equipment shouldn't fail
                 }
             }

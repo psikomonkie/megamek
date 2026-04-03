@@ -146,9 +146,8 @@ public class EquipChoicePanel extends JPanel {
     private InfantryArmorPanel panInfArmor;
     private BombChoicePanel m_bombs;
 
-    StringDrawer nothingToConfigureText =
+    private final StringDrawer nothingToConfigureText =
           new StringDrawer("No configurable equipment.")
-//                .at(getWidth() / 2, getHeight() / 2)
                 .center()
                 .color(UIManager.getColor("Label.disabledForeground"));
 
@@ -828,7 +827,9 @@ public class EquipChoicePanel extends JPanel {
     }
 
     private void disableMEAEditing() {
-        panBaManipulators.setEnabled(false);
+        if (panBaManipulators != null) {
+            panBaManipulators.setEnabled(false);
+        }
     }
 
     private void disableMGSetting() {

@@ -77,8 +77,8 @@ import static megamek.common.verifier.TestBattleArmor.BAManipulator;
  */
 class BaManipulatorChoicePanel extends JPanel {
 
-    private final JCheckBox leftModularSelector = new JCheckBox("Modular Equipment Adaptor");
-    private final JCheckBox rightModularSelector = new JCheckBox("Modular Equipment Adaptor");
+    private final JCheckBox leftModularSelector = new JCheckBox(Messages.getString("CustomMekDialog.ba.mea"));
+    private final JCheckBox rightModularSelector = new JCheckBox(Messages.getString("CustomMekDialog.ba.mea"));
 
     private final JComboBox<BAManipulator> leftManipulatorSelect = new JComboBox<>();
     private final JComboBox<BAManipulator> rightManipulatorSelect = new JComboBox<>();
@@ -177,7 +177,7 @@ class BaManipulatorChoicePanel extends JPanel {
     private static double getMaxTrooperWeight(BattleArmor battleArmor) {
         TestBattleArmor testBattleArmor = (TestBattleArmor) TestEntity.getEntityVerifier(battleArmor);
         double maxTrooperWeight = 0;
-        for (int i = 1; i < battleArmor.getTroopers(); i++) {
+        for (int i = 1; i <= battleArmor.getTroopers(); i++) {
             double trooperWeight = testBattleArmor.calculateWeight(i);
             if (trooperWeight > maxTrooperWeight) {
                 maxTrooperWeight = trooperWeight;
