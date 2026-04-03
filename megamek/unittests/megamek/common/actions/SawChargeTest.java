@@ -63,6 +63,7 @@ class SawChargeTest {
         Tank tank = mock(Tank.class);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW, Tank.LOC_FRONT)).thenReturn(true);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT)).thenReturn(false);
+        when(tank.hasFrontMountedSaw()).thenReturn(true);
         return tank;
     }
 
@@ -73,6 +74,7 @@ class SawChargeTest {
         Tank tank = mock(Tank.class);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW, Tank.LOC_FRONT)).thenReturn(false);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT)).thenReturn(true);
+        when(tank.hasFrontMountedSaw()).thenReturn(true);
         return tank;
     }
 
@@ -83,6 +85,7 @@ class SawChargeTest {
         Tank tank = mock(Tank.class);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW, Tank.LOC_FRONT)).thenReturn(true);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT)).thenReturn(true);
+        when(tank.hasFrontMountedSaw()).thenReturn(true);
         return tank;
     }
 
@@ -93,6 +96,7 @@ class SawChargeTest {
         Tank tank = mock(Tank.class);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW, Tank.LOC_FRONT)).thenReturn(false);
         when(tank.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT)).thenReturn(false);
+        when(tank.hasFrontMountedSaw()).thenReturn(false);
         return tank;
     }
 

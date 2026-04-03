@@ -583,11 +583,7 @@ public class ChargeAttackAction extends DisplacementAttackAction {
      * @return true if the entity is a Tank with a working front-mounted chainsaw or dual saw
      */
     public static boolean hasFrontMountedSaw(Entity entity) {
-        if (!(entity instanceof Tank)) {
-            return false;
-        }
-        return entity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_CHAINSAW, Tank.LOC_FRONT)
-              || entity.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT);
+        return entity.hasFrontMountedSaw();
     }
 
     /**
@@ -606,6 +602,9 @@ public class ChargeAttackAction extends DisplacementAttackAction {
      * @return the flat damage for the saw charge, or 0 if no front-mounted saw
      */
     public static int getSawChargeDamage(Entity attacker, Entity target) {
+        if (!attacker.hasFrontMountedSaw()) {
+            return 0;
+        }
         // Check dual saw first (higher damage takes priority)
         if (attacker.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT)) {
             return target.isConventionalInfantry() ? Compute.d6() : 7;
@@ -626,6 +625,9 @@ public class ChargeAttackAction extends DisplacementAttackAction {
      * @return the flat damage value (5 or 7), or 0 if no front-mounted saw
      */
     public static int getMaxSawChargeDamage(Entity attacker, Entity target) {
+        if (!attacker.hasFrontMountedSaw()) {
+            return 0;
+        }
         if (attacker.hasWorkingMisc(MiscType.F_CLUB, MiscTypeFlag.S_DUAL_SAW, Tank.LOC_FRONT)) {
             return target.isConventionalInfantry() ? 6 : 7;
         }

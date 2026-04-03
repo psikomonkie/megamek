@@ -5322,6 +5322,19 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
+     * Checks if this entity has a front-mounted chainsaw or dual saw.
+     *
+     * <p>Per TM pp.241-243, a front-mounted saw on a vehicle can be used in a modified
+     * charge attack. By default, entities do not have front-mounted saws; only vehicles (Tank subclass) can have
+     * them.</p>
+     *
+     * @return true if this entity has a working front-mounted chainsaw or dual saw
+     */
+    public boolean hasFrontMountedSaw() {
+        return false;
+    }
+
+    /**
      * Returns the CriticalSlots in the given location as a list. The returned list can be empty depending on the unit
      * and the chosen slot but not null. The entries are not filtered in any way (could be null although that is
      * probably an error in the internal representation of the unit.)
@@ -11111,7 +11124,7 @@ public abstract class Entity extends TurnOrdered
         } // Check the next building
 
         // Check if the entity can clear woods with a saw (chainsaw or dual saw)
-        if (!canHit && WoodsClearingAttackAction.hasWorkingSaw(this)) {
+        if (!canHit && position != null && WoodsClearingAttackAction.hasWorkingSaw(this)) {
             // Own hex is always in arc
             Hex ownHex = game.getHex(position, boardId);
             if (ownHex != null && (ownHex.containsTerrain(Terrains.WOODS) || ownHex.containsTerrain(Terrains.JUNGLE))) {

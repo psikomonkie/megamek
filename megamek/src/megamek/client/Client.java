@@ -701,6 +701,7 @@ public class Client extends AbstractClient {
 
     protected void receiveUpdateCutHexes(Packet packet) throws InvalidPacketDataException {
         game.setHexesBeingCut(packet.getBoardLocationIntegerMap(0));
+        game.processGameEvent(new GameBoardChangeEvent(this));
     }
 
     protected void receiveRevealMinefield(Packet packet) throws InvalidPacketDataException {

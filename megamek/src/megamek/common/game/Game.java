@@ -293,7 +293,7 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
      */
     public Map<BoardLocation, Integer> getHexesBeingCut() {
         if (hexesBeingCut == null) {
-            return new HashMap<>();
+            hexesBeingCut = new HashMap<>();
         }
         return hexesBeingCut;
     }
