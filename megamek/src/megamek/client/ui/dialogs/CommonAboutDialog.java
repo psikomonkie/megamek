@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2003, 2004, 2005 Ben Mazur (bmazur@sev.org)
  * Copyright (C) 2013 Edward Cullen (eddy@obsessedcomputers.co.uk)
- * Copyright (C) 2003-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2003-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -35,20 +35,24 @@
 package megamek.client.ui.dialogs;
 
 import java.awt.BorderLayout;
+import java.awt.Desktop;
 import java.awt.FlowLayout;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
+import java.util.ResourceBundle;
 import javax.swing.Box;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.HyperlinkEvent;
 
 import megamek.MMConstants;
 import megamek.MegaMek;
@@ -60,16 +64,22 @@ import megamek.client.ui.util.UIUtil;
 import megamek.common.Configuration;
 import megamek.common.util.ImageUtil;
 import megamek.common.util.fileUtils.MegaMekFile;
+import megamek.logging.MMLogger;
 
 /**
- * This is MegaMek's Help -> About dialog
+ * This is MegaMek's Help -&gt; About dialog
  */
 public class CommonAboutDialog extends JDialog {
+
+    private static final MMLogger logger = MMLogger.create(CommonAboutDialog.class);
 
     private static final String FILENAME_MEGAMEK_SPLASH2 = "megamek-splash2.gif";
     private static final MegaMekFile titleImageFile = new MegaMekFile(Configuration.miscImagesDir(),
           FILENAME_MEGAMEK_SPLASH2);
     private static Image imgTitleImage;
+
+    private static final ResourceBundle resources = ResourceBundle.getBundle(
+          "megamek.client.messages", MegaMek.getMMOptions().getLocale());
 
     /** @return loads and returns the MegaMek title image */
     private static synchronized Image getTitleImage() {
@@ -82,7 +92,7 @@ public class CommonAboutDialog extends JDialog {
     }
 
     /**
-     * Creates the Help -> About dialog for MegaMek.
+     * Creates the Help -&gt; About dialog for MegaMek.
      *
      * @param parentFrame the parent JFrame for this dialog.
      */
@@ -97,10 +107,14 @@ public class CommonAboutDialog extends JDialog {
 
         JTextArea lblVersion = new JTextArea(MegaMek.getUnderlyingInformation(MMConstants.PROJECT_NAME));
         lblVersion.setEditable(false);
-        JTextArea lblCopyright = new JTextArea(Messages.getString("CommonAboutDialog.copyright"));
-        lblCopyright.setEditable(false);
-        JTextArea lblAbout = new JTextArea(Messages.getString("CommonAboutDialog.about"));
-        lblAbout.setEditable(false);
+
+        JEditorPane aboutPane = new JEditorPane();
+        aboutPane.setContentType("text/html");
+        aboutPane.setEditable(false);
+        aboutPane.setOpaque(false);
+        aboutPane.setText(buildAboutHtml());
+        aboutPane.setCaretPosition(0);
+        aboutPane.addHyperlinkListener(this::handleHyperlink);
 
         JButton closeButton = new ButtonEsc(new CloseAction(this));
         JButton copyButton = new DialogButton(Messages.getString("CommonAboutDialog.copy"));
@@ -118,9 +132,7 @@ public class CommonAboutDialog extends JDialog {
         contentPanel.add(Box.createVerticalStrut(35));
         contentPanel.add(lblVersion);
         contentPanel.add(Box.createVerticalStrut(15));
-        contentPanel.add(lblCopyright);
-        contentPanel.add(Box.createVerticalStrut(15));
-        contentPanel.add(lblAbout);
+        contentPanel.add(aboutPane);
 
         add(contentPanel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.PAGE_END);
@@ -130,6 +142,37 @@ public class CommonAboutDialog extends JDialog {
         pack();
         setLocationRelativeTo(parentFrame);
         setResizable(false);
+    }
+
+    private String buildAboutHtml() {
+        int width = UIUtil.scaleForGUI(500);
+        String wikiUrl = resources.getString("LicensingDialog.wikiUrl");
+        String gameContentRulesUrl = resources.getString("LicensingDialog.gameContentRulesUrl");
+        String gameContentRulesText = resources.getString("LicensingDialog.gameContentRulesText");
+        String discordUrl = resources.getString("LicensingDialog.discordUrl");
+        String discordText = resources.getString("LicensingDialog.discordText");
+
+        return "<html><body width='" + width + "'>"
+              + "<p>" + resources.getString("LicensingDialog.disclaimer") + "</p>"
+              + "<p>" + resources.getString("LicensingDialog.licensing")
+              + " <a href=\"" + gameContentRulesUrl + "\">" + gameContentRulesText + "</a>.</p>"
+              + "<p>" + resources.getString("LicensingDialog.wiki")
+              + " <a href=\"" + wikiUrl + "\">" + wikiUrl + "</a></p>"
+              + "<p>" + resources.getString("CommonAboutDialog.community")
+              + " <a href=\"" + discordUrl + "\">" + discordText + "</a>.</p>"
+              + "<p><small><i>" + resources.getString("LicensingDialog.trademark")
+              + "</i></small></p>"
+              + "</body></html>";
+    }
+
+    private void handleHyperlink(HyperlinkEvent event) {
+        if (event.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+            try {
+                Desktop.getDesktop().browse(event.getURL().toURI());
+            } catch (Exception ex) {
+                logger.error(ex, "Failed to open URL: {}", event.getURL());
+            }
+        }
     }
 
     private void copySystemData() {
