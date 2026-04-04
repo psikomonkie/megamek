@@ -53,6 +53,7 @@ import megamek.common.Report;
 import megamek.common.TagInfo;
 import megamek.common.Team;
 import megamek.common.TemporaryECMField;
+import megamek.common.WoodsClearingTracker;
 import megamek.common.actions.ArtilleryAttackAction;
 import megamek.common.actions.AttackAction;
 import megamek.common.actions.EntityAction;
@@ -179,6 +180,12 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
     private final Hashtable<Coords, Vector<Minefield>> minefields = new Hashtable<>();
     private final Vector<Minefield> vibraBombs = new Vector<>();
     private final Vector<Minefield> empMines = new Vector<>();
+
+    /** Tracks ongoing woods clearing operations for chainsaws and dual saws. Serialized with game saves. */
+    private WoodsClearingTracker woodsClearingTracker = new WoodsClearingTracker();
+
+    /** Hex locations being cleared by saws, mapped to turns remaining. For board view rendering. */
+    private Map<BoardLocation, Integer> hexesBeingCut = new HashMap<>();
     private Vector<AttackHandler> attacks = new Vector<>();
     private Vector<ArtilleryAttackAction> offboardArtilleryAttacks = new Vector<>();
     private Vector<OrbitalBombardment> orbitalBombardmentAttacks = new Vector<>();
@@ -267,6 +274,41 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
 
     public void addMinefield(Minefield mf) {
         addMinefieldHelper(mf);
+        processGameEvent(new GameBoardChangeEvent(this));
+    }
+
+    /**
+     * Returns the woods clearing tracker for this game. Serialized with game saves.
+     */
+    public WoodsClearingTracker getWoodsClearingTracker() {
+        if (woodsClearingTracker == null) {
+            woodsClearingTracker = new WoodsClearingTracker();
+        }
+        return woodsClearingTracker;
+    }
+
+    /**
+     * Returns the map of hex locations being cleared by saws to turns remaining.
+     * Used by the board view to render cut indicators and tooltips.
+     */
+    public Map<BoardLocation, Integer> getHexesBeingCut() {
+        if (hexesBeingCut == null) {
+            hexesBeingCut = new HashMap<>();
+        }
+        return hexesBeingCut;
+    }
+
+    /**
+     * Updates the map of hex locations being cleared by saws.
+     *
+     * @param hexes the current map of hexes being cut to turns remaining
+     */
+    public void setHexesBeingCut(Map<BoardLocation, Integer> hexes) {
+        if ((hexes == null) || hexes.isEmpty()) {
+            hexesBeingCut = new HashMap<>();
+        } else {
+            hexesBeingCut = new HashMap<>(hexes);
+        }
         processGameEvent(new GameBoardChangeEvent(this));
     }
 
