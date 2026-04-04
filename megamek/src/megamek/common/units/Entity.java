@@ -1233,7 +1233,7 @@ public abstract class Entity extends TurnOrdered
         }
         // carriedObjects embeds entity references (e.g. HandheldWeapon) that get serialized as part of this entity,
         // producing stale duplicates disconnected from inGameObjects. Replace them with the canonical game instances.
-        if (game != null) {
+        if (game != null && carriedObjects != null) {
             for (var entry : carriedObjects.entrySet()) {
                 if (entry.getValue() instanceof Entity carried) {
                     Entity canonical = game.getEntity(carried.getId());
