@@ -34,41 +34,37 @@ package megamek.client.ui.dialogs;
 
 import java.awt.BorderLayout;
 import java.awt.Container;
-import java.awt.Desktop;
 import java.awt.FlowLayout;
-import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.io.Serial;
 import javax.swing.JCheckBox;
-import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.KeyStroke;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 
 import megamek.MMConstants;
+import megamek.client.ui.Messages;
 import megamek.client.ui.buttons.MMButton;
 import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.dialogs.buttonDialogs.AbstractButtonDialog;
 import megamek.client.ui.util.UIUtil;
-import megamek.logging.MMLogger;
+import megamek.common.preference.PreferenceManager;
 
 /**
  * Displays licensing, legal, and welcome information about the MegaMek Suite on
  * application startup. The user must click Acknowledge to proceed.
  *
  * <p>Includes a "don't show again" checkbox that takes effect when the user
- * acknowledges. The X button and Escape key are disabled.</p>
+ * acknowledges. Closing the dialog via the X button or Escape key exits
+ * the application.</p>
  *
  * <p>Subclasses in MegaMekLab and MekHQ can override {@link #buildHtmlContent()}
  * to customize the displayed text.</p>
  */
 public class LicensingDialog extends AbstractButtonDialog {
-
-    private static final MMLogger logger = MMLogger.create(LicensingDialog.class);
 
     @Serial
     private static final long serialVersionUID = 7924310587915442671L;
@@ -84,7 +80,7 @@ public class LicensingDialog extends AbstractButtonDialog {
         super(frame, "LicensingDialog", "LicensingDialog.title");
         setTitle(getTitle() + " " + MMConstants.VERSION);
         initialize();
-        preventDismissal();
+        configureCloseActions();
     }
 
     /**
@@ -98,19 +94,16 @@ public class LicensingDialog extends AbstractButtonDialog {
         super(frame, "LicensingDialog", "LicensingDialog.title");
         setTitle(customTitle);
         initialize();
-        preventDismissal();
+        configureCloseActions();
     }
 
-    private void preventDismissal() {
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        KeyStroke escape = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(escape, "none");
-        getRootPane().getInputMap(JComponent.WHEN_FOCUSED).put(escape, "none");
+    private void configureCloseActions() {
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 
     @Override
     public void windowClosing(WindowEvent evt) {
-        // Do nothing - user must click Acknowledge
+        System.exit(0);
     }
 
     @Override
@@ -154,26 +147,35 @@ public class LicensingDialog extends AbstractButtonDialog {
      * @return the HTML string to display
      */
     protected String buildHtmlContent() {
-        int width = UIUtil.scaleForGUI(500);
-        String wikiUrl = resources.getString("LicensingDialog.wikiUrl");
-        String gameContentRulesUrl = resources.getString("LicensingDialog.gameContentRulesUrl");
-        String gameContentRulesText = resources.getString("LicensingDialog.gameContentRulesText");
-        String discordUrl = resources.getString("LicensingDialog.discordUrl");
-        String discordText = resources.getString("LicensingDialog.discordText");
-
-        return "<html><body width='" + width + "'>"
+        return "<html><body width='" + UIUtil.scaleForGUI(500) + "'>"
               + "<p><b>" + getTitle() + "</b></p>"
-              + "<p>" + resources.getString("LicensingDialog.disclaimer") + "</p>"
-              + "<p>" + resources.getString("LicensingDialog.licensing")
-              + " <a href=\"" + gameContentRulesUrl + "\">" + gameContentRulesText + "</a>.</p>"
-              + "<p>" + resources.getString("LicensingDialog.wiki")
-              + " <a href=\"" + wikiUrl + "\">" + wikiUrl + "</a></p>"
-              + "<p>" + resources.getString("LicensingDialog.community")
-              + " <a href=\"" + discordUrl + "\">" + discordText + "</a>.</p>"
-              + "<p><small><i>" + resources.getString("LicensingDialog.trademark")
-              + "</i></small></p>"
-              + "<p>" + resources.getString("LicensingDialog.acknowledgment") + "</p>"
+              + buildLegalHtml()
+              + "<p>" + Messages.getString("LicensingDialog.acknowledgment") + "</p>"
               + "</body></html>";
+    }
+
+    /**
+     * Builds the shared legal/licensing HTML block used by both the licensing
+     * dialog and About dialogs across the suite.
+     *
+     * @return the legal HTML content (without outer html/body tags)
+     */
+    public static String buildLegalHtml() {
+        String wikiUrl = Messages.getString("LicensingDialog.wikiUrl");
+        String gameContentRulesUrl = Messages.getString("LicensingDialog.gameContentRulesUrl");
+        String gameContentRulesText = Messages.getString("LicensingDialog.gameContentRulesText");
+        String discordUrl = Messages.getString("LicensingDialog.discordUrl");
+        String discordText = Messages.getString("LicensingDialog.discordText");
+
+        return "<p>" + Messages.getString("LicensingDialog.disclaimer") + "</p>"
+              + "<p>" + Messages.getString("LicensingDialog.licensing")
+              + " <a href=\"" + gameContentRulesUrl + "\">" + gameContentRulesText + "</a>.</p>"
+              + "<p>" + Messages.getString("LicensingDialog.wiki")
+              + " <a href=\"" + wikiUrl + "\">" + wikiUrl + "</a></p>"
+              + "<p>" + Messages.getString("CommonAboutDialog.community")
+              + " <a href=\"" + discordUrl + "\">" + discordText + "</a>.</p>"
+              + "<p><small><i>" + Messages.getString("LicensingDialog.trademark")
+              + "</i></small></p>";
     }
 
     @Override
@@ -189,21 +191,18 @@ public class LicensingDialog extends AbstractButtonDialog {
     protected void okAction() {
         if ((chkDontShowAgain != null) && chkDontShowAgain.isSelected()) {
             GUIPreferences.getInstance().setNagForReadme(false);
+            PreferenceManager.getInstance().save();
         }
     }
 
     @Override
     protected void cancelAction() {
-        // No cancel action - dialog requires acknowledgment
+        System.exit(0);
     }
 
     private void handleHyperlink(HyperlinkEvent event) {
         if (event.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
-            try {
-                Desktop.getDesktop().browse(event.getURL().toURI());
-            } catch (Exception ex) {
-                logger.error(ex, "Failed to open URL: {}", event.getURL());
-            }
+            UIUtil.browse(event.getURL().toString(), this);
         }
     }
 
