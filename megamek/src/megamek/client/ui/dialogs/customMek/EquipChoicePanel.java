@@ -36,6 +36,7 @@ package megamek.client.ui.dialogs.customMek;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -111,7 +112,7 @@ public class EquipChoicePanel extends JPanel {
      * <code>APWeaponChoicePanels</code> that were added, so we can apply
      * their choices when the dialog is closed.
      */
-    private final ArrayList<APWeaponChoicePanel> m_vAPMounts = new ArrayList<>();
+    private final ArrayList<APWeaponChoice> m_vAPMounts = new ArrayList<>();
     /**
      * Panel for adding components related to selecting which anti-personnel weapons are mounted in an AP Mount (armored
      * gloves are also considered AP mounts)
@@ -126,7 +127,7 @@ public class EquipChoicePanel extends JPanel {
     private final ArrayList<MineChoicePanel> m_vMines = new ArrayList<>();
     private final JPanel panMines = new JPanel();
     private final JPanel panBombs = new JPanel();
-    private final JCheckBox chAutoEject = new JCheckBox();
+    private final JCheckBox chAutoEject = new JCheckBox(Messages.getString("CustomMekDialog.labAutoEject"));
     private final JCheckBox chCondEjectAmmo = new JCheckBox();
     private final JCheckBox chCondEjectEngine = new JCheckBox();
     private final JCheckBox chCondEjectCTDest = new JCheckBox();
@@ -137,7 +138,8 @@ public class EquipChoicePanel extends JPanel {
     private final JCheckBox chSearchlightStatus = new JCheckBox();
     private final JCheckBox chDNICockpitMod = new JCheckBox();
     private final JCheckBox chEICockpit = new JCheckBox();
-    private final JCheckBox chDamageInterruptCircuit = new JCheckBox();
+    private final JCheckBox chDamageInterruptCircuit
+          = new JCheckBox(Messages.getString("CustomMekDialog.labDamageInterruptCircuit"));
     private final JComboBox<String> choC3 = new JComboBox<>();
     ClientGUI clientgui;
     Client client;
@@ -158,6 +160,13 @@ public class EquipChoicePanel extends JPanel {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
 
         setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+//        gbc.gridy = 0;
+        gbc.insets = new Insets(0, 2, 1, 2);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        GBC gbc2 = GBC.std();
+
 
         // **EQUIPMENT TAB**//
         // Auto-eject checkbox and conditional ejections.
@@ -166,7 +175,10 @@ public class EquipChoicePanel extends JPanel {
               SwingConstants.RIGHT);
         if (entity instanceof Mek mek) {
             if (mek.hasEjectSeat() && clientgui != null) {
-                add(labAutoEject, GBC.std());
+//                gbc.anchor = GridBagConstraints.WEST;
+//                gbc.gridy++;
+                add(new JLabel(), GBC.std());
+//                gbc.gridwidth = GridBagConstraints.REMAINDER;
                 add(chAutoEject, GBC.eol());
                 chAutoEject.setSelected(!mek.isAutoEject());
             }
@@ -174,8 +186,10 @@ public class EquipChoicePanel extends JPanel {
             // Conditional Ejections
             if (game.getOptions().booleanOption(OptionsConstants.RPG_CONDITIONAL_EJECTION) &&
                   mek.hasEjectSeat()) {
-                add(labCondEjectAmmo, GBC.std());
-                add(chCondEjectAmmo, GBC.eol());
+                add(labCondEjectAmmo, gbc);
+                gbc.gridwidth = GridBagConstraints.REMAINDER;
+                add(chCondEjectAmmo, gbc);
+                gbc.gridwidth = 1;
                 chCondEjectAmmo.setSelected(mek.isCondEjectAmmo());
                 JLabel labCondEjectEngine = new JLabel(Messages.getString(
                       "CustomMekDialog.labConditional_Ejection_Engine"), SwingConstants.RIGHT);
@@ -271,22 +285,25 @@ public class EquipChoicePanel extends JPanel {
 
             // AP mounts (not armored gloves)
             if (entity.hasMisc(EquipmentTypeLookup.BA_APM)) {
-                setupAPMounts(apmWeaponTypes);
-                panAPMounts.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-                      Messages.getString("CustomMekDialog.APMountPanelTitle"),
-                      TitledBorder.TOP,
-                      TitledBorder.DEFAULT_POSITION));
-                add(panAPMounts, GBC.eop().anchor(GridBagConstraints.CENTER));
+//                gbc.gridy++;
+                add(new JLabel(Messages.getString("CustomMekDialog.APMountPanelTitle")), GBC.eol());
+                setupAPMounts(apmWeaponTypes, gbc);
+//                panAPMounts.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
+//                      Messages.getString("CustomMekDialog.APMountPanelTitle"),
+//                      TitledBorder.TOP,
+//                      TitledBorder.DEFAULT_POSITION));
+//                add(panAPMounts, GBC.eop().anchor(GridBagConstraints.CENTER));
             }
 
             // Manipulators and Armored Glove AP mounting
             if (entity.hasWorkingMisc(MiscType.F_BA_MEA) || battleArmor.hasMisc(MiscTypeFlag.F_ARMORED_GLOVE)) {
-                panBaManipulators = new BaManipulatorChoicePanel(battleArmor, agloveWeaponTypes);
-                panBaManipulators.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-                      Messages.getString("CustomMekDialog.MEAPanelTitle"),
-                      TitledBorder.TOP,
-                      TitledBorder.DEFAULT_POSITION));
-                add(panBaManipulators, GBC.eop().anchor(GridBagConstraints.CENTER));
+                panBaManipulators = new BaManipulatorChoicePanel(battleArmor, agloveWeaponTypes, this);
+//                panBaManipulators.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
+//                      Messages.getString("CustomMekDialog.MEAPanelTitle"),
+//                      TitledBorder.TOP,
+//                      TitledBorder.DEFAULT_POSITION));
+//                gbc.gridy++;
+//                add(panBaManipulators, gbc);
             }
         }
 
@@ -426,10 +443,11 @@ public class EquipChoicePanel extends JPanel {
                 int gameYear = game.getOptions().intOption(OptionsConstants.ALLOWED_YEAR);
                 int dicIntroYear = dicEquipment.getIntroductionDate(false); // IS tech
                 if (gameYear >= dicIntroYear) {
-                    JLabel labDamageInterruptCircuit = new JLabel(
-                          Messages.getString("CustomMekDialog.labDamageInterruptCircuit"),
-                          SwingConstants.RIGHT);
-                    add(labDamageInterruptCircuit, GBC.std());
+//                    gbc.gridy++;
+//                    gbc.anchor = GridBagConstraints.WEST;
+//                    gbc.gridwidth = 1;
+                    add(new JLabel(), GBC.std());
+//                    gbc.gridwidth = GridBagConstraints.REMAINDER;
                     add(chDamageInterruptCircuit, GBC.eol());
                     chDamageInterruptCircuit.setSelected(mek.hasDamageInterruptCircuit());
                 }
@@ -553,13 +571,13 @@ public class EquipChoicePanel extends JPanel {
      * Set up the layout of <code>panAPMounts</code>, which contains components for selecting which anti-personnel
      * weapons are mounted in an AP mount.
      */
-    private void setupAPMounts(List<WeaponType> apWeaponTypes) {
-        panAPMounts.setLayout(new GridBagLayout());
-        for (Mounted<?> m : entity.getMisc()) {
-            if (m.is(EquipmentTypeLookup.BA_APM)) {
-                APWeaponChoicePanel apWeaponChoicePanel = new APWeaponChoicePanel(entity, m, apWeaponTypes);
-                panAPMounts.add(apWeaponChoicePanel, GBC.eol());
-                m_vAPMounts.add(apWeaponChoicePanel);
+    private void setupAPMounts(List<WeaponType> apWeaponTypes, GridBagConstraints gbc) {
+//        panAPMounts.setLayout(new GridBagLayout());
+        for (Mounted<?> misc : entity.getMisc()) {
+            if (misc.is(EquipmentTypeLookup.BA_APM)) {
+                var apWeaponChoice = new APWeaponChoice(entity, misc, apWeaponTypes, this, gbc);
+//                panAPMounts.add(apWeaponChoicePanel, GBC.eol());
+                m_vAPMounts.add(apWeaponChoice);
             }
         }
     }
@@ -821,7 +839,7 @@ public class EquipChoicePanel extends JPanel {
     }
 
     private void disableAPMEditing() {
-        for (APWeaponChoicePanel mVAPMount : m_vAPMounts) {
+        for (APWeaponChoice mVAPMount : m_vAPMounts) {
             mVAPMount.setEnabled(false);
         }
     }
@@ -877,7 +895,7 @@ public class EquipChoicePanel extends JPanel {
         }
 
         // update AP weapon selections
-        for (APWeaponChoicePanel apChoicePanel : m_vAPMounts) {
+        for (APWeaponChoice apChoicePanel : m_vAPMounts) {
             apChoicePanel.applyChoice();
         }
 

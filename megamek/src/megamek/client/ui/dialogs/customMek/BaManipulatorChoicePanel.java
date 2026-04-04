@@ -50,6 +50,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeEvent;
 
+import megamek.client.ui.GBC;
 import megamek.client.ui.Messages;
 import megamek.common.annotations.Nullable;
 import megamek.common.battleArmor.BattleArmor;
@@ -75,7 +76,7 @@ import static megamek.common.verifier.TestBattleArmor.BAManipulator;
  * Equipment Adaptors; if there is an Armored Glove selected, a selector for an AP weapon for the glove(s) is also
  * shown.
  */
-class BaManipulatorChoicePanel extends JPanel {
+class BaManipulatorChoicePanel {
 
     private final JCheckBox leftModularSelector = new JCheckBox(Messages.getString("CustomMekDialog.ba.mea"));
     private final JCheckBox rightModularSelector = new JCheckBox(Messages.getString("CustomMekDialog.ba.mea"));
@@ -104,7 +105,7 @@ class BaManipulatorChoicePanel extends JPanel {
 
     private final List<WeaponType> agWeaponTypes = new Vector<>();
 
-    BaManipulatorChoicePanel(BattleArmor battleArmor, List<WeaponType> agWeaponTypes) {
+    BaManipulatorChoicePanel(BattleArmor battleArmor, List<WeaponType> agWeaponTypes, JPanel parentPanel) {
         this.battleArmor = battleArmor;
         this.agWeaponTypes.addAll(agWeaponTypes);
         cargoLifterTemporaryItem = new MiscMounted(battleArmor,
@@ -120,52 +121,34 @@ class BaManipulatorChoicePanel extends JPanel {
 
         lblfreeWeight.setBorder(new EmptyBorder(10, 0, 0, 0));
 
-        setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridy = 0;
-        gbc.insets = new Insets(0, 2, 1, 2);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        parentPanel.add(lblfreeWeight, GBC.eol());
 
-        gbc.gridwidth = GridBagConstraints.REMAINDER;
-        add(lblfreeWeight, gbc);
-        gbc.gridwidth = 1;
+        parentPanel.add(Box.createVerticalStrut(10), GBC.eol());
 
-        gbc.gridy++;
-        add(Box.createVerticalStrut(10), gbc);
+        parentPanel.add(new JLabel(Messages.getString("CustomMekDialog.ba.leftArm"), SwingConstants.RIGHT), GBC.std());
+        parentPanel.add(leftManipulatorSelect, GBC.eol());
 
-        gbc.gridy++;
-        add(new JLabel(Messages.getString("CustomMekDialog.ba.leftArm"), SwingConstants.RIGHT), gbc);
-        add(leftManipulatorSelect, gbc);
+        parentPanel.add(new JLabel(), GBC.std());
+        parentPanel.add(leftModularSelector, GBC.eol());
 
-        gbc.gridy++;
-        add(new JLabel(), gbc);
-        add(leftModularSelector, gbc);
+        parentPanel.add(Box.createVerticalStrut(10), GBC.eol());
 
-        gbc.gridy++;
-        add(Box.createVerticalStrut(10), gbc);
+        parentPanel.add(new JLabel(Messages.getString("CustomMekDialog.ba.rightArm"), SwingConstants.RIGHT), GBC.std());
+        parentPanel.add(rightManipulatorSelect, GBC.eol());
 
-        gbc.gridy++;
-        add(new JLabel(Messages.getString("CustomMekDialog.ba.rightArm"), SwingConstants.RIGHT), gbc);
-        add(rightManipulatorSelect, gbc);
+        parentPanel.add(new JLabel(), GBC.std());
+        parentPanel.add(rightModularSelector, GBC.eol());
 
-        gbc.gridy++;
-        add(new JLabel(), gbc);
-        add(rightModularSelector, gbc);
+        parentPanel.add(Box.createVerticalStrut(10), GBC.eol());
 
-        gbc.gridy++;
-        add(Box.createVerticalStrut(10), gbc);
+        parentPanel.add(cargoLifterSizeLabel, GBC.std());
+        parentPanel.add(cargoLifterCapacity, GBC.eol());
 
-        gbc.gridy++;
-        add(cargoLifterSizeLabel, gbc);
-        add(cargoLifterCapacity, gbc);
+        parentPanel.add(new JLabel(), GBC.std());
+        parentPanel.add(cargoLiftWeightInfo, GBC.eol());
 
-        gbc.gridy++;
-        add(new JLabel(), gbc);
-        add(cargoLiftWeightInfo, gbc);
-
-        gbc.gridy++;
-        add(gloveChoiceLabel, gbc);
-        add(armoredGloveWeaponSelect, gbc);
+        parentPanel.add(gloveChoiceLabel, GBC.std());
+        parentPanel.add(armoredGloveWeaponSelect, GBC.eol());
 
         setValuesFromBattleArmor();
         leftManipulatorSelect.addActionListener(this::manipulatorSelected);
@@ -331,9 +314,9 @@ class BaManipulatorChoicePanel extends JPanel {
         applyApWeapon();
     }
 
-    @Override
+    //    @Override
     public void setEnabled(boolean enabled) {
-        super.setEnabled(enabled);
+        //        super.setEnabled(enabled);
         allowEditing = enabled;
         updateAfterChange();
     }

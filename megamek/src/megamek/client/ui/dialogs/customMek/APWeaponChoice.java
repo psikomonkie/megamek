@@ -32,7 +32,7 @@
  */
 package megamek.client.ui.dialogs.customMek;
 
-import java.awt.GridBagLayout;
+import java.awt.GridBagConstraints;
 import java.util.List;
 import java.util.Objects;
 import java.util.Vector;
@@ -57,14 +57,15 @@ import megamek.common.units.Entity;
  *
  * @author arlith
  */
-class APWeaponChoicePanel extends JPanel {
+class APWeaponChoice {
 
     private final Entity entity;
     private final List<WeaponType> weaponTypes;
     private final JComboBox<String> comboChoices = new JComboBox<>();
     private final Mounted<?> apMount;
 
-    APWeaponChoicePanel(Entity entity, Mounted<?> apMount, List<WeaponType> suitableWeapons) {
+    APWeaponChoice(Entity entity, Mounted<?> apMount, List<WeaponType> suitableWeapons, JPanel parentPanel,
+                   GridBagConstraints gbc) {
         Objects.requireNonNull(apMount);
         this.entity = entity;
         weaponTypes = suitableWeapons;
@@ -84,9 +85,10 @@ class APWeaponChoicePanel extends JPanel {
         }
 
         String labelDescription = BattleArmor.MOUNT_LOC_NAMES[apMount.getBaMountLoc()] + ": ";
-        setLayout(new GridBagLayout());
-        add(new JLabel(labelDescription), GBC.std());
-        add(comboChoices, GBC.std());
+//        setLayout(new GridBagLayout());
+//        gbc.gridy++;
+        parentPanel.add(new JLabel(labelDescription), GBC.std());
+        parentPanel.add(comboChoices, GBC.eol());
     }
 
     void applyChoice() {
@@ -113,7 +115,7 @@ class APWeaponChoicePanel extends JPanel {
         }
     }
 
-    @Override
+//    @Override
     public void setEnabled(boolean enabled) {
         comboChoices.setEnabled(enabled);
     }
