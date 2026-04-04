@@ -64,6 +64,7 @@ import megamek.common.actions.EntityAction;
 import megamek.common.actions.PushAttackAction;
 import megamek.common.actions.TeleMissileAttackAction;
 import megamek.common.actions.WeaponAttackAction;
+import megamek.common.actions.WoodsClearingAttackAction;
 import megamek.common.annotations.Nullable;
 import megamek.common.battleArmor.BattleArmor;
 import megamek.common.battleArmor.BattleArmorHandles;
@@ -486,6 +487,7 @@ public abstract class Entity extends TurnOrdered
 
     public boolean spotting;
     private boolean clearingMinefield = false;
+    private boolean clearingWoods = false;
     protected int killerId = Entity.NONE;
     private int offBoardDistance = 0;
     private OffBoardDirection offBoardDirection = OffBoardDirection.NONE;
@@ -5322,6 +5324,19 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
+     * Checks if this entity has a front-mounted chainsaw or dual saw.
+     *
+     * <p>Per TM pp.241-243, a front-mounted saw on a vehicle can be used in a modified
+     * charge attack. By default, entities do not have front-mounted saws; only vehicles (Tank subclass) can have
+     * them.</p>
+     *
+     * @return true if this entity has a working front-mounted chainsaw or dual saw
+     */
+    public boolean hasFrontMountedSaw() {
+        return false;
+    }
+
+    /**
      * Returns the CriticalSlots in the given location as a list. The returned list can be empty depending on the unit
      * and the chosen slot but not null. The entries are not filtered in any way (could be null although that is
      * probably an error in the internal representation of the unit.)
@@ -7281,6 +7296,7 @@ public abstract class Entity extends TurnOrdered
         setSpotting(false);
         spotTargetId = Entity.NONE;
         setClearingMinefield(false);
+        setClearingWoods(false);
         setUnjammingRAC(false);
         crew.setKoThisRound(false);
         m_lNarcedBy |= m_lPendingNarc;
@@ -10266,6 +10282,27 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
+     * Returns true if this entity is currently clearing woods with a saw.
+     *
+     * <p>When clearing woods, weapon attacks are penalized as though the unit were
+     * moving at running/flank speed (TM pp.241-243).</p>
+     *
+     * @return true if the entity is clearing woods
+     */
+    public boolean isClearingWoods() {
+        return clearingWoods;
+    }
+
+    /**
+     * Sets whether this entity is currently clearing woods with a saw.
+     *
+     * @param clearingWoods true if clearing woods
+     */
+    public void setClearingWoods(boolean clearingWoods) {
+        this.clearingWoods = clearingWoods;
+    }
+
+    /**
      * @return True if this entity is spotting this round.
      */
     public boolean isSpotting() {
@@ -11087,6 +11124,28 @@ public abstract class Entity extends TurnOrdered
             } // Check the next hex of the building
 
         } // Check the next building
+
+        // Check if the entity can clear woods with a saw (chainsaw or dual saw)
+        if (!canHit && position != null && WoodsClearingAttackAction.hasWorkingSaw(this)) {
+            // Own hex is always in arc
+            Hex ownHex = game.getHex(position, boardId);
+            if (ownHex != null && (ownHex.containsTerrain(Terrains.WOODS) || ownHex.containsTerrain(Terrains.JUNGLE))) {
+                canHit = true;
+            }
+            // Adjacent hexes must be in the saw's attack arc
+            if (!canHit) {
+                for (int dir = 0; dir < 6; dir++) {
+                    Coords adj = position.translated(dir);
+                    Hex adjHex = game.getBoard(boardId).getHex(adj);
+                    if (adjHex != null && (adjHex.containsTerrain(Terrains.WOODS)
+                          || adjHex.containsTerrain(Terrains.JUNGLE))
+                          && WoodsClearingAttackAction.isInSawArc(this, adj)) {
+                        canHit = true;
+                        break;
+                    }
+                }
+            }
+        }
 
         return canHit;
     }
