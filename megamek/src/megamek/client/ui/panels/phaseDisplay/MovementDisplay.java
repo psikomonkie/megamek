@@ -2043,10 +2043,17 @@ public class MovementDisplay extends ActionPhaseDisplay {
                               cmd.getHexesMoved());
                         toDefender = AirMekRamAttackAction.getDamageFor(currentlySelectedEntity, cmd.getHexesMoved());
                     } else {
-                        toDefender = ChargeAttackAction.getDamageFor(
-                              currentlySelectedEntity, game.getOptions()
-                                    .booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_CHARGE_DAMAGE),
-                              cmd.getHexesMoved());
+                        // Front-mounted saw charge uses flat damage (TM pp.241-243)
+                        if (ChargeAttackAction.hasFrontMountedSaw(currentlySelectedEntity)
+                              && target.getTargetType() == Targetable.TYPE_ENTITY) {
+                            toDefender = ChargeAttackAction.getMaxSawChargeDamage(
+                                  currentlySelectedEntity, (Entity) target);
+                        } else {
+                            toDefender = ChargeAttackAction.getDamageFor(
+                                  currentlySelectedEntity, game.getOptions()
+                                        .booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_CHARGE_DAMAGE),
+                                  cmd.getHexesMoved());
+                        }
                         if (target.getTargetType() == Targetable.TYPE_ENTITY) {
                             Entity te = (Entity) target;
                             toAttacker = ChargeAttackAction.getDamageTakenBy(currentlySelectedEntity,
