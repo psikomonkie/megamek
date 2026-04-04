@@ -91,7 +91,7 @@ public class ArtilleryCannonWeaponHandler extends AmmoWeaponHandler {
         boolean targetIsEntity = target.getTargetType() == Targetable.TYPE_ENTITY;
         boolean isFlak = targetIsEntity && Compute.isFlakAttack(attackingEntity, (Entity) target);
         boolean asfFlak = isFlak && target.isAirborne();
-        Mounted<?> ammoUsed = attackingEntity.getEquipment(weaponAttackAction.getAmmoId());
+        Mounted<?> ammoUsed = weaponEntity.getEquipment(weaponAttackAction.getAmmoId());
         final AmmoType ammoType = (ammoUsed == null) ? null : (AmmoType) ammoUsed.getType();
 
         // Report weapon attack and its to-hit value.
