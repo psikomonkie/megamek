@@ -376,11 +376,12 @@ public class GameOptions extends BasicGameOptions {
         Object value = node.getValue();
 
         // Migrate old boolean track_neural_interface_hardware to new CHOICE neural_interface_mode
+        // Old false = implant-only benefits = Pilot Only mode (not Off)
         if ((null != name) && name.equals(OptionsConstants.ADVANCED_TRACK_NEURAL_INTERFACE_HARDWARE)) {
             name = OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE;
             value = Boolean.parseBoolean(value.toString())
                   ? OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING
-                  : OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
+                  : OptionsConstants.NEURAL_INTERFACE_MODE_PILOT_ONLY;
         }
 
         if ((null != name) && (null != value)) {
@@ -555,10 +556,11 @@ public class GameOptions extends BasicGameOptions {
                         case "value":
                             String value = wn2.getTextContent().trim();
                             // Migrate old boolean value to new CHOICE value
+                            // Old false = implant-only benefits = Pilot Only mode (not Off)
                             if (migrateNeuralInterface && (option != null)) {
                                 value = Boolean.parseBoolean(value)
                                       ? OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING
-                                      : OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
+                                      : OptionsConstants.NEURAL_INTERFACE_MODE_PILOT_ONLY;
                                 migrateNeuralInterface = false;
                             }
                             if ((option != null) && !option.getValue().toString().equals(value)) {

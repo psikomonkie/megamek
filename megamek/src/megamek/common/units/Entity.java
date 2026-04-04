@@ -12002,15 +12002,28 @@ public abstract class Entity extends TurnOrdered
     }
 
     /**
-     * Returns the current neural interface mode from game options.
+     * Returns the current neural interface mode from game options. Returns Off for null, blank, or unrecognized values
+     * to ensure safe defaults.
      *
      * @return the neural interface mode string, or {@link OptionsConstants#NEURAL_INTERFACE_MODE_OFF} if no game context
+     *       or invalid value
      */
     protected String getNeuralInterfaceMode() {
         if (game == null) {
             return OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
         }
-        return gameOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
+        String mode = gameOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
+        if ((mode == null) || mode.isBlank()) {
+            return OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
+        }
+        mode = mode.trim();
+        if (OptionsConstants.NEURAL_INTERFACE_MODE_OFF.equals(mode)
+              || OptionsConstants.NEURAL_INTERFACE_MODE_PILOT_ONLY.equals(mode)
+              || OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(mode)) {
+            return mode;
+        }
+        LOGGER.warn("Unknown neural interface mode '{}'; defaulting to Off.", mode);
+        return OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
     }
 
     /**
