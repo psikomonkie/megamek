@@ -85,10 +85,10 @@ import megamek.client.ui.clientGUI.boardview.IBoardView;
 import megamek.client.ui.clientGUI.boardview.RulerDialog;
 import megamek.client.ui.clientGUI.boardview.overlay.BoardToastOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.ChatterBoxOverlay;
-import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.clientGUI.boardview.overlay.KeyBindingsOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.OffBoardTargetOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.PlanetaryConditionsOverlay;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.clientGUI.boardview.overlay.TurnDetailsOverlay;
 import megamek.client.ui.clientGUI.boardview.overlay.UnitOverviewOverlay;
 import megamek.client.ui.clientGUI.boardview.spriteHandler.*;
@@ -352,6 +352,7 @@ public class ClientGUI extends AbstractClientGUI
     private FleeZoneSpriteHandler fleeZoneSpriteHandler;
     private SensorRangeSpriteHandler sensorRangeSpriteHandler;
     private CollapseWarningSpriteHandler collapseWarningSpriteHandler;
+    private SawClearingSpriteHandler sawClearingSpriteHandler;
     private GroundObjectSpriteHandler groundObjectSpriteHandler;
     private FiringSolutionSpriteHandler firingSolutionSpriteHandler;
     private FiringArcSpriteHandler firingArcSpriteHandler;
@@ -697,6 +698,7 @@ public class ClientGUI extends AbstractClientGUI
         FlareSpritesHandler flareSpritesHandler = new FlareSpritesHandler(this, client.getGame());
         sensorRangeSpriteHandler = new SensorRangeSpriteHandler(this, client.getGame());
         collapseWarningSpriteHandler = new CollapseWarningSpriteHandler(this);
+        sawClearingSpriteHandler = new SawClearingSpriteHandler(this, client.getGame());
         groundObjectSpriteHandler = new GroundObjectSpriteHandler(this, client.getGame());
         firingSolutionSpriteHandler = new FiringSolutionSpriteHandler(this, client);
         firingArcSpriteHandler = new FiringArcSpriteHandler(this);
@@ -707,6 +709,7 @@ public class ClientGUI extends AbstractClientGUI
               sensorRangeSpriteHandler,
               flareSpritesHandler,
               collapseWarningSpriteHandler,
+              sawClearingSpriteHandler,
               groundObjectSpriteHandler,
               firingSolutionSpriteHandler,
               firingArcSpriteHandler,
@@ -3617,6 +3620,15 @@ public class ClientGUI extends AbstractClientGUI
      */
     public void showCollapseWarning(Collection<BoardLocation> warnList) {
         collapseWarningSpriteHandler.setCFWarningSprites(warnList);
+    }
+
+    /**
+     * Shows saw clearing indicators on the given hexes in the BoardView.
+     *
+     * @param cutHexes a map of board locations to turns remaining for saw clearing
+     */
+    public void showSawClearingHexes(Map<BoardLocation, Integer> cutHexes) {
+        sawClearingSpriteHandler.setSawClearingSprites(cutHexes);
     }
 
     /**

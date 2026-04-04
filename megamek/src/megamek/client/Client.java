@@ -699,6 +699,11 @@ public class Client extends AbstractClient {
         game.setIlluminatedPositions(packet.getCoordsHashSet(0));
     }
 
+    protected void receiveUpdateCutHexes(Packet packet) throws InvalidPacketDataException {
+        game.setHexesBeingCut(packet.getBoardLocationIntegerMap(0));
+        game.processGameEvent(new GameBoardChangeEvent(this));
+    }
+
     protected void receiveRevealMinefield(Packet packet) throws InvalidPacketDataException {
         Minefield minefield = packet.getMinefield(0);
 
@@ -1035,6 +1040,9 @@ public class Client extends AbstractClient {
                     break;
                 case REMOVE_MINEFIELD:
                     receiveRemoveMinefield(packet);
+                    break;
+                case UPDATE_CUT_HEXES:
+                    receiveUpdateCutHexes(packet);
                     break;
                 case UPDATE_GROUND_OBJECTS:
                     receiveUpdateGroundObjects(packet);
