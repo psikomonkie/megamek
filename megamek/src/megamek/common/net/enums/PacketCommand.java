@@ -205,7 +205,10 @@ public enum PacketCommand {
     ADD_TEMPORARY_ECM_FIELD,
 
     /** A packet syncing all temporary ECM fields to clients (replaces existing list). */
-    SYNC_TEMPORARY_ECM_FIELDS;
+    SYNC_TEMPORARY_ECM_FIELDS,
+
+    /** A packet updating hex locations being cleared by saws (for board view rendering). */
+    UPDATE_CUT_HEXES;
     //endregion Enum Declarations
 
     //region Boolean Comparison Methods
