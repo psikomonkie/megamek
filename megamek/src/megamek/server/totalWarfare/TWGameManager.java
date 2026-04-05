@@ -16393,8 +16393,10 @@ public class TWGameManager extends AbstractGameManager {
         }
 
         // Clean up tracker entries for hexes that no longer have woods (e.g., burned down by fire)
-        game.getWoodsClearingTracker().removeStaleEntries(
-              loc -> game.getBoard(loc.boardId()).getHex(loc.coords()));
+        game.getWoodsClearingTracker().removeStaleEntries(loc -> {
+            Board board = game.getBoard(loc.boardId());
+            return (board != null) ? board.getHex(loc.coords()) : null;
+        });
 
         // Sync remaining clearing state to Game for board view rendering and send to clients
         sendCutHexesUpdate();
