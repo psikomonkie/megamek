@@ -64,6 +64,7 @@ import megamek.client.ui.widget.picmap.PicMap;
 import megamek.common.Configuration;
 import megamek.common.CriticalSlot;
 import megamek.common.battleArmor.BattleArmor;
+import megamek.common.enums.GamePhase;
 import megamek.common.equipment.AmmoType;
 import megamek.common.equipment.EquipmentMode;
 import megamek.common.equipment.GunEmplacement;
@@ -543,6 +544,19 @@ class SystemPanel extends PicMap
                             return;
                         }
 
+                        // Ghost target mode switches must be announced in the End Phase
+                        // or set at scenario start (TO:AR p.100)
+                        if ((m.getType() instanceof MiscType) && isGhostTargetModeSwitch(m, nMode)) {
+                            GamePhase currentPhase = clientgui.getClient().getGame().getPhase();
+                            if (!currentPhase.isEnd() && !currentPhase.isDeployment()) {
+                                clientgui.systemMessage(Messages.getString(
+                                      "MekDisplay.GhostTargetModePhase"));
+                                clientgui.addToast(ToastLevel.WARNING,
+                                      Messages.getString("MekDisplay.GhostTargetModePhase"), en);
+                                return;
+                            }
+                        }
+
                         // Can only charge a capacitor if the weapon has not been fired.
                         if ((m.getType() instanceof MiscType)
                               && (m.getLinked() != null)
@@ -561,17 +575,22 @@ class SystemPanel extends PicMap
                         if (m.canInstantSwitch(nMode)) {
                             clientgui.systemMessage(Messages.getString("MekDisplay.switched",
                                   m.getName(), m.curMode().getDisplayableName()));
+                            clientgui.addToast(ToastLevel.INFO,
+                                  m.getName() + ": " + m.curMode().getDisplayableName(), en);
                             int weapon = this.unitDisplayPanel.wPan.getSelectedWeaponNum();
                             this.unitDisplayPanel.wPan.displayMek(en);
                             this.unitDisplayPanel.wPan.selectWeapon(weapon);
                         } else {
+                            String pendingModeName = m.pendingMode().getDisplayableName();
                             if (clientgui.getClient().getGame().getPhase().isDeployment()) {
                                 clientgui.systemMessage(Messages.getString("MekDisplay.willSwitchAtStart",
-                                      m.getName(), m.pendingMode().getDisplayableName()));
+                                      m.getName(), pendingModeName));
                             } else {
                                 clientgui.systemMessage(Messages.getString("MekDisplay.willSwitchAtEnd",
-                                      m.getName(), m.pendingMode().getDisplayableName()));
+                                      m.getName(), pendingModeName));
                             }
+                            clientgui.addToast(ToastLevel.INFO,
+                                  m.getName() + " -> " + pendingModeName, en);
                         }
                         int loc = slotList.getSelectedIndex();
                         displaySlots();
@@ -888,5 +907,25 @@ class SystemPanel extends PicMap
 
         m_chMode.removeItemListener(this);
         m_bDumpAmmo.removeActionListener(this);
+    }
+
+    /**
+     * Returns true if the mode switch involves entering or leaving a Ghost Targets mode on ECM, Angel ECM,
+     * Communications Equipment, or Cockpit Command Console. Per TO:AR p.100, ghost target mode switches must be
+     * announced in the End Phase.
+     */
+    private boolean isGhostTargetModeSwitch(Mounted<?> mounted, int newModeIndex) {
+        if (!(mounted.getType() instanceof MiscType type)) {
+            return false;
+        }
+        if (!type.hasFlag(MiscType.F_ECM) && !type.hasFlag(MiscType.F_COMMUNICATIONS)
+              && !type.hasFlag(MiscType.F_COMMAND_CONSOLE)) {
+            return false;
+        }
+        String curModeName = mounted.curMode().getName();
+        String newModeName = type.getMode(newModeIndex).getName();
+        boolean curIsGhost = curModeName.contains("Ghost Targets");
+        boolean newIsGhost = newModeName.contains("Ghost Targets");
+        return curIsGhost != newIsGhost;
     }
 }

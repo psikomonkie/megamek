@@ -13299,6 +13299,21 @@ public abstract class Entity extends TurnOrdered
                 misc.getType().setModes(modes.toArray(new String[0]));
                 misc.getType().setInstantModeSwitch(false);
             }
+
+            // Communications Equipment: Ghost Targets mode requires 7+ tons total per TO:AR p.100
+            if (misc.getType().hasFlag(MiscType.F_COMMUNICATIONS)) {
+                ArrayList<String> modes = new ArrayList<>();
+                modes.add("Default");
+                if (gameOpts.booleanOption(OptionsConstants.ADVANCED_TAC_OPS_ECCM)) {
+                    modes.add("ECCM");
+                }
+                if (gameOpts.booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET)
+                      && (getTotalCommGearTons() >= 7)) {
+                    modes.add("Ghost Targets");
+                }
+                misc.getType().setModes(modes.toArray(new String[0]));
+                misc.getType().setInstantModeSwitch(false);
+            }
         }
     }
 
