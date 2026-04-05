@@ -878,11 +878,11 @@ public class ProtoMek extends Entity {
         }
         super.addEquipment(mounted, loc, rearMounted);
 
-        // ProtoMeks have EI Interface built-in and cannot disable it (IO:AE p.69)
-        // Lock the mode to prevent UI from allowing toggle
+        // ProtoMeks have EI Interface built-in (IO:AE p.69)
+        // Only activate when neural interface rules are enabled; lock mode to prevent UI toggle
         if ((mounted.getType() instanceof MiscType) &&
               mounted.getType().hasFlag(MiscType.F_EI_INTERFACE)) {
-            mounted.setMode(1); // "Initiate enhanced imaging" - always on for ProtoMeks
+            mounted.setMode(isNeuralInterfaceEnabled() ? 1 : 0);
             mounted.setModeSwitchable(false);
         }
     }
@@ -1037,6 +1037,21 @@ public class ProtoMek extends Entity {
     @Override
     public double getPriceMultiplier() {
         return 1 + (weight / 100.0);
+    }
+
+    @Override
+    public void setGameOptions() {
+        super.setGameOptions();
+        // Update EI Interface equipment mode based on neural interface game option
+        boolean eiEnabled = isNeuralInterfaceEnabled();
+        for (Mounted<?> m : getEquipment()) {
+            if ((m.getType() instanceof MiscType) && m.getType().hasFlag(MiscType.F_EI_INTERFACE)) {
+                m.setMode(eiEnabled ? 1 : 0);
+                break;
+            }
+        }
+        // Recalculate tech level since EI equipment is skipped when not in Full Tracking mode
+        recalculateTechAdvancement();
     }
 
     /**
