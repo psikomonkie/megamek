@@ -588,6 +588,22 @@ public class Infantry extends Entity {
         }
     }
 
+    /**
+     * @return True when this conventional infantry unit has ground movement of 0*, meaning it may still move a single
+     *       hex despite having 0 walking MP.
+     */
+    public boolean hasMinimalGroundMP(MPCalculationSetting mpCalculationSetting) {
+        return isConventionalInfantry() && (getWalkMP(mpCalculationSetting) == 0);
+    }
+
+    /**
+     * @return True when this conventional infantry unit has ground movement of 0*, meaning it may still move a single
+     *       hex despite having 0 walking MP.
+     */
+    public boolean hasMinimalGroundMP() {
+        return hasMinimalGroundMP(MPCalculationSetting.STANDARD);
+    }
+
     @Override
     public int getJumpMP(MPCalculationSetting mpCalculationSetting) {
         int mp = hasUMU() ? 0 : getOriginalJumpMP();

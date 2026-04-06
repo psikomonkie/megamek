@@ -240,6 +240,7 @@ public class ClientGUI extends AbstractClientGUI
     public static final String FILE_UNITS_REINFORCE = "fileUnitsReinforce";
     public static final String FILE_UNITS_REINFORCE_RAT = "fileUnitsReinforceRAT";
     public static final String FILE_REFRESH_CACHE = "fileRefreshCache";
+    public static final String FILE_REBUILD_CACHE = "fileRebuildCache";
     public static final String FILE_UNITS_BROWSE = "fileUnitsBrowse";
     public static final String FILE_UNITS_OPEN = "fileUnitsOpen";
     public static final String FILE_UNITS_SAVE = "fileUnitsSave";
@@ -783,8 +784,9 @@ public class ClientGUI extends AbstractClientGUI
         getBotCommandsDialog().add(new BotCommandsPanel(getClient(), audioService, null));
 
         client.changePhase(GamePhase.UNKNOWN);
-        UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(frame);
-        if (!MekSummaryCache.getInstance().isInitialized()) {
+        MekSummaryCache mekSummaryCache = MekSummaryCache.getInstance();
+        UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(frame, mekSummaryCache);
+        if (!mekSummaryCache.isInitialized()) {
             unitLoadingDialog.setVisible(true);
         }
         mekSelectorDialog = new MegaMekUnitSelectorDialog(this, unitLoadingDialog);
@@ -804,6 +806,26 @@ public class ClientGUI extends AbstractClientGUI
      */
     private void showAbout() {
         new CommonAboutDialog(frame).setVisible(true);
+    }
+
+    private void refreshUnitCache() {
+        MekSummaryCache mekSummaryCache = MekSummaryCache.getInstance();
+        UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(frame, mekSummaryCache,
+              Messages.getString("CommonMenuBar.fileUnitsRefreshUnitCache"), !mekSummaryCache.isLoading());
+        if (!mekSummaryCache.isLoading()) {
+            MekSummaryCache.refreshUnitData(false);
+        }
+        unitLoadingDialog.setVisible(true);
+    }
+
+    private void rebuildUnitCache() {
+        MekSummaryCache mekSummaryCache = MekSummaryCache.getInstance();
+        UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(frame, mekSummaryCache,
+              Messages.getString("CommonMenuBar.fileUnitsRebuildUnitCache"), !mekSummaryCache.isLoading());
+        if (!mekSummaryCache.isLoading()) {
+            MekSummaryCache.rebuildUnitData(false);
+        }
+        unitLoadingDialog.setVisible(true);
     }
 
     /**
@@ -1110,7 +1132,11 @@ public class ClientGUI extends AbstractClientGUI
                 ignoreHotKeys = false;
                 break;
             case FILE_REFRESH_CACHE:
-                MekSummaryCache.refreshUnitData(false);
+                refreshUnitCache();
+                new Thread(mekSelectorDialog, Messages.getString("ClientGUI.mekSelectorDialog")).start();
+                break;
+            case FILE_REBUILD_CACHE:
+                rebuildUnitCache();
                 new Thread(mekSelectorDialog, Messages.getString("ClientGUI.mekSelectorDialog")).start();
                 break;
             case VIEW_CLIENT_SETTINGS:

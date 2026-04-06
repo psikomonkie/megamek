@@ -122,6 +122,7 @@ public class MekSummaryCache {
             instance.initializing = true;
             interrupted = false;
             disposeInstance = false;
+            instance.resetLoadStats();
             instance.loader = new Thread(() -> instance.loadMekData(ignoringUnofficial), "Mek Cache Loader");
             instance.loader.setPriority(Thread.NORM_PRIORITY - 1);
             instance.loader.start();
@@ -135,17 +136,53 @@ public class MekSummaryCache {
      *
      * @param ignoreUnofficial If true, skips unofficial directories
      */
-    public static void refreshUnitData(boolean ignoreUnofficial) {
+    public static synchronized void refreshUnitData(boolean ignoreUnofficial) {
+        if (instance == null) {
+            getInstance(ignoreUnofficial);
+            return;
+        }
+
+        if (instance.initializing) {
+            return;
+        }
+
         instance.initializing = true;
         instance.initialized = false;
         interrupted = false;
         disposeInstance = false;
+        instance.resetLoadStats();
 
         File unitCachePath = new MegaMekFile(getUnitCacheDir(), FILENAME_UNITS_CACHE).getFile();
         long lastModified = unitCachePath.exists() ? unitCachePath.lastModified() : 0L;
 
         instance.loader = new Thread(() -> instance.refreshCache(lastModified, ignoreUnofficial),
               "Mek Cache Loader");
+        instance.loader.setPriority(Thread.NORM_PRIORITY - 1);
+        instance.loader.start();
+    }
+
+    /**
+     * Rebuilds the unit cache from scratch, ignoring any existing on-disk cache data.
+     *
+     * @param ignoreUnofficial If true, skips unofficial directories
+     */
+    public static synchronized void rebuildUnitData(boolean ignoreUnofficial) {
+        if (instance == null) {
+            getInstance(ignoreUnofficial);
+            return;
+        }
+
+        if (instance.initializing) {
+            return;
+        }
+
+        instance.initializing = true;
+        instance.initialized = false;
+        interrupted = false;
+        disposeInstance = false;
+        instance.resetLoadStats();
+
+        instance.loader = new Thread(() -> instance.rebuildCache(ignoreUnofficial), "Mek Cache Rebuilder");
         instance.loader.setPriority(Thread.NORM_PRIORITY - 1);
         instance.loader.start();
     }
@@ -173,6 +210,10 @@ public class MekSummaryCache {
 
     public boolean isInitialized() {
         return initialized;
+    }
+
+    public boolean isLoading() {
+        return initializing;
     }
 
     public void addListener(Listener listener) {
@@ -230,10 +271,10 @@ public class MekSummaryCache {
     }
 
     public void loadMekData(boolean ignoreUnofficial) {
+        resetLoadStats();
         Vector<MekSummary> vMeks = new Vector<>();
         Set<String> sKnownFiles = new HashSet<>();
         long lLastCheck = 0;
-        failedFiles = new HashMap<>();
 
         EquipmentType.initializeTypes(); // load master equipment lists
 
@@ -378,17 +419,36 @@ public class MekSummaryCache {
         logger.debug(loadReport.toString());
     }
 
+    private void resetLoadStats() {
+        loadReport = new StringBuffer();
+        failedFiles = new HashMap<>();
+        cacheCount = 0;
+        fileCount = 0;
+        zipCount = 0;
+    }
+
     private void done() {
+        List<Listener> listenersSnapshot;
+        boolean shouldDispose;
+
+        synchronized (listeners) {
+            listenersSnapshot = new ArrayList<>(listeners);
+        }
+
         synchronized (lock) {
             lock.notifyAll();
 
+            initializing = false;
             initialized = true;
+            shouldDispose = disposeInstance;
+        }
 
-            for (Listener listener : listeners) {
-                listener.doneLoading();
-            }
+        for (Listener listener : listenersSnapshot) {
+            listener.doneLoading();
+        }
 
-            if (disposeInstance) {
+        if (shouldDispose) {
+            synchronized (lock) {
                 instance = null;
                 initialized = false;
             }
@@ -412,7 +472,7 @@ public class MekSummaryCache {
     }
 
     private void refreshCache(long lastCheck, boolean ignoreUnofficial) {
-        loadReport = new StringBuffer();
+        resetLoadStats();
         loadReport.append("Refreshing unit cache:\n");
         Vector<MekSummary> units = new Vector<>();
         Set<String> knownFiles = new HashSet<>();
@@ -436,6 +496,22 @@ public class MekSummaryCache {
 
         // load any changes since the last check time
         checkForChanges(ignoreUnofficial, units, knownFiles, lastCheck);
+        updateData(units);
+        addLookupNames();
+        logReport();
+
+        done();
+    }
+
+    private void rebuildCache(boolean ignoreUnofficial) {
+        resetLoadStats();
+        EquipmentType.initializeTypes();
+
+        loadReport.append("Rebuilding unit cache:\n");
+        Vector<MekSummary> units = new Vector<>();
+        Set<String> knownFiles = new HashSet<>();
+
+        checkForChanges(ignoreUnofficial, units, knownFiles, 0L);
         updateData(units);
         addLookupNames();
         logReport();

@@ -71,5 +71,14 @@ class CacheRebuildTest {
 
         // Sanity check to make sure the loader thread didn't fail outright
         assertTrue(cache.getAllMeks().length > 0);
+
+        MekSummaryCache.rebuildUnitData(true);
+
+        for (Map.Entry<String, String> entry : cache.getFailedFiles().entrySet()) {
+            System.out.println("Failed to rebuild " + entry.getKey() + ": " + entry.getValue());
+        }
+
+        assertTrue(cache.getFailedFiles().isEmpty());
+        assertTrue(cache.getAllMeks().length > 0);
     }
 }
