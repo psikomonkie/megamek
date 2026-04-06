@@ -621,7 +621,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
                             + "isCapable={} isUsed={} isInoperable={} modesCount={}",
                       entity.getDisplayName(), equipNum, m.getName(),
                       m.curMode().getName(),
-                      m.pendingMode() != null ? m.pendingMode().getName() : "none",
+                      m.pendingMode().getName(),
                       isCapable, isUsed, m.isInoperable(), m.getType().getModesCount());
             }
         }
@@ -641,6 +641,11 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
 
     private void toggleGhostTargetMode() {
         ghostTargetMode = !ghostTargetMode;
+        // If re-entering ghost target mode with all equipment assigned, clear to allow re-targeting
+        if (ghostTargetMode && !pendingGhostTargets.isEmpty() && !hasAvailableGhostTargetEquipment(currentEntity())) {
+            logger.debug("[GT-Toggle] All equipment used, clearing for re-targeting");
+            resetGhostTargets();
+        }
         refreshButtons();
     }
 
