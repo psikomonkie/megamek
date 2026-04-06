@@ -32,9 +32,11 @@
  */
 package megamek.common.loaders;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.util.Map;
 
 import megamek.common.Configuration;
@@ -44,8 +46,9 @@ import org.junit.jupiter.api.Test;
 class CacheRebuildTest {
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         Configuration.setDataDir(new File("testresources/data"));
+        resetCacheSingleton();
     }
 
     /**
@@ -80,5 +83,38 @@ class CacheRebuildTest {
 
         assertTrue(cache.getFailedFiles().isEmpty());
         assertTrue(cache.getAllMeks().length > 0);
+    }
+
+    @Test
+    void testRebuildFromScratchWhenUninitializedDoesNotReadUnitCache() throws Exception {
+        File cacheFile = new File(MekSummaryCache.getUnitCacheDir(), MekSummaryCache.FILENAME_UNITS_CACHE);
+        if (cacheFile.exists()) {
+            assertTrue(cacheFile.delete(), "Couldn't delete cache");
+        }
+
+        MekSummaryCache initialLoad = MekSummaryCache.getInstance(false);
+        assertTrue(initialLoad.getAllMeks().length > 0);
+        assertTrue(cacheFile.exists(), "Expected test setup to create units.cache");
+
+        resetCacheSingleton();
+
+        MekSummaryCache.rebuildUnitData(false);
+        MekSummaryCache rebuiltCache = MekSummaryCache.getInstance(false);
+
+        assertTrue(rebuiltCache.getAllMeks().length > 0);
+        assertTrue(rebuiltCache.getFailedFiles().isEmpty());
+        assertEquals(0, rebuiltCache.getCacheCount());
+    }
+
+    private void resetCacheSingleton() throws Exception {
+        setStaticField("instance", null);
+        setStaticField("disposeInstance", false);
+        setStaticField("interrupted", false);
+    }
+
+    private void setStaticField(String fieldName, Object value) throws Exception {
+        Field field = MekSummaryCache.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(null, value);
     }
 }

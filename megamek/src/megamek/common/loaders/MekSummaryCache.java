@@ -91,8 +91,8 @@ public class MekSummaryCache {
     private static boolean disposeInstance = false;
     private static boolean interrupted = false;
 
-    private boolean initialized = false;
-    private boolean initializing = false;
+    private volatile boolean initialized = false;
+    private volatile boolean initializing = false;
 
     private MekSummary[] data;
     private final Map<String, MekSummary> nameMap;
@@ -168,8 +168,7 @@ public class MekSummaryCache {
      */
     public static synchronized void rebuildUnitData(boolean ignoreUnofficial) {
         if (instance == null) {
-            getInstance(ignoreUnofficial);
-            return;
+            instance = new MekSummaryCache();
         }
 
         if (instance.initializing) {
@@ -241,10 +240,13 @@ public class MekSummaryCache {
     private void block() {
         if (!initialized) {
             synchronized (lock) {
-                try {
-                    lock.wait();
-                } catch (Exception ignored) {
-
+                while (!initialized) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
                 }
             }
         }
