@@ -1739,7 +1739,7 @@ public class Infantry extends Entity {
         // Equipment for Trench/Fieldwork's Engineers
         if ((spec & TRENCH_ENGINEERS) > 0 && (infSpecs & TRENCH_ENGINEERS) == 0) {
             // Add vibro shovels if not already present (may already be loaded from file)
-            boolean hasShovels = getEquipment().stream()
+            boolean hasShovels = getMisc().stream()
                   .anyMatch(m -> m.getType().hasFlag(MiscType.F_TOOLS)
                         && m.getType().hasFlag(MiscTypeFlag.S_VIBRO_SHOVEL));
             if (!hasShovels) {
@@ -1753,7 +1753,7 @@ public class Infantry extends Entity {
         } else if ((spec & TRENCH_ENGINEERS) == 0 && (infSpecs & TRENCH_ENGINEERS) > 0) {
             // Need to remove vibro shovels
             List<Mounted<?>> eqToRemove = new ArrayList<>();
-            for (Mounted<?> eq : getEquipment()) {
+            for (Mounted<?> eq : getMisc()) {
                 if (eq.getType().hasFlag(MiscType.F_TOOLS) && eq.getType().hasFlag(MiscTypeFlag.S_VIBRO_SHOVEL)) {
                     eqToRemove.add(eq);
                 }
