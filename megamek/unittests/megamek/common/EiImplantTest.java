@@ -424,4 +424,66 @@ public class EiImplantTest {
                   "ProtoMek EI should provide 1-hex BAP range per IO:AE p.69 when tracking is ON");
         }
     }
+
+    @Nested
+    @DisplayName("ProtoMek Tech Level Tests")
+    class ProtoMekTechLevelTests {
+
+        @Test
+        @DisplayName("ProtoMek is Standard tech when mode is Off")
+        void protoMekStandardWhenOff() {
+            ProtoMek proto = createProtoMek();
+            assertEquals(SimpleTechLevel.STANDARD, proto.getStaticTechLevel(),
+                  "ProtoMek should be Standard tech when neural interface mode is Off");
+        }
+
+        @Test
+        @DisplayName("ProtoMek is Standard tech in Pilot Only mode")
+        void protoMekStandardWhenPilotOnly() {
+            enablePilotOnly();
+            ProtoMek proto = createProtoMek();
+            assertEquals(SimpleTechLevel.STANDARD, proto.getStaticTechLevel(),
+                  "ProtoMek should be Standard tech in Pilot Only mode");
+        }
+
+        @Test
+        @DisplayName("ProtoMek is Experimental tech in Full Tracking mode")
+        void protoMekExperimentalWhenFullTracking() {
+            enableFullTracking();
+            ProtoMek proto = createProtoMek();
+            assertEquals(SimpleTechLevel.EXPERIMENTAL, proto.getStaticTechLevel(),
+                  "ProtoMek should be Experimental tech in Full Tracking mode per IO:AE p.69");
+        }
+
+        @Test
+        @DisplayName("ProtoMek tech level changes when switching to Full Tracking")
+        void protoMekTechLevelChangesOnOptionSwitch() {
+            ProtoMek proto = createProtoMek();
+            assertEquals(SimpleTechLevel.STANDARD, proto.getStaticTechLevel(),
+                  "ProtoMek should start as Standard tech");
+
+            // Switch to Full Tracking
+            enableFullTracking();
+            proto.setGameOptions();
+            assertEquals(SimpleTechLevel.EXPERIMENTAL, proto.getStaticTechLevel(),
+                  "ProtoMek should become Experimental after switching to Full Tracking");
+        }
+
+        @Test
+        @DisplayName("ProtoMek tech level reverts when switching from Full Tracking to Off")
+        void protoMekTechLevelRevertsOnOptionSwitch() {
+            enableFullTracking();
+            ProtoMek proto = createProtoMek();
+            assertEquals(SimpleTechLevel.EXPERIMENTAL, proto.getStaticTechLevel(),
+                  "ProtoMek should be Experimental in Full Tracking mode");
+
+            // Switch to Off
+            game.getOptions().getOption(
+                        OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE)
+                  .setValue(OptionsConstants.NEURAL_INTERFACE_MODE_OFF);
+            proto.setGameOptions();
+            assertEquals(SimpleTechLevel.STANDARD, proto.getStaticTechLevel(),
+                  "ProtoMek should revert to Standard after switching to Off");
+        }
+    }
 }

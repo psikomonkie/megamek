@@ -55,6 +55,7 @@ import megamek.common.enums.TechRating;
 import megamek.common.equipment.AmmoMounted;
 import megamek.common.equipment.ArmorType;
 import megamek.common.equipment.EquipmentType;
+import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.equipment.IArmorState;
 import megamek.common.equipment.ICarryable;
 import megamek.common.equipment.MiscType;
@@ -1050,8 +1051,36 @@ public class ProtoMek extends Entity {
                 break;
             }
         }
-        // Recalculate tech level since EI equipment is skipped when not in Full Tracking mode
+        // Recalculate tech advancement to pick up EI-related changes
         recalculateTechAdvancement();
+    }
+
+    /**
+     * ProtoMeks have EI built-in per IO:AE p.69, but BLK files do not include EI Interface equipment. In Full Tracking
+     * mode the EI tech advancement (Experimental) must be added to the composite so that all tech level queries
+     * (year-based, static, etc.) reflect Experimental.
+     */
+    @Override
+    public void recalculateTechAdvancement() {
+        super.recalculateTechAdvancement();
+        if (isNeuralInterfaceFullTracking()) {
+            EquipmentType eiInterface = EquipmentType.get(EquipmentTypeLookup.EI_INTERFACE);
+            if (eiInterface != null) {
+                addTechComponent(eiInterface);
+            }
+        }
+    }
+
+    /**
+     * ProtoMeks in Full Tracking mode are Experimental tech per IO:AE p.69 due to built-in EI. Off and Pilot Only modes
+     * keep ProtoMeks at their base tech level (Standard).
+     */
+    @Override
+    public SimpleTechLevel getStaticTechLevel() {
+        if (isNeuralInterfaceFullTracking()) {
+            return SimpleTechLevel.max(super.getStaticTechLevel(), SimpleTechLevel.EXPERIMENTAL);
+        }
+        return super.getStaticTechLevel();
     }
 
     /**

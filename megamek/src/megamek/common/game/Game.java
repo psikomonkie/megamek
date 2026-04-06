@@ -447,6 +447,11 @@ public final class Game extends AbstractGame implements Serializable, PlanetaryC
             logger.error("Can't set the game options to null!");
         } else {
             this.options = options;
+            // Re-apply game options to all entities so option-dependent state
+            // (equipment modes, tech advancement, etc.) is recalculated with the new values
+            for (Entity entity : inGameTWEntities()) {
+                entity.setGameOptions();
+            }
             processGameEvent(new GameSettingsChangeEvent(this));
         }
     }
