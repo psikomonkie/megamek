@@ -41,6 +41,8 @@ import java.util.List;
 
 import megamek.common.board.BoardLocation;
 import megamek.common.board.Coords;
+import megamek.common.units.Terrain;
+import megamek.common.units.Terrains;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -280,6 +282,57 @@ class WoodsClearingTrackerTest {
             assertFalse(tracker.isClearingThisRound(1));
             assertFalse(tracker.isClearingThisRound(2));
             assertTrue(tracker.getAllClearingEntities().isEmpty());
+        }
+    }
+
+    @Nested
+    @DisplayName("Stale Entry Cleanup")
+    class StaleEntryTests {
+
+        @Test
+        @DisplayName("Removes entry when hex lookup returns null")
+        void removesEntryWhenHexIsNull() {
+            tracker.declareClearing(1, hexA);
+            tracker.removeStaleEntries(loc -> null);
+
+            assertFalse(tracker.isClearingThisRound(1),
+                  "Entry should be removed when hex lookup returns null");
+        }
+
+        @Test
+        @DisplayName("Removes entry when hex has no woods or jungle")
+        void removesEntryWhenNoWoods() {
+            tracker.declareClearing(1, hexA);
+            Hex roughHex = new Hex();
+            roughHex.addTerrain(new Terrain(Terrains.ROUGH, 1));
+            tracker.removeStaleEntries(loc -> roughHex);
+
+            assertFalse(tracker.isClearingThisRound(1),
+                  "Entry should be removed when hex has no woods or jungle");
+        }
+
+        @Test
+        @DisplayName("Retains entry when hex still has woods")
+        void retainsEntryWithWoods() {
+            tracker.declareClearing(1, hexA);
+            Hex woodsHex = new Hex();
+            woodsHex.addTerrain(new Terrain(Terrains.WOODS, 1));
+            tracker.removeStaleEntries(loc -> woodsHex);
+
+            assertTrue(tracker.isClearingThisRound(1),
+                  "Entry should be retained when hex still has woods");
+        }
+
+        @Test
+        @DisplayName("Retains entry when hex still has jungle")
+        void retainsEntryWithJungle() {
+            tracker.declareClearing(1, hexA);
+            Hex jungleHex = new Hex();
+            jungleHex.addTerrain(new Terrain(Terrains.JUNGLE, 2));
+            tracker.removeStaleEntries(loc -> jungleHex);
+
+            assertTrue(tracker.isClearingThisRound(1),
+                  "Entry should be retained when hex still has jungle");
         }
     }
 }
