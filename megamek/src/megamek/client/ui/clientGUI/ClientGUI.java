@@ -812,9 +812,7 @@ public class ClientGUI extends AbstractClientGUI
         MekSummaryCache mekSummaryCache = MekSummaryCache.getInstance();
         UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(frame, mekSummaryCache,
               Messages.getString("CommonMenuBar.fileUnitsRefreshUnitCache"), !mekSummaryCache.isLoading());
-        if (!mekSummaryCache.isLoading()) {
-            MekSummaryCache.refreshUnitData(false);
-        }
+        MekSummaryCache.refreshUnitData(false);
         unitLoadingDialog.setVisible(true);
     }
 
@@ -822,9 +820,7 @@ public class ClientGUI extends AbstractClientGUI
         MekSummaryCache mekSummaryCache = MekSummaryCache.getInstance();
         UnitLoadingDialog unitLoadingDialog = new UnitLoadingDialog(frame, mekSummaryCache,
               Messages.getString("CommonMenuBar.fileUnitsRebuildUnitCache"), !mekSummaryCache.isLoading());
-        if (!mekSummaryCache.isLoading()) {
-            MekSummaryCache.rebuildUnitData(false);
-        }
+        MekSummaryCache.rebuildUnitData(false);
         unitLoadingDialog.setVisible(true);
     }
 
