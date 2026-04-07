@@ -58,15 +58,24 @@ import megamek.common.units.Mek;
 import megamek.common.units.Targetable;
 import megamek.common.units.Terrain;
 import megamek.common.units.Terrains;
+import megamek.logging.MMLogger;
 import megamek.server.SmokeCloud;
 
 /**
- * Keeps track of the cumulative effects of intervening terrain on LOS
+ * Keeps track of the cumulative effects of intervening terrain on LOS.
+ *
+ * <p><b>Diagnostic logging:</b> This class has extensive DEBUG-level logging for LOS calculations.
+ * To enable it, set the log level for {@code megamek.common.LosEffects} to DEBUG in the logging
+ * configuration. This will log: the LOS rule set in use, attacker/target positions and heights,
+ * per-hex terrain accumulation (woods, smoke, buildings), and the final blocking decision with
+ * all accumulated modifier totals. Useful for diagnosing LOS discrepancies in bug reports.</p>
  *
  * @author Ben
  * @since October 14, 2002, 11:19 PM
  */
 public class LosEffects {
+
+    private static final MMLogger logger = MMLogger.create(LosEffects.class);
 
     public static class AttackInfo {
         public boolean attUnderWater;
@@ -777,6 +786,16 @@ public class LosEffects {
     }
 
     public static LosEffects calculateLos(Game game, AttackInfo ai) {
+        boolean useDiagramLos = game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_LOS1);
+        boolean useDeadZones = game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_DEAD_ZONES);
+        boolean usePartialCover = game.getOptions()
+              .booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_PARTIAL_COVER);
+        logger.debug("=== LOS CALC START === rules: {} | deadZones:{} partialCover:{} | "
+                    + "attacker@{} (absH:{}, h:{}, isMek:{}) -> target@{} (absH:{}, h:{}, isMek:{})",
+              useDiagramLos ? "TacOps Diagrammed LOS" : "Standard TW LOS",
+              useDeadZones, usePartialCover,
+              ai.attackPos, ai.attackAbsHeight, ai.attackHeight, ai.attackerIsMek,
+              ai.targetPos, ai.targetAbsHeight, ai.targetHeight, ai.targetIsMek);
         if (ai.attOffBoard) {
             LosEffects los = new LosEffects();
             los.blocked = true;
@@ -822,6 +841,22 @@ public class LosEffects {
                     ((finalLoS.heavyWoods + finalLoS.heavySmoke) * 2) +
                     (finalLoS.ultraWoods * 3) < 3);
 
+        int combinedWoodsSmoke = (finalLoS.lightWoods + finalLoS.lightSmoke)
+              + ((finalLoS.heavyWoods + finalLoS.heavySmoke) * 2)
+              + (finalLoS.ultraWoods * 3);
+        logger.debug("=== LOS CALC RESULT === blocked:{} hasLoS:{} | "
+                    + "lightWoods:{} heavyWoods:{} ultraWoods:{} | "
+                    + "lightSmoke:{} heavySmoke:{} | "
+                    + "combinedWoodsSmoke:{} (blocks if >=3) | "
+                    + "screen:{} plantedFields:{} heavyIndustrial:{} | "
+                    + "buildingLevels:{} softBldg:{} hardBldg:{}",
+              finalLoS.blocked, finalLoS.hasLoS,
+              finalLoS.lightWoods, finalLoS.heavyWoods, finalLoS.ultraWoods,
+              finalLoS.lightSmoke, finalLoS.heavySmoke,
+              combinedWoodsSmoke,
+              finalLoS.screen, finalLoS.plantedFields, finalLoS.heavyIndustrial,
+              finalLoS.buildingLevelsOrHexes, finalLoS.softBuildings, finalLoS.hardBuildings);
+
         finalLoS.targetLoc = ai.targetPos;
         return finalLoS;
     }
@@ -838,6 +873,18 @@ public class LosEffects {
     }
 
     public ToHitData losModifiers(Game game, int eiStatus, boolean underwaterWeapon) {
+        logger.debug("--- losModifiers() --- blocked:{} arcedShot:{} ei:{} underwater:{} | "
+                    + "lightWoods:{} heavyWoods:{} ultraWoods:{} | "
+                    + "lightSmoke:{} heavySmoke:{} | "
+                    + "woodsOnly:{} smokeOnly:{} combined:{} | "
+                    + "buildingLvls:{} screen:{} fields:{} heavyInd:{}",
+              blocked, arcedShot, eiStatus, underwaterWeapon,
+              lightWoods, heavyWoods, ultraWoods,
+              lightSmoke, heavySmoke,
+              lightWoods + (heavyWoods * 2),
+              lightSmoke + (heavySmoke * 2),
+              (lightWoods + lightSmoke) + ((heavyWoods + heavySmoke) * 2) + (ultraWoods * 3),
+              buildingLevelsOrHexes, screen, plantedFields, heavyIndustrial);
         ToHitData modifiers = new ToHitData();
 
         if (arcedShot) {
@@ -852,24 +899,42 @@ public class LosEffects {
          */
 
         if (blocked) {
+            logger.debug("losModifiers: BLOCKED by terrain (hill/elevation)");
             return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by terrain.");
         }
 
         if (infProtected) {
+            logger.debug("losModifiers: BLOCKED - infantry protected by building");
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Infantry protected by building.");
         }
 
         if (buildingLevelsOrHexes > 2) {
+            logger.debug("losModifiers: BLOCKED by {} building levels/hexes (>2)", buildingLevelsOrHexes);
             return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by building hexes or levels.");
         }
 
         // LOS blocking is not affected by EI - EI only reduces to-hit modifiers (IO p.69)
-        if ((ultraWoods >= 1) || (lightWoods + (heavyWoods * 2) > 2)) {
-            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by woods.");
+        // Woods and smoke effects are combined for blocking threshold (TW LOS rules).
+        // This matches the hasLoS calculation in calculateLos().
+        int combinedWoodsSmokeTotal = (lightWoods + lightSmoke)
+              + ((heavyWoods + heavySmoke) * 2)
+              + (ultraWoods * 3);
+        if (!underwaterWeapon && combinedWoodsSmokeTotal >= 3) {
+            logger.debug("losModifiers: BLOCKED by woods+smoke (combined:{}, "
+                        + "lightWoods:{} heavyWoods:{} ultraWoods:{} lightSmoke:{} heavySmoke:{})",
+                  combinedWoodsSmokeTotal, lightWoods, heavyWoods, ultraWoods, lightSmoke, heavySmoke);
+            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by intervening woods/smoke.");
         }
-
-        if (!underwaterWeapon && (lightSmoke + (heavySmoke * 2) > 2)) {
-            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by smoke.");
+        // Ultra woods alone always blocks regardless of underwater
+        if (ultraWoods >= 1) {
+            logger.debug("losModifiers: BLOCKED by ultra woods ({})", ultraWoods);
+            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by ultra woods.");
+        }
+        // Woods alone can block even for underwater weapons (smoke doesn't apply underwater)
+        if (underwaterWeapon && (lightWoods + (heavyWoods * 2) > 2)) {
+            logger.debug("losModifiers: BLOCKED by woods underwater (woodsTotal:{})",
+                  lightWoods + (heavyWoods * 2));
+            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by woods.");
         }
 
         if (plantedFields > 5) {
@@ -1411,6 +1476,14 @@ public class LosEffects {
             int smokeLevel = hex.terrainLevel(Terrains.SMOKE);
             boolean hasFoliage = (woodsLevel != Terrain.LEVEL_NONE) || (jungleLevel != Terrain.LEVEL_NONE);
 
+            if (hasFoliage || smokeLevel != Terrain.LEVEL_NONE) {
+                logger.debug("  Hex {} (elev:{}) terrain: woods:{} jungle:{} foliageElev:{} smoke:{} | "
+                            + "losElev:{:.1f} maxUnitH:{} attAbsH:{} tgtAbsH:{} attAdj:{} tgtAdj:{}",
+                      coords, hexEl, woodsLevel, jungleLevel, foliageElev, smokeLevel,
+                      losElevation, maxUnitHeight, ai.attackAbsHeight, ai.targetAbsHeight,
+                      attackerAdjacent, targetAdjacent);
+            }
+
             // Check 1 level high woods and jungle
             if (hasFoliage && foliageElev == 1) {
                 int terrainEl = hexEl + 1;
@@ -1424,11 +1497,16 @@ public class LosEffects {
                 if (affectsLos) {
                     if ((woodsLevel == 1) || (jungleLevel == 1)) {
                         los.lightWoods++;
+                        logger.debug("    -> {} counted as LIGHT WOODS (1-level foliage)", coords);
                     } else if ((woodsLevel == 2) || (jungleLevel == 2)) {
                         los.heavyWoods++;
+                        logger.debug("    -> {} counted as HEAVY WOODS (1-level foliage)", coords);
                     } else {
                         los.ultraWoods++;
+                        logger.debug("    -> {} counted as ULTRA WOODS (1-level foliage)", coords);
                     }
+                } else {
+                    logger.debug("    -> {} 1-level foliage does NOT affect LOS (below line)", coords);
                 }
             }
 
@@ -1451,16 +1529,24 @@ public class LosEffects {
                         case SmokeCloud.SMOKE_CHAFF_LIGHT:
                         case SmokeCloud.SMOKE_GREEN:
                             los.lightSmoke++;
+                            logger.debug("    -> {} counted as LIGHT SMOKE (2-level check)", coords);
                             break;
                         case SmokeCloud.SMOKE_HEAVY:
                             los.heavySmoke++;
+                            logger.debug("    -> {} counted as HEAVY SMOKE (2-level check)", coords);
                             break;
                     }
                     // Check woods/jungle
                     if ((woodsLevel == 1) || (jungleLevel == 1)) {
                         los.lightWoods++;
+                        logger.debug("    -> {} counted as LIGHT WOODS (2-level foliage)", coords);
                     } else if ((woodsLevel == 2) || (jungleLevel == 2)) {
                         los.heavyWoods++;
+                        logger.debug("    -> {} counted as HEAVY WOODS (2-level foliage)", coords);
+                    }
+                } else {
+                    if (smokeLevel != Terrain.LEVEL_NONE || hasFoliage) {
+                        logger.debug("    -> {} 2-level smoke/foliage does NOT affect LOS (below line)", coords);
                     }
                 }
 
