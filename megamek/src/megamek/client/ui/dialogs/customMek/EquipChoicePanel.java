@@ -45,18 +45,14 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
-import javax.swing.BorderFactory;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import javax.swing.UIManager;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import megamek.client.Client;
 import megamek.client.ui.GBC;
+import megamek.client.ui.GBC2;
 import megamek.client.ui.Messages;
 import megamek.client.ui.clientGUI.ClientGUI;
 import megamek.client.ui.util.StringDrawer;
@@ -80,6 +76,7 @@ import megamek.common.game.Game;
 import megamek.common.options.IGameOptions;
 import megamek.common.options.OptionsConstants;
 import megamek.common.units.Aero;
+import megamek.common.units.AeroSpaceFighter;
 import megamek.common.units.Dropship;
 import megamek.common.units.Entity;
 import megamek.common.units.EntityWeightClass;
@@ -106,7 +103,7 @@ public class EquipChoicePanel extends JPanel {
 
     private final Entity entity;
     private final List<MunitionChoicePanel> m_vMunitions = new ArrayList<>();
-    private final List<WeaponAmmoChoicePanel> m_vWeaponAmmoChoice = new ArrayList<>();
+    private final List<WeaponAmmoChoice> m_vWeaponAmmoChoice = new ArrayList<>();
     /**
      * An <code>ArrayList</code> to keep track of all of the
      * <code>APWeaponChoicePanels</code> that were added, so we can apply
@@ -117,10 +114,8 @@ public class EquipChoicePanel extends JPanel {
      * Panel for adding components related to selecting which anti-personnel weapons are mounted in an AP Mount (armored
      * gloves are also considered AP mounts)
      **/
-    private final JPanel panAPMounts = new JPanel();
-    private BaManipulatorChoicePanel panBaManipulators;
-    private final JPanel panWeaponAmmoSelector = new JPanel();
-    private final ArrayList<RapidFireMGPanel> m_vMGs = new ArrayList<>();
+    private BaManipulatorChoice panBaManipulators;
+    private final ArrayList<RapidFireMGChoice> m_vMGs = new ArrayList<>();
     private final JPanel panRapidFireMGs = new JPanel();
     private VRTChoicePanel panVRT;
     private final JPanel panVRTContainer = new JPanel();
@@ -128,12 +123,18 @@ public class EquipChoicePanel extends JPanel {
     private final JPanel panMines = new JPanel();
     private final JPanel panBombs = new JPanel();
     private final JCheckBox chAutoEject = new JCheckBox(Messages.getString("CustomMekDialog.labAutoEject"));
-    private final JCheckBox chCondEjectAmmo = new JCheckBox();
-    private final JCheckBox chCondEjectEngine = new JCheckBox();
-    private final JCheckBox chCondEjectCTDest = new JCheckBox();
-    private final JCheckBox chCondEjectHeadshot = new JCheckBox();
-    private final JCheckBox chCondEjectFuel = new JCheckBox();
-    private final JCheckBox chCondEjectSIDest = new JCheckBox();
+    private final JCheckBox chCondEjectAmmo = new JCheckBox(Messages.getString(
+          "CustomMekDialog.labConditional_Ejection_Ammo"));
+    private final JCheckBox chCondEjectEngine = new JCheckBox(Messages.getString(
+          "CustomMekDialog.labConditional_Ejection_Engine"));
+    private final JCheckBox chCondEjectCTDest = new JCheckBox(Messages.getString(
+          "CustomMekDialog.labConditional_Ejection_CT_Destroyed"));
+    private final JCheckBox chCondEjectHeadshot = new JCheckBox(Messages.getString(
+          "CustomMekDialog.labConditional_Ejection_Headshot"));
+    private final JCheckBox chCondEjectFuel = new JCheckBox(Messages.getString(
+          "CustomMekDialog.labConditional_Ejection_Fuel"));
+    private final JCheckBox chCondEjectSIDest = new JCheckBox(Messages.getString(
+          "CustomMekDialog.labConditional_Ejection_SI_Destroyed"));
     private final JCheckBox chSearchlight = new JCheckBox();
     private final JCheckBox chSearchlightStatus = new JCheckBox();
     private final JCheckBox chDNICockpitMod = new JCheckBox();
@@ -160,86 +161,14 @@ public class EquipChoicePanel extends JPanel {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
 
         setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-//        gbc.gridy = 0;
-        gbc.insets = new Insets(0, 2, 1, 2);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        GBC2 gbc = new GBC2().insets(0, 2, 1, 2);
 
-        GBC gbc2 = GBC.std();
-
-
-        // **EQUIPMENT TAB**//
-        // Auto-eject checkbox and conditional ejections.
-        JLabel labAutoEject = new JLabel(Messages.getString("CustomMekDialog.labAutoEject"), SwingConstants.RIGHT);
-        JLabel labCondEjectAmmo = new JLabel(Messages.getString("CustomMekDialog.labConditional_Ejection_Ammo"),
-              SwingConstants.RIGHT);
-        if (entity instanceof Mek mek) {
-            if (mek.hasEjectSeat() && clientgui != null) {
-//                gbc.anchor = GridBagConstraints.WEST;
-//                gbc.gridy++;
-                add(new JLabel(), GBC.std());
-//                gbc.gridwidth = GridBagConstraints.REMAINDER;
-                add(chAutoEject, GBC.eol());
-                chAutoEject.setSelected(!mek.isAutoEject());
-            }
-
-            // Conditional Ejections
-            if (game.getOptions().booleanOption(OptionsConstants.RPG_CONDITIONAL_EJECTION) &&
-                  mek.hasEjectSeat()) {
-                add(labCondEjectAmmo, gbc);
-                gbc.gridwidth = GridBagConstraints.REMAINDER;
-                add(chCondEjectAmmo, gbc);
-                gbc.gridwidth = 1;
-                chCondEjectAmmo.setSelected(mek.isCondEjectAmmo());
-                JLabel labCondEjectEngine = new JLabel(Messages.getString(
-                      "CustomMekDialog.labConditional_Ejection_Engine"), SwingConstants.RIGHT);
-                add(labCondEjectEngine, GBC.std());
-                add(chCondEjectEngine, GBC.eol());
-                chCondEjectEngine.setSelected(mek.isCondEjectEngine());
-                JLabel labCondEjectCTDest = new JLabel(Messages.getString(
-                      "CustomMekDialog.labConditional_Ejection_CT_Destroyed"), SwingConstants.RIGHT);
-                add(labCondEjectCTDest, GBC.std());
-                add(chCondEjectCTDest, GBC.eol());
-                chCondEjectCTDest.setSelected(mek.isCondEjectCTDest());
-                JLabel labCondEjectHeadshot = new JLabel(Messages.getString(
-                      "CustomMekDialog.labConditional_Ejection_Headshot"), SwingConstants.RIGHT);
-                add(labCondEjectHeadshot, GBC.std());
-                add(chCondEjectHeadshot, GBC.eol());
-                chCondEjectHeadshot.setSelected(mek.isCondEjectHeadshot());
-            }
-        } else if (entity.isFighter()) {
-            Aero aero = (Aero) entity;
-
-            // Ejection Seat
-            if (aero.hasEjectSeat()) {
-                add(labAutoEject, GBC.std());
-                add(chAutoEject, GBC.eol());
-                chAutoEject.setSelected(!aero.isAutoEject());
-            }
-
-            // Conditional Ejections
-            if (game.getOptions().booleanOption(OptionsConstants.RPG_CONDITIONAL_EJECTION) &&
-                  aero.hasEjectSeat()) {
-                add(labCondEjectAmmo, GBC.std());
-                add(chCondEjectAmmo, GBC.eol());
-                chCondEjectAmmo.setSelected(aero.isCondEjectAmmo());
-                JLabel labCondEjectFuel = new JLabel(Messages.getString("CustomMekDialog.labConditional_Ejection_Fuel"),
-                      SwingConstants.RIGHT);
-                add(labCondEjectFuel, GBC.std());
-                add(chCondEjectFuel, GBC.eol());
-                chCondEjectFuel.setSelected(aero.isCondEjectFuel());
-                JLabel labCondEjectSIDest = new JLabel(Messages.getString(
-                      "CustomMekDialog.labConditional_Ejection_SI_Destroyed"), SwingConstants.RIGHT);
-                add(labCondEjectSIDest, GBC.std());
-                add(chCondEjectSIDest, GBC.eol());
-                chCondEjectSIDest.setSelected(aero.isCondEjectSIDest());
-            }
-        }
 
         if (entity.hasC3() || entity.hasC3i() || entity.hasNavalC3()) {
+            add(new TitleLabel("C3 Configuration"), gbc.title());
             JLabel labC3 = new JLabel(Messages.getString("CustomMekDialog.labC3"), SwingConstants.RIGHT);
-            add(labC3, GBC.std());
-            add(choC3, GBC.eol());
+            add(labC3, gbc.forLabel());
+            add(choC3, gbc.eol());
             refreshC3();
         }
 
@@ -285,63 +214,39 @@ public class EquipChoicePanel extends JPanel {
 
             // AP mounts (not armored gloves)
             if (entity.hasMisc(EquipmentTypeLookup.BA_APM)) {
-//                gbc.gridy++;
-                add(new JLabel(Messages.getString("CustomMekDialog.APMountPanelTitle")), GBC.eol());
-                setupAPMounts(apmWeaponTypes, gbc);
-//                panAPMounts.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-//                      Messages.getString("CustomMekDialog.APMountPanelTitle"),
-//                      TitledBorder.TOP,
-//                      TitledBorder.DEFAULT_POSITION));
-//                add(panAPMounts, GBC.eop().anchor(GridBagConstraints.CENTER));
+                String apTitle = Messages.getString("CustomMekDialog.APMountPanelTitle");
+                add(new TitleLabel(apTitle), gbc.title());
+                for (Mounted<?> misc : entity.getMisc()) {
+                    if (misc.is(EquipmentTypeLookup.BA_APM)) {
+                        var apWeaponChoice = new APWeaponChoice(entity, misc, apmWeaponTypes, this, gbc);
+                        m_vAPMounts.add(apWeaponChoice);
+                    }
+                }
             }
 
             // Manipulators and Armored Glove AP mounting
             if (entity.hasWorkingMisc(MiscType.F_BA_MEA) || battleArmor.hasMisc(MiscTypeFlag.F_ARMORED_GLOVE)) {
-                panBaManipulators = new BaManipulatorChoicePanel(battleArmor, agloveWeaponTypes, this);
-//                panBaManipulators.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-//                      Messages.getString("CustomMekDialog.MEAPanelTitle"),
-//                      TitledBorder.TOP,
-//                      TitledBorder.DEFAULT_POSITION));
-//                gbc.gridy++;
-//                add(panBaManipulators, gbc);
+                String meaTitle = Messages.getString("CustomMekDialog.MEAPanelTitle");
+                add(new TitleLabel(meaTitle), gbc.title());
+                panBaManipulators = new BaManipulatorChoice(battleArmor, agloveWeaponTypes, this, gbc);
             }
         }
 
-        // Can't set up munitions on infantry.
-        if (!((entity instanceof Infantry) && !((Infantry) entity).hasFieldWeapon()) ||
-              (entity instanceof BattleArmor)) {
-            setupMunitions();
-            panMunitions.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-                  Messages.getString("CustomMekDialog.MunitionsPanelTitle"),
-                  TitledBorder.TOP,
-                  TitledBorder.DEFAULT_POSITION));
-            if (panMunitions.getComponentCount() > 0) {
-                add(panMunitions, GBC.eop().anchor(GridBagConstraints.CENTER));
-            }
-
-            // We have a starting loadout only if we have a ClientGUI
+        if (entity.isBattleArmor() || !(entity instanceof Infantry infantry) || infantry.hasFieldWeapon()) {
+            setupMunitions(gbc);
             if (clientgui != null) {
-                setupWeaponAmmoChoice();
-                panWeaponAmmoSelector.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(),
-                      Messages.getString("CustomMekDialog.WeaponSelectionTitle"),
-                      TitledBorder.TOP,
-                      TitledBorder.DEFAULT_POSITION));
-                if (panWeaponAmmoSelector.getComponentCount() > 0) {
-                    add(panWeaponAmmoSelector, GBC.eop().anchor(GridBagConstraints.CENTER));
-                }
+                setupWeaponAmmoChoice(gbc);
             }
         }
 
         if (entity.isBomber()) {
-            setupBombs();
-            add(panBombs, GBC.eop().anchor(GridBagConstraints.CENTER));
+            setupBombs(gbc);
         }
 
         // Set up rapid fire mg; per errata infantry of any kind cannot use them
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_BURST) &&
               !(entity instanceof Infantry)) {
-            setupRapidFireMGs();
-            add(panRapidFireMGs, GBC.eop().anchor(GridBagConstraints.CENTER));
+            setupRapidFireMGs(gbc);
         }
 
         // Set up Variable Range Targeting mode selection
@@ -355,6 +260,7 @@ public class EquipChoicePanel extends JPanel {
             panInfArmor = new InfantryArmorPanel(entity);
             add(panInfArmor, GBC.eop().anchor(GridBagConstraints.CENTER));
         }
+
         // Set up searchlight
         if (client.getGame().getPlanetaryConditions().getLight().isDuskOrFullMoonOrMoonlessOrPitchBack()) {
             if (!entity.getsAutoExternalSearchlight()) {
@@ -436,6 +342,65 @@ public class EquipChoicePanel extends JPanel {
             }
         }
 
+        JComponent miscTitle = new TitleLabel(Messages.getString("CustomMekDialog.miscTitle"));
+        add(miscTitle, gbc.title());
+        boolean hasMiscSection = false;
+
+        // Auto-eject checkbox and conditional ejections.
+        if (entity instanceof Mek mek) {
+            if (mek.hasEjectSeat() && clientgui != null) {
+                add(new JLabel(), gbc.forLabel());
+                add(chAutoEject, gbc.eol());
+                chAutoEject.setSelected(!mek.isAutoEject());
+                hasMiscSection = true;
+            }
+
+            // Conditional Ejections
+            if (game.getOptions().booleanOption(OptionsConstants.RPG_CONDITIONAL_EJECTION) && mek.hasEjectSeat()) {
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectAmmo, gbc.eol());
+                chCondEjectAmmo.setSelected(mek.isCondEjectAmmo());
+
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectEngine, gbc.eol());
+                chCondEjectEngine.setSelected(mek.isCondEjectEngine());
+
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectCTDest, gbc.eol());
+                chCondEjectCTDest.setSelected(mek.isCondEjectCTDest());
+
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectHeadshot, gbc.eol());
+                chCondEjectHeadshot.setSelected(mek.isCondEjectHeadshot());
+                hasMiscSection = true;
+            }
+
+        } else if (entity instanceof AeroSpaceFighter aero) {
+            // Ejection Seat
+            if (aero.hasEjectSeat()) {
+                add(new JLabel(), gbc.forLabel());
+                add(chAutoEject, gbc.eol());
+                chAutoEject.setSelected(!aero.isAutoEject());
+                hasMiscSection = true;
+            }
+
+            // Conditional Ejections
+            if (game.getOptions().booleanOption(OptionsConstants.RPG_CONDITIONAL_EJECTION) && aero.hasEjectSeat()) {
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectAmmo, gbc.eol());
+                chCondEjectAmmo.setSelected(aero.isCondEjectAmmo());
+
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectFuel, gbc.eol());
+                chCondEjectFuel.setSelected(aero.isCondEjectFuel());
+
+                add(new JLabel(), gbc.forLabel());
+                add(chCondEjectSIDest, gbc.eol());
+                chCondEjectSIDest.setSelected(aero.isCondEjectSIDest());
+                hasMiscSection = true;
+            }
+        }
+
         // Set up Damage Interrupt Circuit (IO p.39) - BattleMeks and IndustrialMeks only, IS or Mixed tech
         if ((entity instanceof Mek mek) && ((!entity.isClan()) || (entity.isMixedTech()))) {
             EquipmentType dicEquipment = EquipmentType.get("DamageInterruptCircuit");
@@ -443,20 +408,21 @@ public class EquipChoicePanel extends JPanel {
                 int gameYear = game.getOptions().intOption(OptionsConstants.ALLOWED_YEAR);
                 int dicIntroYear = dicEquipment.getIntroductionDate(false); // IS tech
                 if (gameYear >= dicIntroYear) {
-//                    gbc.gridy++;
-//                    gbc.anchor = GridBagConstraints.WEST;
-//                    gbc.gridwidth = 1;
-                    add(new JLabel(), GBC.std());
-//                    gbc.gridwidth = GridBagConstraints.REMAINDER;
-                    add(chDamageInterruptCircuit, GBC.eol());
+                    add(new JLabel(), gbc.forLabel());
+                    add(chDamageInterruptCircuit, gbc.eol());
                     chDamageInterruptCircuit.setSelected(mek.hasDamageInterruptCircuit());
+                    hasMiscSection = true;
                 }
             }
         }
 
+        if (!hasMiscSection) {
+            remove(miscTitle);
+        }
+
         // Set up mines
         setupMines();
-        if (panMines.getComponentCount()>0) {
+        if (panMines.getComponentCount() > 0) {
             add(panMines, GBC.eop().anchor(GridBagConstraints.CENTER));
         }
     }
@@ -567,27 +533,14 @@ public class EquipChoicePanel extends JPanel {
         }
     }
 
-    /**
-     * Set up the layout of <code>panAPMounts</code>, which contains components for selecting which anti-personnel
-     * weapons are mounted in an AP mount.
-     */
-    private void setupAPMounts(List<WeaponType> apWeaponTypes, GridBagConstraints gbc) {
-//        panAPMounts.setLayout(new GridBagLayout());
-        for (Mounted<?> misc : entity.getMisc()) {
-            if (misc.is(EquipmentTypeLookup.BA_APM)) {
-                var apWeaponChoice = new APWeaponChoice(entity, misc, apWeaponTypes, this, gbc);
-//                panAPMounts.add(apWeaponChoicePanel, GBC.eol());
-                m_vAPMounts.add(apWeaponChoice);
-            }
-        }
-    }
-
-    private void setupMunitions() {
-        GridBagLayout gridBagLayout = new GridBagLayout();
-        panMunitions.setLayout(gridBagLayout);
+    private void setupMunitions(GBC2 gbc) {
         Game game = clientgui == null ? client.getGame() : clientgui.getClient().getGame();
         IGameOptions gameOpts = game.getOptions();
         int gameYear = gameOpts.intOption(OptionsConstants.ALLOWED_YEAR);
+
+        String ammoSelectionTitle = Messages.getString("CustomMekDialog.MunitionsPanelTitle");
+        JComponent title = new TitleLabel(ammoSelectionTitle);
+        add(title, gbc.title());
 
         if (entity.usesWeaponBays() || entity instanceof Dropship) {
             // Grounded dropships don't *use* weapon bays as such, but should load ammo as if they did
@@ -600,11 +553,10 @@ public class EquipChoicePanel extends JPanel {
             panMunitions = new SmallSVMunitionsChoicePanel(entity);
             return;
         }
-        panMunitions.setLayout(gridBagLayout);
 
         for (AmmoMounted ammoMounted : entity.getAmmo()) {
             AmmoType at = ammoMounted.getType();
-            ArrayList<AmmoType> vTypes = new ArrayList<>();
+            Vector<AmmoType> vTypes = new Vector<>();
             Vector<AmmoType> vAllTypes = AmmoType.getMunitionsFor(at.getAmmoType());
 
             if (vAllTypes == null) {
@@ -712,9 +664,13 @@ public class EquipChoicePanel extends JPanel {
                   vTypes,
                   m_vWeaponAmmoChoice,
                   entity,
-                  game);
-            panMunitions.add(munitionChoicePanel, GBC.eol());
+                  game, this, gbc);
+
+            //            panMunitions.add(munitionChoicePanel, GBC.eol());
             m_vMunitions.add(munitionChoicePanel);
+        }
+        if (m_vMunitions.isEmpty()) {
+            remove(title);
         }
     }
 
@@ -722,48 +678,48 @@ public class EquipChoicePanel extends JPanel {
      * Worker function that creates a series of weapon ammo choice panels that allow the user to pick a particular ammo
      * bin for an ammo-using weapon with matching ammo.
      */
-    private void setupWeaponAmmoChoice() {
-        GridBagLayout gbl = new GridBagLayout();
-        panWeaponAmmoSelector.setLayout(gbl);
-
+    private void setupWeaponAmmoChoice(GBC2 gbc) {
+        String ammoTitle = Messages.getString("CustomMekDialog.WeaponSelectionTitle");
+        JComponent title = new TitleLabel(ammoTitle);
+        add(title, gbc.title());
         for (WeaponMounted weapon : entity.getWeaponList()) {
             // don't deal with bay or grouped weapons for now
-            if (weapon.getType().getAmmoType() == AmmoType.AmmoTypeEnum.NA) {
-                continue;
+            if (weapon.getType().getAmmoType() != AmmoType.AmmoTypeEnum.NA) {
+                m_vWeaponAmmoChoice.add(new WeaponAmmoChoice(weapon, entity, this, gbc));
             }
-
-            WeaponAmmoChoicePanel ammoChoicePanel = new WeaponAmmoChoicePanel(weapon, entity);
-            panWeaponAmmoSelector.add(ammoChoicePanel, GBC.eol());
-            m_vWeaponAmmoChoice.add(ammoChoicePanel);
+        }
+        if (m_vWeaponAmmoChoice.isEmpty()) {
+            remove(title);
         }
     }
 
-    private void setupBombs() {
-        GridBagLayout gbl = new GridBagLayout();
-        panBombs.setLayout(gbl);
+    private void setupBombs(GBC2 gbc) {
+        String mgTitle = Messages.getString("CustomMekDialog.bombSection");
+        JComponent title = new TitleLabel(mgTitle);
+        add(title, gbc.title());
 
         int techLevel = Arrays.binarySearch(TechConstants.T_SIMPLE_NAMES,
               client.getGame().getOptions().stringOption(OptionsConstants.ALLOWED_TECH_LEVEL));
         boolean allowNukes = client.getGame()
               .getOptions()
               .booleanOption(OptionsConstants.ADVANCED_AERO_RULES_AT2_NUKES);
-        m_bombs = new BombChoicePanel((IBomber) entity, allowNukes, techLevel >= TechConstants.T_SIMPLE_ADVANCED);
-        panBombs.add(m_bombs, GBC.std());
+        m_bombs = new BombChoicePanel((IBomber) entity, allowNukes,
+              techLevel >= TechConstants.T_SIMPLE_ADVANCED, this, gbc);
     }
 
-    private void setupRapidFireMGs() {
-        GridBagLayout gridBagLayout = new GridBagLayout();
-        panRapidFireMGs.setLayout(gridBagLayout);
+    private void setupRapidFireMGs(GBC2 gbc) {
+        String mgTitle = Messages.getString("CustomMekDialog.rapidFireSection");
+        JComponent title = new TitleLabel(mgTitle);
+        add(title, gbc.title());
         for (Mounted<?> mounted : entity.getWeaponList()) {
             WeaponType weaponType = (WeaponType) mounted.getType();
-
-            if (!weaponType.hasFlag(WeaponType.F_MG)) {
-                continue;
+            if (weaponType.hasFlag(WeaponType.F_MG)) {
+                RapidFireMGChoice rapidFireMGChoice = new RapidFireMGChoice(mounted, entity, this, gbc);
+                m_vMGs.add(rapidFireMGChoice);
             }
-
-            RapidFireMGPanel rapidFireMGPanel = new RapidFireMGPanel(mounted, entity);
-            panRapidFireMGs.add(rapidFireMGPanel, GBC.eol());
-            m_vMGs.add(rapidFireMGPanel);
+        }
+        if (m_vMGs.isEmpty()) {
+            remove(title);
         }
     }
 
@@ -851,7 +807,7 @@ public class EquipChoicePanel extends JPanel {
     }
 
     private void disableMGSetting() {
-        for (RapidFireMGPanel mVMG : m_vMGs) {
+        for (RapidFireMGChoice mVMG : m_vMGs) {
             mVMG.setEnabled(false);
         }
     }
@@ -915,14 +871,14 @@ public class EquipChoicePanel extends JPanel {
                 smallSVMunitionsChoicePanel.apply();
             }
             // update ammo names for weapon ammo choice selectors
-            for (WeaponAmmoChoicePanel wacPanel : m_vWeaponAmmoChoice) {
+            for (WeaponAmmoChoice wacPanel : m_vWeaponAmmoChoice) {
                 wacPanel.applyChoice();
             }
         }
 
         // update MG rapid fire settings
-        for (final RapidFireMGPanel rapidfireMGPanel : m_vMGs) {
-            rapidfireMGPanel.applyChoice();
+        for (final RapidFireMGChoice rapidfireMGChoice : m_vMGs) {
+            rapidfireMGChoice.applyChoice();
         }
         // update Variable Range Targeting mode
         if (panVRT != null) {
@@ -1137,6 +1093,33 @@ public class EquipChoicePanel extends JPanel {
         if (getComponentCount() == 0) {
             UIUtil.setHighQualityRendering(g);
             nothingToConfigureText.at(getWidth() / 2, getHeight() / 2).draw(g);
+        }
+    }
+
+    private static class TitleLabel extends JPanel {
+
+        public TitleLabel(String text) {
+            setLayout(new GridBagLayout());
+            setBorder(new EmptyBorder(15, 0, 5, 0));
+            GridBagConstraints gbc = new GridBagConstraints();
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+
+            gbc.weightx = 1;
+            gbc.ipadx = 20;
+            gbc.gridx = 0;
+            add(new JSeparator(), gbc); // left line
+            gbc.gridx = 2;
+            add(new JSeparator(), gbc); // right line
+
+            // Label
+            gbc.gridx = 1;
+            gbc.weightx = 0;
+            gbc.ipadx = 0;
+            gbc.insets = new Insets(0, 8, 0, 8);
+            var titleLabel = new JLabel(text);
+            titleLabel.setForeground(UIUtil.uiLightBlue());
+            titleLabel.putClientProperty(FlatClientProperties.STYLE_CLASS, "large");
+            add(titleLabel, gbc);
         }
     }
 }
