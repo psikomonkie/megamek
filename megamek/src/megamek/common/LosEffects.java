@@ -914,27 +914,30 @@ public class LosEffects {
         }
 
         // LOS blocking is not affected by EI - EI only reduces to-hit modifiers (IO p.69)
-        // Woods and smoke effects are combined for blocking threshold (TW LOS rules).
-        // This matches the hasLoS calculation in calculateLos().
-        int combinedWoodsSmokeTotal = (lightWoods + lightSmoke)
-              + ((heavyWoods + heavySmoke) * 2)
-              + (ultraWoods * 3);
-        if (!underwaterWeapon && combinedWoodsSmokeTotal >= 3) {
-            logger.debug("losModifiers: BLOCKED by woods+smoke (combined:{}, "
-                        + "lightWoods:{} heavyWoods:{} ultraWoods:{} lightSmoke:{} heavySmoke:{})",
-                  combinedWoodsSmokeTotal, lightWoods, heavyWoods, ultraWoods, lightSmoke, heavySmoke);
-            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by intervening woods/smoke.");
-        }
-        // Ultra woods alone always blocks regardless of underwater
+        // Ultra woods always blocks regardless of underwater weapon status
         if (ultraWoods >= 1) {
             logger.debug("losModifiers: BLOCKED by ultra woods ({})", ultraWoods);
             return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by ultra woods.");
         }
-        // Woods alone can block even for underwater weapons (smoke doesn't apply underwater)
-        if (underwaterWeapon && (lightWoods + (heavyWoods * 2) > 2)) {
-            logger.debug("losModifiers: BLOCKED by woods underwater (woodsTotal:{})",
-                  lightWoods + (heavyWoods * 2));
-            return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by woods.");
+
+        if (underwaterWeapon) {
+            // Underwater: smoke doesn't apply, only woods count
+            if (lightWoods + (heavyWoods * 2) > 2) {
+                logger.debug("losModifiers: BLOCKED by woods underwater (woodsTotal:{})",
+                      lightWoods + (heavyWoods * 2));
+                return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by woods.");
+            }
+        } else {
+            // Woods and smoke effects are combined for blocking threshold (TW LOS rules).
+            // This matches the hasLoS calculation in calculateLos().
+            int combinedWoodsSmokeTotal = (lightWoods + lightSmoke)
+                  + ((heavyWoods + heavySmoke) * 2);
+            if (combinedWoodsSmokeTotal >= 3) {
+                logger.debug("losModifiers: BLOCKED by woods+smoke (combined:{}, "
+                            + "lightWoods:{} heavyWoods:{} lightSmoke:{} heavySmoke:{})",
+                      combinedWoodsSmokeTotal, lightWoods, heavyWoods, lightSmoke, heavySmoke);
+                return new ToHitData(TargetRoll.IMPOSSIBLE, "LOS blocked by intervening woods/smoke.");
+            }
         }
 
         if (plantedFields > 5) {
@@ -1478,9 +1481,10 @@ public class LosEffects {
 
             if (hasFoliage || smokeLevel != Terrain.LEVEL_NONE) {
                 logger.debug("  Hex {} (elev:{}) terrain: woods:{} jungle:{} foliageElev:{} smoke:{} | "
-                            + "losElev:{:.1f} maxUnitH:{} attAbsH:{} tgtAbsH:{} attAdj:{} tgtAdj:{}",
+                            + "losElev:{} maxUnitH:{} attAbsH:{} tgtAbsH:{} attAdj:{} tgtAdj:{}",
                       coords, hexEl, woodsLevel, jungleLevel, foliageElev, smokeLevel,
-                      losElevation, maxUnitHeight, ai.attackAbsHeight, ai.targetAbsHeight,
+                      String.format("%.1f", losElevation), maxUnitHeight,
+                      ai.attackAbsHeight, ai.targetAbsHeight,
                       attackerAdjacent, targetAdjacent);
             }
 
