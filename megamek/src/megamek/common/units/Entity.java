@@ -1102,12 +1102,17 @@ public abstract class Entity extends TurnOrdered
     }
 
     protected boolean hasViableWeapons() {
-        int totalDmg = Compute.computeTotalDamage(getTotalWeaponList());
+        // Bomb-mounted weapons are expendable ordnance, not inherent to the unit,
+        // and should never factor into crippled status determination.
+        List<WeaponMounted> nonBombWeapons = getTotalWeaponList().stream()
+              .filter(w -> !w.isBombMounted())
+              .toList();
+
+        int totalDmg = Compute.computeTotalDamage(nonBombWeapons);
 
         // Find any weapons with range of 6+
         boolean hasRangeSixPlus = false;
-        List<WeaponMounted> weaponList = getTotalWeaponList();
-        for (WeaponMounted weapon : weaponList) {
+        for (WeaponMounted weapon : nonBombWeapons) {
             if (weapon.isCrippled()) {
                 continue;
             }
@@ -1230,6 +1235,18 @@ public abstract class Entity extends TurnOrdered
         for (Transporter transport : getTransports()) {
             transport.setEntity(this);
             transport.setGame(game);
+        }
+        // carriedObjects embeds entity references (e.g. HandheldWeapon) that get serialized as part of this entity,
+        // producing stale duplicates disconnected from inGameObjects. Replace them with the canonical game instances.
+        if (game != null && carriedObjects != null) {
+            for (var entry : carriedObjects.entrySet()) {
+                if (entry.getValue() instanceof Entity carried) {
+                    Entity canonical = game.getEntity(carried.getId());
+                    if (canonical != null) {
+                        entry.setValue(canonical);
+                    }
+                }
+            }
         }
     }
 

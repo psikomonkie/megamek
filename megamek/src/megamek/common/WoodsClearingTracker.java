@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 
 import megamek.common.board.BoardLocation;
+import megamek.common.units.Terrains;
 
 /**
  * Tracks ongoing woods-clearing operations using chainsaws and dual saws.
@@ -232,6 +233,20 @@ public class WoodsClearingTracker implements Serializable {
             result.put(entry.getKey(), remaining);
         }
         return result;
+    }
+
+    /**
+     * Removes tracker entries for hexes that no longer contain woods or jungle. This handles cases where fire or other
+     * effects removed the woods before the saw clearing completed.
+     *
+     * @param hexLookup a function that returns the Hex at a given BoardLocation, or null
+     */
+    public void removeStaleEntries(java.util.function.Function<BoardLocation, Hex> hexLookup) {
+        clearingOperations.entrySet().removeIf(entry -> {
+            Hex hex = hexLookup.apply(entry.getKey());
+            return hex == null
+                  || (!hex.containsTerrain(Terrains.WOODS) && !hex.containsTerrain(Terrains.JUNGLE));
+        });
     }
 
     /**

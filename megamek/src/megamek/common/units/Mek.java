@@ -6020,7 +6020,7 @@ public abstract class Mek extends Entity {
 
         }
 
-        if ((getEngineHits() == 1) && (getGyroHits() == 1)) {
+        if ((getEngineHits() >= 1) && (getGyroHits() >= 1)) {
             LOGGER.debug("{} CRIPPLED: Engine + Gyro hit.", getDisplayName());
             return true;
         }
