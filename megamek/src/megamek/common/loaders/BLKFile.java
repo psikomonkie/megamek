@@ -388,22 +388,27 @@ public class BLKFile {
             }
             String equipName = s.trim();
 
-            // Backward compatibility: strip BA/Handheld ammo :Shots#, BA mount location,
-            // and ProtoMek ammo (N) suffixes that older versions of encodeEquipmentLine()
-            // wrote into the slotless_equipment block.
+            // Backward compatibility: strip suffixes that older versions of
+            // encodeEquipmentLine() wrote into the slotless_equipment block.
             int numShots = 0;
             int shotsIndex = equipName.indexOf(":Shots");
             if (shotsIndex > 0) {
                 int shotsEndIndex = equipName.indexOf("#", shotsIndex);
                 if (shotsEndIndex <= 0) {
-                    throw new EntityLoadingException("Improperly formatted ammo count");
+                    throw new EntityLoadingException(
+                          "Improperly formatted ammo count for equipment: " + equipName);
                 }
-                numShots = Integer.parseInt(
-                      equipName.substring(shotsIndex + ":Shots".length(), shotsEndIndex));
+                try {
+                    numShots = Integer.parseInt(
+                          equipName.substring(shotsIndex + ":Shots".length(), shotsEndIndex));
+                } catch (NumberFormatException ex) {
+                    throw new EntityLoadingException(
+                          "Improperly formatted ammo count for equipment: " + equipName, ex);
+                }
                 equipName = equipName.substring(0, shotsIndex);
             }
             equipName = equipName.replace(":Body", "").replace(":LA", "")
-                  .replace(":RA", "").replace(":TU", "");
+                  .replace(":RA", "").replace(":TU", "").replace(":OMNI", "");
 
             EquipmentType etype = EquipmentType.get(equipName);
             if (etype == null) {
