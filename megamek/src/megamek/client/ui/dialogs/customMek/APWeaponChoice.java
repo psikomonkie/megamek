@@ -83,7 +83,7 @@ class APWeaponChoice {
             comboChoices.setSelectedItem(equipmentType.getName());
         }
 
-        String location = BattleArmor.MOUNT_LOC_NAMES[apMount.getBaMountLoc()] + ": ";
+        String location = BattleArmor.MOUNT_LOC_NAMES[apMount.getBaMountLoc()] + ":";
         parentPanel.add(new JLabel(location), gbc.forLabel());
         parentPanel.add(comboChoices, gbc.eol());
     }

@@ -33,7 +33,6 @@
 package megamek.client.ui.dialogs.customMek;
 
 import java.awt.Component;
-import java.awt.GridBagConstraints;
 import java.awt.event.ItemListener;
 import java.util.List;
 import java.util.Vector;
@@ -57,7 +56,7 @@ import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
 import megamek.common.units.ProtoMek;
 
-public class MunitionChoicePanel {
+public class MunitionChoice {
 
     private final List<AmmoType> ammoTypes;
     private final JComboBox<AmmoType> comboAmmoTypes;
@@ -70,8 +69,8 @@ public class MunitionChoicePanel {
 
     private boolean numShotsChanged = false;
 
-    public MunitionChoicePanel(AmmoMounted ammoMounted, Vector<AmmoType> ammoTypes,
-          List<WeaponAmmoChoice> weaponAmmoChoices, Entity entity, Game game, JPanel parentPanel, GBC2 gbc) {
+    public MunitionChoice(AmmoMounted ammoMounted, Vector<AmmoType> ammoTypes,
+                          List<WeaponAmmoChoice> weaponAmmoChoices, Entity entity, Game game, JPanel parentPanel, GBC2 gbc) {
 
         this.ammoTypes = ammoTypes;
         this.ammoMounted = ammoMounted;
@@ -156,26 +155,22 @@ public class MunitionChoicePanel {
 
         String stringDescription = entity.getLocationName(ammoMountedLocation) + ":";
         JLabel labelLocation = new JLabel(stringDescription);
-        boolean usesHotLoad = gameOptions.booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_HOT_LOAD)
-              && ammoType.hasFlag(AmmoType.F_HOTLOAD);
+        boolean gameUsesHotLoad = gameOptions.booleanOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_HOT_LOAD);
+        boolean ammoAllowsHotLoad = ammoType.hasFlag(AmmoType.F_HOTLOAD);
         chHotLoad.setSelected(ammoMounted.isHotLoaded());
         comboAmmoTypes.setEnabled(ammoTypes.size() > 1);
 
         parentPanel.add(labelLocation, gbc.forLabel());
+        parentPanel.add(comboAmmoTypes, gbc.oneColumn());
 
-        GridBagConstraints constraints = !isOneShot || usesHotLoad ? gbc.oneColumn() : gbc.eol();
-        parentPanel.add(comboAmmoTypes, constraints);
-        parentPanel.add(comboNumberOfShots, gbc.oneColumn());
+        if (!isOneShot) {
+            parentPanel.add(comboNumberOfShots, gameUsesHotLoad ? gbc.oneColumn() : gbc.eol());
+        }
 
-        if (usesHotLoad) {
+        if (ammoAllowsHotLoad) {
             parentPanel.add(chHotLoad, gbc.eol());
         } else {
             parentPanel.add(new JLabel(), gbc.eol()); // make sure to end the line
-        }
-
-        if (gameOptions.booleanOption(OptionsConstants.BASE_LOBBY_AMMO_DUMP)) {
-            parentPanel.add(new JLabel(), gbc.forLabel());
-            parentPanel.add(chDump, gbc.eol());
         }
     }
 

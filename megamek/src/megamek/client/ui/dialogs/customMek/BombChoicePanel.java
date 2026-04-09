@@ -46,12 +46,15 @@ import java.util.Map;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import megamek.client.ui.GBC2;
+import megamek.client.ui.util.UIUtil;
 import megamek.common.equipment.BombLoadout;
 import megamek.common.equipment.enums.BombType.BombTypeEnum;
 import megamek.common.units.IBomber;
@@ -155,14 +158,27 @@ public class BombChoicePanel extends JPanel implements ItemListener {
     private void initPanelMM(JPanel parentPanel, GBC2 gbc) {
         BombLoadout intBombChoices = bomber.getIntBombChoices();
         BombLoadout extBombChoices = bomber.getExtBombChoices();
-
         if (maxPoints.get(INTERNAL_NAME) != 0) {
+            parentPanel.add(new SectionTitle("Internal"), gbc.fullLine());
             initSubPanelMM(maxPoints.get(INTERNAL_NAME) - intBombChoices.getTotalBombCost(),
                   intBombChoices, INTERNAL_NAME, parentPanel, gbc);
         }
         if (maxPoints.get(EXTERNAL_NAME) != 0) {
+            if (maxPoints.get(INTERNAL_NAME) != 0) {
+                // A section title is only necessary if there are also internals
+                parentPanel.add(new SectionTitle("External"), gbc.fullLine());
+            }
             initSubPanelMM(maxPoints.get(EXTERNAL_NAME) - extBombChoices.getTotalBombCost(),
                   extBombChoices, EXTERNAL_NAME, parentPanel, gbc);
+        }
+    }
+
+    private static class SectionTitle extends JLabel {
+        public SectionTitle(String text) {
+            super(text, SwingConstants.CENTER);
+            putClientProperty(FlatClientProperties.STYLE_CLASS, "large");
+            setForeground(UIUtil.uiLightBlue());
+            setBorder(new EmptyBorder(6, 0, 0, 0));
         }
     }
 
@@ -170,6 +186,10 @@ public class BombChoicePanel extends JPanel implements ItemListener {
           GBC2 gbc) {
 
         int column = 0;
+        JPanel bombsPanel = new JPanel(new GridBagLayout());
+        GBC2 gbcBombs = new GBC2();
+        gbcBombs.insets = gbc.insets;
+
         for (BombTypeEnum type : BombTypeEnum.values()) {
             if (type == BombTypeEnum.NONE) {
                 continue;
@@ -229,11 +249,11 @@ public class BombChoicePanel extends JPanel implements ItemListener {
             }
             label.setEnabled(comboBox.isEnabled());
 
-            parentPanel.add(label, gbc.forLabel());
-            parentPanel.add(comboBox, column == 0 ? gbc.oneColumn() : gbc.eol());
+            bombsPanel.add(label, gbcBombs.forLabel());
+            bombsPanel.add(comboBox, column == 0 ? gbc.oneColumn() : gbc.eol());
             column = (column + 1) % 2;
         }
-        parentPanel.add(new JLabel(), gbc.eol()); // make sure to end the last row
+        parentPanel.add(bombsPanel, gbc.fullLine());
     }
 
     private JPanel initSubPanel(int availBombPoints, BombLoadout bombChoices, String title) {

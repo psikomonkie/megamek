@@ -2109,6 +2109,7 @@ public class CustomMekDialog extends AbstractButtonDialog
         mainPanel.add(panButtons, GBC.eol().anchor(GridBagConstraints.CENTER));
 
         JScrollPane scrEquip = new JScrollPane(equipChoicePanel);
+        scrEquip.getVerticalScrollBar().setUnitIncrement(16);
         // Don't show the crew panel if there's multiple entities or no crew to show
         if (!multipleEntities && panCrewMember.length > 0) {
             if (panCrewMember.length > 1) {
@@ -2136,7 +2137,6 @@ public class CustomMekDialog extends AbstractButtonDialog
             if (quirksEnabled && !multipleEntities) {
                 JScrollPane scrQuirks = new JScrollPane(panQuirks);
                 scrQuirks.getVerticalScrollBar().setUnitIncrement(16);
-                scrQuirks.setPreferredSize(scrEquip.getPreferredSize());
                 tabAll.addTab("Quirks", scrQuirks);
             }
             if (partialRepairsEnabled && !multipleEntities) {

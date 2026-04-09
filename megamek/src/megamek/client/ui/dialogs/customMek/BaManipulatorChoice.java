@@ -126,14 +126,16 @@ class BaManipulatorChoice {
               gbc.forLabel());
         parentPanel.add(leftManipulatorSelect, gbc.eol());
 
-        parentPanel.add(leftMeaInfo, gbc.secondColEol());
+        parentPanel.add(new JLabel(), gbc.forLabel());
+        parentPanel.add(leftMeaInfo, gbc.eol());
         parentPanel.add(Box.createVerticalStrut(5), gbc.eol());
 
         parentPanel.add(new JLabel(Messages.getString("CustomMekDialog.ba.rightArm"), SwingConstants.RIGHT),
               gbc.forLabel());
         parentPanel.add(rightManipulatorSelect, gbc.eol());
 
-        parentPanel.add(rightMeaInfo, gbc.secondColEol());
+        parentPanel.add(new JLabel(), gbc.forLabel());
+        parentPanel.add(rightMeaInfo, gbc.eol());
         parentPanel.add(Box.createVerticalStrut(5), gbc.eol());
 
         parentPanel.add(cargoLifterSizeLabel, gbc.forLabel());

@@ -36,7 +36,6 @@ package megamek.client.ui;
 
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
-import java.io.Serial;
 
 /**
  * A helper class for setting line-wise GridBagLayouts Do not use this if you need a Component to span two rows
@@ -44,10 +43,6 @@ import java.io.Serial;
  * @author beerockxs
  */
 public class GBC2 extends GridBagConstraints {
-
-    public GBC2() {
-//        fill = GridBagConstraints.HORIZONTAL;
-    }
 
     public GBC2 forLabel() {
         gridwidth = 1;
@@ -67,28 +62,10 @@ public class GBC2 extends GridBagConstraints {
         return this;
     }
 
-    public GBC2 secondColEol() {
-        return ((GBC2) clone()).eol().gridX(1);
-    }
-
-    public GBC2 title() {
+    public GBC2 fullLine() {
         gridwidth = REMAINDER;
         fill = HORIZONTAL;
         anchor = CENTER;
-        return this;
-    }
-
-    /**
-     * change the anchor of this <code>GridBagConstraints</code>
-     *
-     * @param a the <code>int</code> anchor to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#anchor
-     */
-    public GBC2 anchor(int a) {
-        anchor = a;
         return this;
     }
 
@@ -99,7 +76,7 @@ public class GBC2 extends GridBagConstraints {
      *
      * @see GridBagConstraints#insets
      */
-    public GBC2 insets(int left, int top, int right, int bottom) {
+    public GBC2 insets(int top, int left, int bottom, int right) {
         insets = new Insets(top, left, bottom, right);
         return this;
     }

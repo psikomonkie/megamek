@@ -98,11 +98,15 @@ public class WeaponAmmoChoice {
         }
 
         String weaponName = "(%s) %s:"
-              .formatted(weapon.getEntity().getLocationAbbr(weapon.getLocation()), weapon.getName());
+              .formatted(weapon.getEntity().getLocationAbbr(weapon.getLocation()), weapon.getShortName());
         parentPanel.add(new JLabel(weaponName), gbc.forLabel());
         parentPanel.add(comboAmmoBins, gbc.eol());
         refreshAmmoBinNames();
         comboAmmoBins.setEnabled(matchingAmmoBins.size() > 1);
+    }
+
+    boolean isEmpty() {
+        return matchingAmmoBins.isEmpty();
     }
 
     /**
