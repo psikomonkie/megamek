@@ -225,6 +225,9 @@ public class MunitionTree {
             try {
                 String[] parts = line.split("::");
                 String[] keys = parts[0].split(":");
+                if (keys.length != 3) {
+                    throw new IllegalArgumentException("Malformed entry key[s]: " + parts[0]);
+                }
                 HashMap<String, String> imperatives = new HashMap<>();
                 String imperative;
 

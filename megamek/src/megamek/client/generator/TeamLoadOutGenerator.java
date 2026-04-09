@@ -1726,6 +1726,7 @@ public class TeamLoadOutGenerator {
             String subType = (binType.contains(" w/")) ? binType.substring(0, binType.indexOf(" w/")) : null;
             Mounted<AmmoType> bin = binList.get(0);
             AmmoType desired;
+            HashMap<String, Integer> availInts = new HashMap<>();
             boolean available = false;
 
             // Load matching AmmoType
@@ -1756,19 +1757,18 @@ public class TeamLoadOutGenerator {
                             (subType == null || m.getName().contains(subType)))
                       .findFirst()
                       .orElse(null);
-                lookup = binType;
+                // The availability list will use mutator names without weapon type / rack size values;
+                // use that if available, or just the bin type name if not.
+                lookup = (desired != null && desired.getMutatorName() != null && !desired.getMutatorName().isEmpty()) ?
+                      desired.getMutatorName() : binType;
             }
 
-            // Does the lookup to see how many bins of the munition are available, and _if_
-            // bins are available, remove one.
+            // Does the lookup to see how many bins of the munition are available.
             for (String key: availMap.keySet()) {
                 if (binName.contains(key)) {
-                    HashMap<String, Integer> availInts = (HashMap<String, Integer>) availMap.getOrDefault(key, null);
+                    availInts = (HashMap<String, Integer>) availMap.getOrDefault(key, null);
                     available = (desired != null) && (availInts != null) && availInts.containsKey(lookup) &&
                           availInts.get(lookup) > 0;
-                    if (available) {
-                        availInts.put(lookup, availInts.get(lookup) - 1);
-                    }
                     break;
                 }
             }
@@ -1791,7 +1791,7 @@ public class TeamLoadOutGenerator {
             }
 
             // Continue filling with this munition type until count is fulfilled or there are no more bins
-            while (counts.getOrDefault(binType, 0) > 0 && !binList.isEmpty()) {
+            while (available && counts.getOrDefault(binType, 0) > 0 && !binList.isEmpty()) {
                 try {
                     // fill one ammo bin with the requested ammo type
 
@@ -1807,6 +1807,10 @@ public class TeamLoadOutGenerator {
                     }
                     // Apply ammo change
                     binList.get(0).changeAmmoType(desired);
+
+                    // Decrement available ammo bins and update availability
+                    availInts.put(lookup, availInts.get(lookup) - 1);
+                    available = availInts.get(lookup) > 0;
 
                     // Decrement count and remove bin from list
                     counts.put(binType, counts.get(binType) - 1);
