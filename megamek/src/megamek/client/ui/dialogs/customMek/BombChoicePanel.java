@@ -253,7 +253,7 @@ public class BombChoicePanel extends JPanel implements ItemListener {
             bombsPanel.add(comboBox, column == 0 ? gbc.oneColumn() : gbc.eol());
             column = (column + 1) % 2;
         }
-        parentPanel.add(bombsPanel, gbc.fullLine());
+        parentPanel.add(bombsPanel, gbc.fullLineWithLabelInsets());
     }
 
     private JPanel initSubPanel(int availBombPoints, BombLoadout bombChoices, String title) {

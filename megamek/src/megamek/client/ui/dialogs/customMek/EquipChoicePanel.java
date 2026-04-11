@@ -37,7 +37,6 @@ import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -59,15 +58,7 @@ import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
 import megamek.common.battleArmor.BattleArmor;
-import megamek.common.equipment.AmmoMounted;
-import megamek.common.equipment.AmmoType;
-import megamek.common.equipment.EquipmentType;
-import megamek.common.equipment.EquipmentTypeLookup;
-import megamek.common.equipment.MiscMounted;
-import megamek.common.equipment.MiscType;
-import megamek.common.equipment.Mounted;
-import megamek.common.equipment.WeaponMounted;
-import megamek.common.equipment.WeaponType;
+import megamek.common.equipment.*;
 import megamek.common.equipment.enums.AmmoTypeFlag;
 import megamek.common.equipment.enums.MiscTypeFlag;
 import megamek.common.game.Game;
@@ -83,21 +74,38 @@ import megamek.common.units.Infantry;
 import megamek.common.units.Mek;
 import megamek.common.units.ProtoMek;
 import megamek.common.weapons.infantry.InfantryWeapon;
-import org.apache.logging.log4j.LogManager;
+import megamek.logging.MMLogger;
 import org.apache.logging.log4j.Logger;
+
+// Possible Improvements:
+// FIXME: allow selecting no connection in C3 choice
+// FIXME: improve advanced building equipment location description
+// FIXME: Remove the lobby dump/lobby dump first round game options or clarify their use case
+
+//alignment across equipment choices
+//allow left/right arrow navigation in custommekdialog
+//Atlas III AS7-D3: empty ammo choice for Streak LRM20 (fixed mixtech check)
+//Harvester Tripod: empty ammo choice for Plasma Cannon
+//Death Trike empty munitions section
+//Bay weapons
+//disable combos with only one choice
+//add section headers
+//remove dump checkbox
+//sort into misc section
+//align infantry armor checks with second col and spacer above
+//speed up infantry equip choice
+//Habitat Large empty munitions
+//large craft tonnage format
+//check MHQ large craft ammo selection
+//check MML Force build UI
+//always add equip for single units (HHW)
 
 /**
  * This class builds the Equipment Panel for use in MegaMek and MekHQ
- *
- * @author Dylan Myers (ralgith-erian@users.sourceforge.net)
- * @author arlith
- * @since 2012-05-20
  */
 public class EquipChoicePanel extends JPanel {
-    @Serial
-    private static final long serialVersionUID = 672299770230285567L;
 
-    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger LOGGER = MMLogger.create(EquipChoicePanel.class);
 
     private final Entity entity;
     private final List<MunitionChoice> m_vMunitions = new ArrayList<>();
@@ -116,7 +124,6 @@ public class EquipChoicePanel extends JPanel {
     private final ArrayList<RapidFireMGChoice> m_vMGs = new ArrayList<>();
     private VRTChoice panVRT;
     private final ArrayList<MineChoice> m_vMines = new ArrayList<>();
-    private final JPanel panMines = new JPanel();
     private final JCheckBox chAutoEject = new JCheckBox(Messages.getString("CustomMekDialog.labAutoEject"));
     private final JCheckBox chCondEjectAmmo = new JCheckBox(Messages.getString(
           "CustomMekDialog.labConditional_Ejection_Ammo"));
@@ -140,15 +147,14 @@ public class EquipChoicePanel extends JPanel {
     private final JComboBox<String> choC3 = new JComboBox<>();
     ClientGUI clientgui;
     Client client;
+    private SmallSVMunitionsChoice smallSvMunitionsChoice;
+    private BayMunitionsChoicePanel bayMunitionsChoicePanel;
     private int[] entityCorrespondence;
-    private JPanel panMunitions = new JPanel();
     private InfantryArmorPanel panInfArmor;
     private BombChoicePanel m_bombs;
 
     private final StringDrawer nothingToConfigureText =
-          new StringDrawer("No configurable equipment.")
-                .center()
-                .color(UIManager.getColor("Label.disabledForeground"));
+          new StringDrawer("No configurable equipment.").center().color(UIManager.getColor("Label.disabledForeground"));
 
     public EquipChoicePanel(Entity entity, ClientGUI clientgui, Client client) {
         this.entity = entity;
@@ -157,10 +163,16 @@ public class EquipChoicePanel extends JPanel {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
 
         setLayout(new GridBagLayout());
-        GBC2 gbc = new GBC2().insets(0, 2, 1, 2);
+        GBC2 gbc = new GBC2(new Insets(0, 40, 0, 10), new Insets(0, 2, 1, 2));
+
+        if (entity instanceof HandheldWeapon) {
+            // HHW have nothing to configure
+            addNoConfigureLabel(gbc);
+            return;
+        }
 
         if (entity.hasC3() || entity.hasC3i() || entity.hasNavalC3()) {
-            add(new TitleLabel("C3 Configuration"), gbc.fullLine());
+            add(new SectionTitleLabel("C3 Configuration"), gbc.fullLine());
             JLabel labC3 = new JLabel(Messages.getString("CustomMekDialog.labC3"), SwingConstants.RIGHT);
             add(labC3, gbc.forLabel());
             add(choC3, gbc.eol());
@@ -210,7 +222,7 @@ public class EquipChoicePanel extends JPanel {
             // AP mounts (not armored gloves)
             if (entity.hasMisc(EquipmentTypeLookup.BA_APM)) {
                 String apTitle = Messages.getString("CustomMekDialog.APMountPanelTitle");
-                add(new TitleLabel(apTitle), gbc.fullLine());
+                add(new SectionTitleLabel(apTitle), gbc.fullLine());
                 for (Mounted<?> misc : entity.getMisc()) {
                     if (misc.is(EquipmentTypeLookup.BA_APM)) {
                         var apWeaponChoice = new APWeaponChoice(entity, misc, apmWeaponTypes, this, gbc);
@@ -222,7 +234,7 @@ public class EquipChoicePanel extends JPanel {
             // Manipulators and Armored Glove AP mounting
             if (entity.hasWorkingMisc(MiscType.F_BA_MEA) || battleArmor.hasMisc(MiscTypeFlag.F_ARMORED_GLOVE)) {
                 String meaTitle = Messages.getString("CustomMekDialog.MEAPanelTitle");
-                add(new TitleLabel(meaTitle), gbc.fullLine());
+                add(new SectionTitleLabel(meaTitle), gbc.fullLine());
                 panBaManipulators = new BaManipulatorChoice(battleArmor, agloveWeaponTypes, this, gbc);
             }
         }
@@ -258,7 +270,7 @@ public class EquipChoicePanel extends JPanel {
         setupMines(gbc);
 
         // Misc section
-        JComponent miscTitle = new TitleLabel(Messages.getString("CustomMekDialog.miscSection"));
+        JComponent miscTitle = new SectionTitleLabel(Messages.getString("CustomMekDialog.miscSection"));
         add(miscTitle, gbc.fullLine());
         boolean hasMiscSection = false;
 
@@ -411,8 +423,19 @@ public class EquipChoicePanel extends JPanel {
         if (!hasMiscSection) {
             remove(miscTitle);
         }
+
+        if (getComponentCount() == 0) {
+            addNoConfigureLabel(gbc);
+        }
         revalidate();
         repaint();
+    }
+
+    private void addNoConfigureLabel(GBC2 gbc) {
+        JLabel nothingLabel = new JLabel("No equipment to configure.");
+        nothingLabel.putClientProperty(FlatClientProperties.STYLE_CLASS, "large");
+        nothingLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
+        add(nothingLabel, gbc.forLabel());
     }
 
     private void refreshC3() {
@@ -527,18 +550,24 @@ public class EquipChoicePanel extends JPanel {
         int gameYear = gameOpts.intOption(OptionsConstants.ALLOWED_YEAR);
 
         String ammoSelectionTitle = Messages.getString("CustomMekDialog.MunitionsPanelTitle");
-        JComponent title = new TitleLabel(ammoSelectionTitle);
+        JComponent title = new SectionTitleLabel(ammoSelectionTitle);
         add(title, gbc.fullLine());
 
         if (entity.usesWeaponBays() || entity instanceof Dropship) {
             // Grounded dropships don't *use* weapon bays as such, but should load ammo as if they did
-            panMunitions = new BayMunitionsChoicePanel(entity, game);
+            bayMunitionsChoicePanel = new BayMunitionsChoicePanel(entity, game, this, gbc);
+            if (bayMunitionsChoicePanel.isEmpty()) {
+                remove(title);
+            }
             return;
         }
         // Small support vehicle ammo is part of the weapon, and the only munitions choice is standard or inferno,
         // and only for some weapons.
         if (entity.getWeightClass() == EntityWeightClass.WEIGHT_SMALL_SUPPORT) {
-            panMunitions = new SmallSVMunitionsChoicePanel(entity);
+            smallSvMunitionsChoice = new SmallSVMunitionsChoice(entity, this, gbc);
+            if (smallSvMunitionsChoice.isEmpty()) {
+                remove(title);
+            }
             return;
         }
 
@@ -566,8 +595,8 @@ public class EquipChoicePanel extends JPanel {
             boolean considerAllAmmoMixedTech = gameOpts.booleanOption(OptionsConstants.ALLOWED_ALL_AMMO_MIXED_TECH);
             boolean isClan = entity.isClan();
             boolean isIs = !isClan;
-            boolean canUseISAmmo = isIs || considerAllAmmoMixedTech;
-            boolean canUseClanAmmo = isClan || considerAllAmmoMixedTech;
+            boolean canUseISAmmo = entity.isMixedTech() || isIs || considerAllAmmoMixedTech;
+            boolean canUseClanAmmo = entity.isMixedTech() || isClan || considerAllAmmoMixedTech;
 
             for (AmmoType atCheck : vAllTypes) {
                 if (entity.hasETypeFlag(Entity.ETYPE_AERO) &&
@@ -667,7 +696,7 @@ public class EquipChoicePanel extends JPanel {
      */
     private void setupWeaponAmmoChoice(GBC2 gbc) {
         String ammoTitle = Messages.getString("CustomMekDialog.WeaponSelectionTitle");
-        JComponent title = new TitleLabel(ammoTitle);
+        JComponent title = new SectionTitleLabel(ammoTitle);
         add(title, gbc.fullLine());
         for (WeaponMounted weapon : entity.getWeaponList()) {
             // don't deal with bay or grouped weapons for now
@@ -684,7 +713,7 @@ public class EquipChoicePanel extends JPanel {
     }
 
     private void setupBombs(GBC2 gbc) {
-        JComponent title = new TitleLabel(Messages.getString("CustomMekDialog.bombSection"));
+        JComponent title = new SectionTitleLabel(Messages.getString("CustomMekDialog.bombSection"));
         add(title, gbc.fullLine());
 
         int techLevel = Arrays.binarySearch(TechConstants.T_SIMPLE_NAMES,
@@ -698,7 +727,7 @@ public class EquipChoicePanel extends JPanel {
 
     private void setupRapidFireMGs(GBC2 gbc) {
         String mgTitle = Messages.getString("CustomMekDialog.rapidFireSection");
-        JComponent title = new TitleLabel(mgTitle);
+        JComponent title = new SectionTitleLabel(mgTitle);
         add(title, gbc.fullLine());
         for (Mounted<?> mounted : entity.getWeaponList()) {
             WeaponType weaponType = (WeaponType) mounted.getType();
@@ -717,14 +746,14 @@ public class EquipChoicePanel extends JPanel {
      */
     private void setupVRT(GBC2 gbc) {
         String vrtTitle = Messages.getString("CustomMekDialog.VRTPanelTitle");
-        JComponent title = new TitleLabel(vrtTitle);
+        JComponent title = new SectionTitleLabel(vrtTitle);
         add(title, gbc.fullLine());
         panVRT = new VRTChoice(entity, this, gbc);
     }
 
     private void setupMines(GBC2 gbc) {
         String minesTitle = Messages.getString("CustomMekDialog.mineSection");
-        JComponent title = new TitleLabel(minesTitle);
+        JComponent title = new SectionTitleLabel(minesTitle);
         add(title, gbc.fullLine());
         for (MiscMounted miscMounted : entity.getMisc()) {
             if (miscMounted.getType().hasFlag((MiscType.F_MINE)) ||
@@ -846,12 +875,12 @@ public class EquipChoicePanel extends JPanel {
         for (final MunitionChoice munitions : m_vMunitions) {
             munitions.applyChoice();
         }
-        if (panMunitions instanceof BayMunitionsChoicePanel bayMunitionsChoicePanel) {
+        if (smallSvMunitionsChoice != null) {
+            smallSvMunitionsChoice.apply();
+        }
+        if (bayMunitionsChoicePanel != null) {
             bayMunitionsChoicePanel.apply();
         } else {
-            if (panMunitions instanceof SmallSVMunitionsChoicePanel smallSVMunitionsChoicePanel) {
-                smallSVMunitionsChoicePanel.apply();
-            }
             // update ammo names for weapon ammo choice selectors
             for (WeaponAmmoChoice wacPanel : m_vWeaponAmmoChoice) {
                 wacPanel.applyChoice();
@@ -1072,26 +1101,23 @@ public class EquipChoicePanel extends JPanel {
         }
     }
 
-    static class TitleLabel extends JPanel {
+    static class SectionTitleLabel extends JPanel {
 
-        public TitleLabel(String text) {
+        public SectionTitleLabel(String text) {
             setLayout(new GridBagLayout());
-            setBorder(new EmptyBorder(15, 0, 5, 0));
+            setBorder(new EmptyBorder(35, 0, 5, 0));
             GridBagConstraints gbc = new GridBagConstraints();
             gbc.fill = GridBagConstraints.HORIZONTAL;
 
             gbc.weightx = 1;
-            gbc.ipadx = 20;
-            gbc.gridx = 0;
-            add(new JSeparator(), gbc); // left line
-            gbc.gridx = 2;
+            gbc.gridx = 1;
             add(new JSeparator(), gbc); // right line
 
             // Label
-            gbc.gridx = 1;
+            gbc.gridx = 0;
             gbc.weightx = 0;
             gbc.ipadx = 0;
-            gbc.insets = new Insets(0, 8, 0, 8);
+            gbc.insets = new Insets(0, 0, 0, 25);
             var titleLabel = new JLabel(text);
             titleLabel.setForeground(UIUtil.uiLightGreen());
             titleLabel.putClientProperty(FlatClientProperties.STYLE_CLASS, "large");

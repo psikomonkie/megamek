@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2008-2026 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -31,38 +30,103 @@
  * <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
  * affiliated with Microsoft.
  */
-
 package megamek.client.ui;
 
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
 
 /**
- * A helper class for setting line-wise GridBagLayouts Do not use this if you need a Component to span two rows
- *
- * @author beerockxs
+ * A GridBagConstraints subclass for setting grid-like layouts where, usually, a left-side label is followed by one or
+ * more chooser components. Using this class means using a persistent instance of GridBagConstraints, so that e.g.
+ * insets or ipad values need to be set only once. Also, it makes use of call chaining (methods return {@code this}).
+ * Note that this class is written with the intention of leaving gridx and gridy entirely at the default (RELATIVE). Not
+ * doing that is likely to disrupt the methods; if specific values need to be used, it is likely better to use a basic
+ * GridBagConstraints instead of GBC2.
  */
 public class GBC2 extends GridBagConstraints {
 
+    private final Insets labelInsets;
+    private final Insets otherInsets;
+
+    public GBC2() {
+        this(new Insets(0, 0, 0, 0), new Insets(0, 0, 0, 0));
+    }
+
+    /**
+     * Creates a new GBC2 which uses the given otherInsets for most of its components; the given labelInsets is only
+     * used when the forLabel() method is called.
+     *
+     * @param labelInsets Insets to use when adding a component with forLabel()
+     * @param otherInsets Insets to use otherwise
+     */
+    public GBC2(Insets labelInsets, Insets otherInsets) {
+        this.labelInsets = labelInsets;
+        this.otherInsets = otherInsets;
+    }
+
+    /**
+     * Use this for a left-side label. It sets the anchor to east (right-alignment) and fill to NONE, so the JLabel does
+     * not need to use any specific alignment setting. This can also be used for empty labels to skip the label column.
+     * It can be directly used by calling panel.add(label, gbc.forLabel());
+     *
+     * @return This GridBagConstraints
+     */
     public GBC2 forLabel() {
         gridwidth = 1;
         fill = NONE;
         anchor = EAST;
+        insets = labelInsets;
         return this;
     }
 
+    /**
+     * Use this for a single-column component other than the left-side label. It sets the anchor to west, fill to
+     * HORIZONTAL and the gridwidth to 1. It can be directly used by calling panel.add(component, gbc.oneColumn());
+     *
+     * @return This GridBagConstraints
+     */
     public GBC2 oneColumn() {
-        return eol().gridWidth(1);
+        return eol().singleColumn();
     }
 
+    /**
+     * Use this for any component that ends a given row. It sets the anchor to west, fill to HORIZONTAL and the
+     * gridwidth to REMAINDER. It can be directly used by calling panel.add(component, gbc.eol());
+     *
+     * @return This GridBagConstraints
+     */
     public GBC2 eol() {
+        insets = otherInsets;
         gridwidth = REMAINDER;
         fill = HORIZONTAL;
         anchor = WEST;
         return this;
     }
 
+    /**
+     * Use this for any component that fills an entire row, like a section title. It sets the anchor to CENTER, fill to
+     * HORIZONTAL and the gridwidth to REMAINDER. It can be directly used by calling panel.add(component,
+     * gbc.fullLine());
+     *
+     * @return This GridBagConstraints
+     */
     public GBC2 fullLine() {
+        insets = otherInsets;
+        gridwidth = REMAINDER;
+        fill = HORIZONTAL;
+        anchor = CENTER;
+        return this;
+    }
+
+    /**
+     * Use this for any component that fills an entire row but still uses the label insets, like a panel with
+     * subcomponents. It sets the anchor to CENTER, fill to HORIZONTAL and the gridwidth to REMAINDER. It can be
+     * directly used by calling panel.add(component, gbc.fullLineWithLabelInsets());
+     *
+     * @return This GridBagConstraints
+     */
+    public GBC2 fullLineWithLabelInsets() {
+        insets = labelInsets;
         gridwidth = REMAINDER;
         fill = HORIZONTAL;
         anchor = CENTER;
@@ -81,134 +145,8 @@ public class GBC2 extends GridBagConstraints {
         return this;
     }
 
-    /**
-     * set this <code>GridBagConstraints</code> so that the corresponding Component will fill horizontally and
-     * vertically.
-     *
-     * @return <code>this</code>
-     */
-    public GBC2 fill() {
-        return fill(BOTH);
-    }
-
-    /**
-     * set this <code>GridBagConstraints</code> so that the corresponding will fill according to the
-     *
-     * @param value either <code>GridBagConstraints.HORIZONTAL</code>,
-     *              <code>GridBagConstraints.VERTICAL</code> or
-     *              <code>GridBagConstraints.BOTH</code> and
-     *
-     * @return <code>this</code>
-     */
-    public GBC2 fill(int value) {
-        fill = value;
-        if ((value == HORIZONTAL) || (value == BOTH)) {
-            weightx = 1.0;
-        }
-        if ((value == VERTICAL) || (value == BOTH)) {
-            weighty = 1.0;
-        }
-        return this;
-    }
-
-    /**
-     * Set the padding of this <code>GridBagConstraints</code>
-     *
-     * @param padX the <code>int</code> padX to set
-     * @param padY the <code>int</code> padY to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#ipadx
-     * @see GridBagConstraints#ipady
-     */
-    public GBC2 pad(int padX, int padY) {
-        ipadx = padX;
-        ipady = padY;
-        return this;
-    }
-
-    /**
-     * Set the gridX of this <code>GridBagConstraints</code>
-     *
-     * @param gridX the <code>int</code> gridX to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#gridx
-     */
-    public GBC2 gridX(int gridX) {
-        this.gridx = gridX;
-        return this;
-    }
-
-    /**
-     * Set the gridY of this <code>GridBagConstraints</code>
-     *
-     * @param gridY the <code>int</code> gridY to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#gridy
-     */
-    public GBC2 gridY(int gridY) {
-        this.gridy = gridY;
-        return this;
-    }
-
-    /**
-     * Set the grid height of  this <code>GridBagConstraints</code>
-     *
-     * @param height the <code>int</code> grid height to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#gridheight
-     */
-    public GBC2 gridHeight(int height) {
-        gridheight = height;
-        return this;
-    }
-
-    /**
-     * Set the grid width of  this <code>GridBagConstraints</code>
-     *
-     * @param width the <code>int</code> grid width to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#gridwidth
-     */
-    public GBC2 gridWidth(int width) {
-        gridwidth = width;
-        return this;
-    }
-
-    /**
-     * Set the weightX of this <code>GridBagConstraints</code>
-     *
-     * @param weight the <code>double</code> weightX to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#weightx
-     */
-    public GBC2 weightX(double weight) {
-        weightx = weight;
-        return this;
-    }
-
-    /**
-     * Set the weighty of this <code>GridBagConstraints</code>
-     *
-     * @param weight the <code>double</code> weighty to set
-     *
-     * @return <code>this</code>
-     *
-     * @see GridBagConstraints#weighty
-     */
-    public GBC2 weighty(double weight) {
-        weighty = weight;
+    private GBC2 singleColumn() {
+        gridwidth = 1;
         return this;
     }
 }

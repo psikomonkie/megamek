@@ -32,10 +32,10 @@
  */
 package megamek.client.ui.dialogs.customMek;
 
-import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javax.swing.Box;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -73,7 +73,7 @@ public class InfantryArmorPanel {
     public InfantryArmorPanel(Entity entity, JPanel parentPanel, GBC2 gbc) {
         infantry = (Infantry) entity;
 
-        JComponent armorTitle = new EquipChoicePanel.TitleLabel(Messages.getString("CustomMekDialog.infArmorSection"));
+        JComponent armorTitle = new EquipChoicePanel.SectionTitleLabel(Messages.getString("CustomMekDialog.infArmorSection"));
         parentPanel.add(armorTitle, gbc.fullLine());
 
         SimpleTechLevel gameTechLevel = SimpleTechLevel.getGameTechLevel(entity.getGame());
@@ -86,18 +86,19 @@ public class InfantryArmorPanel {
             parentPanel.add(labDivisor, gbc.forLabel());
             parentPanel.add(fldDivisor, gbc.eol());
 
-            JPanel armorChecksPanel = new JPanel(new GridBagLayout());
-            GBC2 gbcArmor = new GBC2();
-            gbcArmor.insets = gbc.insets;
-            armorChecksPanel.add(chEncumber, gbcArmor.oneColumn());
-            armorChecksPanel.add(chSneakCamo, gbcArmor.eol());
-            armorChecksPanel.add(chSpaceSuit, gbcArmor.oneColumn());
-            armorChecksPanel.add(chSneakIR, gbcArmor.eol());
-            armorChecksPanel.add(chDEST, gbcArmor.oneColumn());
-            armorChecksPanel.add(chSneakECM, gbcArmor.eol());
-            parentPanel.add(armorChecksPanel, gbcArmor.fullLine());
+            parentPanel.add(Box.createVerticalStrut(5), gbc.fullLine());
+
+            parentPanel.add(new JLabel(), gbc.forLabel());
+            parentPanel.add(chEncumber, gbc.oneColumn());
+            parentPanel.add(chSneakCamo, gbc.eol());
+            parentPanel.add(new JLabel(), gbc.forLabel());
+            parentPanel.add(chSpaceSuit, gbc.oneColumn());
+            parentPanel.add(chSneakIR, gbc.eol());
+            parentPanel.add(new JLabel(), gbc.forLabel());
+            parentPanel.add(chDEST, gbc.oneColumn());
+            parentPanel.add(chSneakECM, gbc.eol());
         }
-        
+
         int year = entity.getGame().getOptions().intOption("year");
 
         // If the rules level isn't at least Advanced, these won't be displayed, but it will iterate them still to 
@@ -140,7 +141,7 @@ public class InfantryArmorPanel {
         });
         chDEST.addItemListener(e -> armorStateChanged());
 
-        JComponent specTitle = new EquipChoicePanel.TitleLabel(Messages.getString("CustomMekDialog.infSpecSection"));
+        JComponent specTitle = new EquipChoicePanel.SectionTitleLabel(Messages.getString("CustomMekDialog.infSpecSection"));
         parentPanel.add(specTitle, gbc.fullLine());
 
         for (int i = 0; i < Infantry.NUM_SPECIALIZATIONS; i++) {
