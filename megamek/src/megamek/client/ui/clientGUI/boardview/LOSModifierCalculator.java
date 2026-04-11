@@ -100,9 +100,10 @@ final class LOSModifierCalculator {
             addWaterPartialCover(thd, losEffects, targetHex, targetRelHeight);
         }
 
-        // Target entity state modifiers (prone, immobile, hull down, stuck)
+        // Target entity state modifiers directly from the known target entity,
+        // rather than picking the first entity at the hex (which may be wrong in multi-unit hexes)
         int hexDistance = attacker.getPosition().distance(target.getPosition());
-        addTargetEntityStateModifiers(thd, losEffects, game, target.getPosition(), hexDistance);
+        addKnownTargetEntityStateModifiers(thd, losEffects, target, hexDistance);
 
         String result = "";
         if (thd.getValue() != TargetRoll.IMPOSSIBLE) {
@@ -492,16 +493,12 @@ final class LOSModifierCalculator {
      * @param targetPos  the target hex coordinates
      * @param distance   the hex distance between attacker and target
      */
-    private static void addTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
-          Game game, Coords targetPos, int distance) {
-        List<Entity> entitiesAtTarget = game.getEntitiesVector(targetPos);
-        if (entitiesAtTarget.isEmpty()) {
-            return;
-        }
-
-        // Use the first entity at the target hex for state checks
-        Entity targetEntity = entitiesAtTarget.get(0);
-
+    /**
+     * Adds target entity state modifiers from a known target entity. Used by the entity-based path where we already
+     * know which entity is the target, avoiding the wrong-entity-in-multi-unit-hex bug.
+     */
+    private static void addKnownTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
+          Entity targetEntity, int distance) {
         // Prone: -2 if adjacent (distance <= 1), +1 at range (distance > 1)
         if (targetEntity.isProne()) {
             if (distance <= 1) {
@@ -527,5 +524,19 @@ final class LOSModifierCalculator {
         if (targetEntity.isStuck()) {
             thd.addModifier(-2, "target stuck in swamp");
         }
+    }
+
+    /**
+     * Adds target entity state modifiers from the first entity found at the target hex. Used by the manual path where
+     * no specific target entity is known.
+     */
+    private static void addTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
+          Game game, Coords targetPos, int distance) {
+        List<Entity> entitiesAtTarget = game.getEntitiesVector(targetPos);
+        if (entitiesAtTarget.isEmpty()) {
+            return;
+        }
+
+        addKnownTargetEntityStateModifiers(thd, losEffects, entitiesAtTarget.get(0), distance);
     }
 }

@@ -796,9 +796,6 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
     /**
      * Updates the elevation diagram panel with current LOS data.
-     */
-    /**
-     * Updates the elevation diagram panel with current LOS data.
      *
      * @param entityLosBlocked if non-null, overrides the diagram's own LOS calculation with the entity-based result
      *                         (from the fire phase code path). Null means use the diagram's manual AttackInfo-based

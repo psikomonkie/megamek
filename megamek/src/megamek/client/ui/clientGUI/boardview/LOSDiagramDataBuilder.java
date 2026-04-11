@@ -75,26 +75,6 @@ final class LOSDiagramDataBuilder {
           DiagramUnitType attackerUnitType, DiagramUnitType targetUnitType,
           boolean attackerAtAltitude, boolean targetAtAltitude,
           String attackerName, String targetName) {
-        Board board = game.getBoard();
-        Coords attackPos = attackInfo.attackPos;
-        Coords targetPos = attackInfo.targetPos;
-
-        // Get the non-split path to identify which hexes are "normal"
-        List<Coords> normalPath = Coords.intervening(attackPos, targetPos);
-        Set<Coords> normalPathSet = new HashSet<>(normalPath);
-
-        // Get the split-aware path to detect hex-edge LOS
-        List<Coords> splitPath = Coords.intervening(attackPos, targetPos, true);
-
-        // Identify split hex pairs: hexes in the split path not in the normal path
-        Set<Coords> splitHexCoords = new HashSet<>();
-        for (Coords coord : splitPath) {
-            if (!normalPathSet.contains(coord)) {
-                splitHexCoords.add(coord);
-            }
-        }
-
-        // Calculate overall LOS result from the manual AttackInfo path
         LosEffects losEffects = LosEffects.calculateLos(game, attackInfo);
         boolean losBlocked = !losEffects.canSee();
 
