@@ -149,4 +149,9 @@ public class GBC2 extends GridBagConstraints {
         gridwidth = 1;
         return this;
     }
+
+    @Override
+    public Object clone() {
+        return super.clone(); // per Copilot review and "Effective Java" by J. Bloch
+    }
 }

@@ -54,14 +54,12 @@ import megamek.common.weapons.infantry.InfantryWeapon;
  */
 class SmallSVMunitionsChoice {
 
-    private final Entity entity;
     private final List<AmmoRow> rows = new ArrayList<>();
 
     public SmallSVMunitionsChoice(Entity entity, JPanel parentPanel, GBC2 gbc) {
-        this.entity = entity;
         for (Mounted<?> weapon : entity.getWeaponList()) {
             if ((weapon.getType() instanceof InfantryWeapon infantryWeapon) && (infantryWeapon.hasInfernoAmmo())) {
-                rows.add(new AmmoRow(weapon, parentPanel, gbc));
+                rows.add(new AmmoRow(entity, weapon, parentPanel, gbc));
             }
         }
     }
@@ -85,7 +83,7 @@ class SmallSVMunitionsChoice {
         }
     }
 
-    private class AmmoRow {
+    private static class AmmoRow {
 
         private final Mounted<?> weapon;
         private final Mounted<?> stdAmmo;
@@ -96,7 +94,7 @@ class SmallSVMunitionsChoice {
         private final JSpinner spnStandard;
         private final JSpinner spnInferno;
 
-        AmmoRow(Mounted<?> weapon, JPanel parentPanel, GBC2 gbc) {
+        AmmoRow(Entity entity, Mounted<?> weapon, JPanel parentPanel, GBC2 gbc) {
             this.weapon = weapon;
             InfantryWeapon weaponType = (InfantryWeapon) weapon.getType();
             shotsPerClip = weaponType.getShots();

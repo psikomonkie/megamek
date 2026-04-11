@@ -82,24 +82,6 @@ import org.apache.logging.log4j.Logger;
 // FIXME: improve advanced building equipment location description
 // FIXME: Remove the lobby dump/lobby dump first round game options or clarify their use case
 
-//alignment across equipment choices
-//allow left/right arrow navigation in custommekdialog
-//Atlas III AS7-D3: empty ammo choice for Streak LRM20 (fixed mixtech check)
-//Harvester Tripod: empty ammo choice for Plasma Cannon
-//Death Trike empty munitions section
-//Bay weapons
-//disable combos with only one choice
-//add section headers
-//remove dump checkbox
-//sort into misc section
-//align infantry armor checks with second col and spacer above
-//speed up infantry equip choice
-//Habitat Large empty munitions
-//large craft tonnage format
-//check MHQ large craft ammo selection
-//check MML Force build UI
-//always add equip for single units (HHW)
-
 /**
  * This class builds the Equipment Panel for use in MegaMek and MekHQ
  */
