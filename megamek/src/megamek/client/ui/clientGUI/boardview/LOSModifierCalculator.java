@@ -483,19 +483,14 @@ final class LOSModifierCalculator {
     }
 
     /**
-     * Adds target entity state modifiers (prone, immobile, hull down, stuck) from actual entities present on the board
-     * at the target hex. If multiple entities are present, applies the state of the first one found. These mirror the
-     * fire phase modifiers from {@code ComputeTargetToHitMods} and {@code ComputeTerrainMods}.
+     * Adds target entity state modifiers (prone, immobile, hull down, stuck) from a known target entity. Used by the
+     * entity-based path where we already know which entity is the target, avoiding the wrong-entity bug in multi-unit
+     * hexes. These mirror the fire phase modifiers from {@code ComputeTargetToHitMods} and {@code ComputeTerrainMods}.
      *
-     * @param thd        the to-hit data to append modifiers to
-     * @param losEffects the LOS effects (used for hull down partial cover check)
-     * @param game       the current game state
-     * @param targetPos  the target hex coordinates
-     * @param distance   the hex distance between attacker and target
-     */
-    /**
-     * Adds target entity state modifiers from a known target entity. Used by the entity-based path where we already
-     * know which entity is the target, avoiding the wrong-entity-in-multi-unit-hex bug.
+     * @param thd          the to-hit data to append modifiers to
+     * @param losEffects   the LOS effects (used for hull down partial cover check)
+     * @param targetEntity the target entity to check state on
+     * @param distance     the hex distance between attacker and target
      */
     private static void addKnownTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
           Entity targetEntity, int distance) {
