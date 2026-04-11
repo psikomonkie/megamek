@@ -73,6 +73,7 @@ final class LOSDiagramDataBuilder {
     public static LOSDiagramData build(Game game, LosEffects.AttackInfo attackInfo,
           boolean attackerIsHullDown, boolean targetIsHullDown,
           DiagramUnitType attackerUnitType, DiagramUnitType targetUnitType,
+          boolean attackerAtAltitude, boolean targetAtAltitude,
           String attackerName, String targetName) {
         Board board = game.getBoard();
         Coords attackPos = attackInfo.attackPos;
@@ -93,9 +94,46 @@ final class LOSDiagramDataBuilder {
             }
         }
 
-        // Calculate overall LOS result
+        // Calculate overall LOS result from the manual AttackInfo path
         LosEffects losEffects = LosEffects.calculateLos(game, attackInfo);
         boolean losBlocked = !losEffects.canSee();
+
+        return buildWithLosResult(game, attackInfo, losBlocked,
+              attackerIsHullDown, targetIsHullDown,
+              attackerUnitType, targetUnitType,
+              attackerAtAltitude, targetAtAltitude,
+              attackerName, targetName);
+    }
+
+    /**
+     * Builds diagram data with a pre-computed LOS blocked result. Use this when the LOS calculation was already
+     * performed via the entity-based path (fire phase code), so the diagram doesn't re-compute with the manual
+     * AttackInfo (which may produce different results).
+     */
+    public static LOSDiagramData buildWithLosResult(Game game, LosEffects.AttackInfo attackInfo,
+          boolean losBlocked,
+          boolean attackerIsHullDown, boolean targetIsHullDown,
+          DiagramUnitType attackerUnitType, DiagramUnitType targetUnitType,
+          boolean attackerAtAltitude, boolean targetAtAltitude,
+          String attackerName, String targetName) {
+        Board board = game.getBoard();
+        Coords attackPos = attackInfo.attackPos;
+        Coords targetPos = attackInfo.targetPos;
+
+        // Get the non-split path to identify which hexes are "normal"
+        List<Coords> normalPath = Coords.intervening(attackPos, targetPos);
+        Set<Coords> normalPathSet = new HashSet<>(normalPath);
+
+        // Get the split-aware path to detect hex-edge LOS
+        List<Coords> splitPath = Coords.intervening(attackPos, targetPos, true);
+
+        // Identify split hex pairs: hexes in the split path not in the normal path
+        Set<Coords> splitHexCoords = new HashSet<>();
+        for (Coords coord : splitPath) {
+            if (!normalPathSet.contains(coord)) {
+                splitHexCoords.add(coord);
+            }
+        }
 
         // Build hex row data for each hex in the normal path
         List<HexRow> hexPath = new ArrayList<>();
@@ -177,6 +215,8 @@ final class LOSDiagramDataBuilder {
               targetUnitType,
               attackerIsHullDown,
               targetIsHullDown,
+              attackerAtAltitude,
+              targetAtAltitude,
               attackerName,
               targetName
         );

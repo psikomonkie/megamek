@@ -63,6 +63,56 @@ final class LOSModifierCalculator {
     }
 
     /**
+     * Computes LOS modifiers using the entity-based code path, identical to the fire phase. Uses
+     * {@code LosEffects.calculateLOS(Game, Entity, Targetable)} which builds a complete AttackInfo from entity
+     * properties (including infantry flags, water depth, altitude, etc.).
+     *
+     * @param game     the current game state
+     * @param attacker the attacking entity
+     * @param target   the target entity
+     *
+     * @return a formatted string of the to-hit modifier total and breakdown
+     */
+    static String computeEntityBasedModifiers(Game game, Entity attacker, Entity target) {
+        LosEffects losEffects = LosEffects.calculateLOS(game, attacker, target);
+        ToHitData thd = losEffects.losModifiers(game);
+
+        if (thd.getValue() == TargetRoll.IMPOSSIBLE) {
+            return thd.getDesc();
+        }
+
+        // Attacker hex terrain modifiers
+        Hex attackerHex = game.getBoard().getHex(attacker.getPosition());
+        if (attackerHex != null) {
+            addAttackerTerrainModifiers(thd, attackerHex);
+        }
+
+        // Target hex terrain modifiers
+        Hex targetHex = game.getBoard().getHex(target.getPosition());
+        if (targetHex != null) {
+            int targetRelHeight = target.relHeight() + 1;
+            addTargetTerrainModifiers(thd, targetHex, targetRelHeight, game);
+        }
+
+        // Water partial cover for Mek targets
+        if ((targetHex != null) && (target instanceof Mek)) {
+            int targetRelHeight = target.relHeight() + 1;
+            addWaterPartialCover(thd, losEffects, targetHex, targetRelHeight);
+        }
+
+        // Target entity state modifiers (prone, immobile, hull down, stuck)
+        int hexDistance = attacker.getPosition().distance(target.getPosition());
+        addTargetEntityStateModifiers(thd, losEffects, game, target.getPosition(), hexDistance);
+
+        String result = "";
+        if (thd.getValue() != TargetRoll.IMPOSSIBLE) {
+            result = thd.getValue() + " = ";
+        }
+        result += thd.getDesc();
+        return result;
+    }
+
+    /**
      * Computes the combined to-hit modifiers for a hypothetical attack, including LOS modifiers (intervening terrain),
      * attacker hex terrain, target hex terrain, and water partial cover. Mirrors the fire phase calculation from
      * {@code ComputeTerrainMods} but without requiring actual Entity objects. Movement TMMs are excluded.
