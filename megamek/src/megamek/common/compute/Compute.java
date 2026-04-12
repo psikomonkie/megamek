@@ -6751,6 +6751,9 @@ public class Compute {
           boolean isAttackThruBuilding, int attackerId, Vector<Report> vReport,
           int mgaSize) {
 
+        // TODO: compact reporting into two lines:
+        // 1. all mods to damage in order, including in/out of building
+        // 2. Mechanized damage mod (if applicable)
         // Report initial (original) damage (use dummy report if not provided)
         if (vReport == null) {
             vReport = new Vector<Report>();
@@ -6779,100 +6782,104 @@ public class Compute {
         switch (damageType) {
             case WeaponType.WEAPON_DIRECT_FIRE:
                 damage /= 10;
+                priorDamage = damage;
                 mod = "1/10";
                 break;
             case WeaponType.WEAPON_CLUSTER_BALLISTIC:
                 damage /= 10;
-                mod = "1/10 + 1";
                 damage++;
+                priorDamage = damage;
+                mod = "1/10 + 1";
                 break;
             case WeaponType.WEAPON_PULSE:
                 damage /= 10;
                 damage += 2;
+                priorDamage = damage;
                 mod = "1/10 + 2";
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE:
                 damage /= 5;
+                priorDamage = damage;
                 mod = "1/5";
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_1D6:
                 damage /= 5;
-                mod = "1/5";
                 priorDamage = damage;
                 damage += Compute.d6();
+                mod = "1/5 + 1d6";
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_2D6:
                 damage /= 5;
-                mod = "1/5";
+                mod = "1/5 + 2d6";
                 priorDamage = damage;
                 damage += Compute.d6(2);
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_3D6:
                 damage /= 5;
-                mod = "1/5";
+                mod = "1/5 + 3d6";
                 priorDamage = damage;
                 damage += Compute.d6(3);
                 break;
             case WeaponType.WEAPON_BURST_HALF_D6:
                 damage = Compute.d6() / 2.0;
-                mod = "1d6 / 2";
                 priorDamage = damage;
+                mod = "+1d6 / 2";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_1D6:
                 damage = Compute.d6(mgaSize);
-                mod = "1d6";
                 priorDamage = damage;
+                mod = "+1d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_2D6:
                 damage = Compute.d6(2 * mgaSize);
-                mod = "2d6";
                 priorDamage = damage;
+                mod = "+2d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_3D6:
                 damage = Compute.d6(3 * mgaSize);
-                mod = "3d6";
                 priorDamage = damage;
+                mod = "+3d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_4D6:
                 damage = Compute.d6(4 * mgaSize);
-                mod = "4d6";
                 priorDamage = damage;
+                mod = "+4d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_5D6:
                 damage = Compute.d6(5 * mgaSize);
-                mod = "5d6";
                 priorDamage = damage;
+                mod = "+5d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_6D6:
                 damage = Compute.d6(6 * mgaSize);
-                mod = "6d6";
                 priorDamage = damage;
+                mod = "+6d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_7D6:
                 damage = Compute.d6(7 * mgaSize);
-                mod = "7d6";
                 priorDamage = damage;
+                mod = "+7d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
