@@ -70,10 +70,6 @@ import megamek.common.preference.PreferenceManager;
 import megamek.common.rolls.PilotingRollData;
 import megamek.common.rolls.Roll;
 import megamek.common.rolls.TargetRoll;
-import megamek.common.weapons.autoCannons.ACWeapon;
-import megamek.common.weapons.autoCannons.LBXACWeapon;
-import megamek.common.weapons.autoCannons.UACWeapon;
-import megamek.common.weapons.gaussRifles.GaussWeapon;
 import megamek.common.weapons.ppc.PPCWeapon;
 import megamek.logging.MMLogger;
 

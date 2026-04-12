@@ -59,17 +59,11 @@ import megamek.common.units.Entity;
 import megamek.common.units.LandAirMek;
 import megamek.common.units.Mek;
 import megamek.common.units.MekConstructionUtil;
-import megamek.common.units.MekWithArms;
 import megamek.common.units.QuadMek;
 import megamek.common.units.QuadVee;
 import megamek.common.util.StringUtil;
 import megamek.common.weapons.artillery.ArtilleryWeapon;
-import megamek.common.weapons.autoCannons.ACWeapon;
-import megamek.common.weapons.autoCannons.LBXACWeapon;
-import megamek.common.weapons.autoCannons.UACWeapon;
-import megamek.common.weapons.gaussRifles.GaussWeapon;
 import megamek.common.weapons.lasers.EnergyWeapon;
-import megamek.common.weapons.ppc.PPCWeapon;
 
 /**
  * @author Reinhard Vicinus
