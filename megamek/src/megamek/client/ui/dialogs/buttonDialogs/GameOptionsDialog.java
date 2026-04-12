@@ -513,8 +513,9 @@ public class GameOptionsDialog extends AbstractButtonDialog implements ActionLis
             optionComp.setEditable(editable && ghostTargetsEnabled);
         } else if (option.getName().equals(OptionsConstants.ADVANCED_GHOST_TARGET_MAX)) {
             // Ghost target max only applies to Legacy mode
-            boolean isLegacyMode = OptionsConstants.GHOST_TARGET_MODE_LEGACY.equals(
-                  options.getOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE).stringValue());
+            IOption advancedOption = options.getOption(OptionsConstants.ADVANCED_GHOST_TARGET_MODE);
+            boolean isLegacyMode = advancedOption != null && OptionsConstants.GHOST_TARGET_MODE_LEGACY.equals(
+                  advancedOption.stringValue());
             boolean ghostTargetsEnabled = options.getOption(
                   OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET).booleanValue();
             optionComp.setEditable(editable && isLegacyMode && ghostTargetsEnabled);
