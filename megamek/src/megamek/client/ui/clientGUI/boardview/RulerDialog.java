@@ -45,6 +45,7 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.WindowEvent;
 import java.io.Serial;
+import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -61,6 +62,7 @@ import megamek.common.board.Coords;
 import megamek.common.game.Game;
 import megamek.common.options.OptionsConstants;
 import megamek.common.units.Entity;
+import megamek.common.units.EntityVisibilityUtils;
 import megamek.common.units.Terrains;
 import megamek.logging.MMLogger;
 
@@ -591,21 +593,28 @@ public class RulerDialog extends JDialog implements BoardViewListener {
      * @param isFirstPoint true for attacker (point 1), false for target (point 2)
      */
     private void applyEntitySelection(Entity entity, boolean isFirstPoint) {
-        int twHeight = LOSHeightCalculation.twHeightFromEntity(entity);
-        DiagramUnitType unitType = DiagramUnitType.fromEntity(entity);
-        boolean isAtAltitude = (entity.getAltitude() > 0) && unitType.isAltitudeUnit();
-        String heightTerm = getHeightLabelSuffix(isAtAltitude, entity, unitType);
-        String label = entity.getShortName() + " " + heightTerm;
+        boolean sensorReturn = isSensorReturn(entity);
+        // For sensor returns: hide identity and use generic height/type so state isn't revealed.
+        // The player knows *something* is there and can still compute LOS/range using its position.
+        int twHeight = sensorReturn ? 1 : LOSHeightCalculation.twHeightFromEntity(entity);
+        DiagramUnitType unitType = sensorReturn ? DiagramUnitType.OTHER : DiagramUnitType.fromEntity(entity);
+        boolean isAtAltitude = !sensorReturn && (entity.getAltitude() > 0) && unitType.isAltitudeUnit();
+        String heightTerm = sensorReturn
+              ? Messages.getString("Ruler.Height")
+              : getHeightLabelSuffix(isAtAltitude, entity, unitType);
+        String label = sensorReturn
+              ? Messages.getString("BoardView1.sensorReturn") + " " + heightTerm
+              : entity.getShortName() + " " + heightTerm;
         JSpinner heightSpinner = isFirstPoint ? height1 : height2;
         heightSpinner.setValue(twHeight);
         if (isFirstPoint) {
-            entityName1 = entity.getDisplayName();
+            entityName1 = sensorReturn ? Messages.getString("BoardView1.sensorReturn") : entity.getDisplayName();
             unitType1 = unitType;
             atAltitude1 = isAtAltitude;
             entityExpectedHeight1 = twHeight;
             heightLabel1.setText(label);
         } else {
-            entityName2 = entity.getDisplayName();
+            entityName2 = sensorReturn ? Messages.getString("BoardView1.sensorReturn") : entity.getDisplayName();
             unitType2 = unitType;
             atAltitude2 = isAtAltitude;
             entityExpectedHeight2 = twHeight;
@@ -689,12 +698,13 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             boolean attackerIsAlt = flip ? atAltitude1 : atAltitude2;
             boolean targetIsAlt = flip ? atAltitude2 : atAltitude1;
 
+            megamek.common.Player localPlayer = bv.getLocalPlayer();
             toHit1 = LOSModifierCalculator.computeFullModifiers(game, attackerPos, targetPos,
                   attackerHeight, targetHeight, attackerIsMek, targetIsMek,
-                  attackerIsAlt, targetIsAlt);
+                  attackerIsAlt, targetIsAlt, localPlayer);
             toHit2 = LOSModifierCalculator.computeFullModifiers(game, targetPos, attackerPos,
                   targetHeight, attackerHeight, targetIsMek, attackerIsMek,
-                  targetIsAlt, attackerIsAlt);
+                  targetIsAlt, attackerIsAlt, localPlayer);
         }
 
         tf_start.setText(start.toString());
@@ -777,8 +787,8 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             info.append(" = Effective Height for LOS: ").append(effectiveHeight);
         }
 
-        // Status flags
-        if (unitType.isMek() && LOSModifierCalculator.isMekHullDownAt(game, coords)) {
+        // Status flags (respect double-blind visibility - don't reveal hidden enemy Mek hull-down state)
+        if (unitType.isMek() && LOSModifierCalculator.isMekHullDownAt(game, coords, bv.getLocalPlayer())) {
             info.append(" | Hull Down");
         }
 
@@ -826,8 +836,8 @@ public class RulerDialog extends JDialog implements BoardViewListener {
 
         Coords attackerPos = flip ? start : end;
         Coords targetPos = flip ? end : start;
-        boolean attackerHullDown = LOSModifierCalculator.isMekHullDownAt(game, attackerPos);
-        boolean targetHullDown = LOSModifierCalculator.isMekHullDownAt(game, targetPos);
+        boolean attackerHullDown = LOSModifierCalculator.isMekHullDownAt(game, attackerPos, bv.getLocalPlayer());
+        boolean targetHullDown = LOSModifierCalculator.isMekHullDownAt(game, targetPos, bv.getLocalPlayer());
 
         String attackerName = flip ? entityName1 : entityName2;
         String targetName = flip ? entityName2 : entityName1;
@@ -922,7 +932,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         LOSModifierCalculator.LOSComparison comparison = LOSModifierCalculator.computeAllModes(
               game, attackerPos, targetPos,
               attackerHeight, targetHeight, attackerIsMek, targetIsMek,
-              attackerIsAlt, targetIsAlt);
+              attackerIsAlt, targetIsAlt, bv.getLocalPlayer());
 
         compareTableModel.setRowCount(0);
         compareTableModel.addRow(new Object[] {
@@ -1172,14 +1182,16 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             DefaultComboBoxModel<EntityItem> model = new DefaultComboBoxModel<>();
             model.addElement(new EntityItem(null));
 
-            List<Entity> entities = game.getEntitiesVector(coords);
+            List<Entity> entities = getVisibleEntitiesAt(coords);
             Entity tallestEntity = null;
             int tallestHeight = Integer.MIN_VALUE;
             int tallestIndex = 0;
 
             for (Entity entity : entities) {
-                model.addElement(new EntityItem(entity));
-                int twHeight = LOSHeightCalculation.twHeightFromEntity(entity);
+                boolean sensorReturn = isSensorReturn(entity);
+                model.addElement(new EntityItem(entity, sensorReturn));
+                // For sensor returns, don't use real height for tallest comparison - we don't know it
+                int twHeight = sensorReturn ? 1 : LOSHeightCalculation.twHeightFromEntity(entity);
                 if (twHeight > tallestHeight) {
                     tallestHeight = twHeight;
                     tallestEntity = entity;
@@ -1198,6 +1210,36 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         }
     }
 
+    /**
+     * Returns the entities at the given hex that are visible OR detected by the local player. Excludes enemy units the
+     * player has neither seen nor detected. Sensor-return-only entities ARE included so the player can check LOS/range
+     * to them, but their identity and state should be hidden in the UI (see {@link #isSensorReturn(Entity)}).
+     */
+    private List<Entity> getVisibleEntitiesAt(Coords coords) {
+        List<Entity> all = game.getEntitiesVector(coords);
+        if (bv.getLocalPlayer() == null) {
+            return all;
+        }
+        List<Entity> visible = new ArrayList<>();
+        for (Entity entity : all) {
+            if (!EntityVisibilityUtils.detectedOrHasVisual(bv.getLocalPlayer(), game, entity)) {
+                // Player can't see or detect this entity at all
+                continue;
+            }
+            visible.add(entity);
+        }
+        return visible;
+    }
+
+    /**
+     * Returns true if the given entity is a sensor return only (detected but not visually identified). Sensor returns
+     * should display with a generic "Sensor Return" label and have their state hidden.
+     */
+    private boolean isSensorReturn(Entity entity) {
+        return (bv.getLocalPlayer() != null)
+              && EntityVisibilityUtils.onlyDetectedBySensors(bv.getLocalPlayer(), entity);
+    }
+
     @Override
     public void finishedMovingUnits(BoardViewEvent b) {
         // ignored
@@ -1208,11 +1250,22 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         // ignored
     }
 
-    record EntityItem(Entity entity) {
+    /**
+     * Combo box entry for an entity at a hex. When {@code sensorReturn} is true, the display hides
+     * the entity's identity and state to avoid leaking double-blind information.
+     */
+    record EntityItem(Entity entity, boolean sensorReturn) {
+        EntityItem(Entity entity) {
+            this(entity, false);
+        }
+
         @Override
         public String toString() {
             if (entity == null) {
                 return Messages.getString("Ruler.noEntity");
+            }
+            if (sensorReturn) {
+                return Messages.getString("BoardView1.sensorReturn");
             }
             int elevation = entity.getElevation();
             int effectiveElevation = entity.relHeight() + 1;

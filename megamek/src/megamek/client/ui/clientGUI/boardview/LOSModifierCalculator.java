@@ -143,15 +143,27 @@ final class LOSModifierCalculator {
     static String computeFullModifiers(Game game, Coords attackerPos, Coords targetPos,
           int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek,
           boolean attackerIsAltitude, boolean targetIsAltitude) {
+        return computeFullModifiers(game, attackerPos, targetPos, attackerHeight, targetHeight,
+              attackerIsMek, targetIsMek, attackerIsAltitude, targetIsAltitude, null);
+    }
+
+    /**
+     * Computes the combined to-hit modifiers for a hypothetical attack, with altitude unit support and double-blind
+     * visibility filtering. When {@code localPlayer} is non-null, enemy entity state (prone, immobile, hull-down,
+     * stuck) is only revealed for units the local player has fully seen.
+     */
+    static String computeFullModifiers(Game game, Coords attackerPos, Coords targetPos,
+          int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek,
+          boolean attackerIsAltitude, boolean targetIsAltitude, megamek.common.Player localPlayer) {
         // LosEffects needs the physical (non-hull-down) heights to correctly detect partial
         // cover, matching the real game where Mek.height() doesn't change for hull-down.
         // The hull-down modifier (+2) is applied separately via addTargetEntityStateModifiers.
         int losAttackerHeight = attackerHeight;
         int losTargetHeight = targetHeight;
-        if (attackerIsMek && isMekHullDownAt(game, attackerPos)) {
+        if (attackerIsMek && isMekHullDownAt(game, attackerPos, localPlayer)) {
             losAttackerHeight += 1;
         }
-        if (targetIsMek && isMekHullDownAt(game, targetPos)) {
+        if (targetIsMek && isMekHullDownAt(game, targetPos, localPlayer)) {
             losTargetHeight += 1;
         }
 
@@ -183,10 +195,10 @@ final class LOSModifierCalculator {
             addWaterPartialCover(thd, losEffects, targetHex, targetHeight);
         }
 
-        // Target entity state modifiers (prone, immobile, hull down, stuck) from actual
-        // entities on the board at the target hex
+        // Target entity state modifiers (prone, immobile, hull down, stuck) from visible
+        // entities on the board at the target hex (filtered by double-blind visibility)
         int hexDistance = attackerPos.distance(targetPos);
-        addTargetEntityStateModifiers(thd, losEffects, game, targetPos, hexDistance);
+        addTargetEntityStateModifiers(thd, losEffects, game, targetPos, hexDistance, localPlayer);
 
         String result = "";
         if (thd.getValue() != TargetRoll.IMPOSSIBLE) {
@@ -295,6 +307,17 @@ final class LOSModifierCalculator {
     static LOSComparison computeAllModes(Game game, Coords attackerPos, Coords targetPos,
           int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek,
           boolean attackerIsAltitude, boolean targetIsAltitude) {
+        return computeAllModes(game, attackerPos, targetPos, attackerHeight, targetHeight,
+              attackerIsMek, targetIsMek, attackerIsAltitude, targetIsAltitude, null);
+    }
+
+    /**
+     * Computes LOS comparison across all three mutually-exclusive rule modes, with double-blind visibility filtering
+     * for entity state modifiers.
+     */
+    static LOSComparison computeAllModes(Game game, Coords attackerPos, Coords targetPos,
+          int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek,
+          boolean attackerIsAltitude, boolean targetIsAltitude, megamek.common.Player localPlayer) {
         IOption losOption = game.getOptions().getOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_LOS1);
         IOption deadZoneOption = game.getOptions().getOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_DEAD_ZONES);
         boolean originalLos = losOption.booleanValue();
@@ -306,30 +329,30 @@ final class LOSModifierCalculator {
             deadZoneOption.setValue(false);
             String standardAttacker = computeFullModifiers(game, attackerPos, targetPos,
                   attackerHeight, targetHeight, attackerIsMek, targetIsMek,
-                  attackerIsAltitude, targetIsAltitude);
+                  attackerIsAltitude, targetIsAltitude, localPlayer);
             String standardTarget = computeFullModifiers(game, targetPos, attackerPos,
                   targetHeight, attackerHeight, targetIsMek, attackerIsMek,
-                  targetIsAltitude, attackerIsAltitude);
+                  targetIsAltitude, attackerIsAltitude, localPlayer);
 
             // Diagrammed: LOS1 on, Dead Zone off
             losOption.setValue(true);
             deadZoneOption.setValue(false);
             String diagrammedAttacker = computeFullModifiers(game, attackerPos, targetPos,
                   attackerHeight, targetHeight, attackerIsMek, targetIsMek,
-                  attackerIsAltitude, targetIsAltitude);
+                  attackerIsAltitude, targetIsAltitude, localPlayer);
             String diagrammedTarget = computeFullModifiers(game, targetPos, attackerPos,
                   targetHeight, attackerHeight, targetIsMek, attackerIsMek,
-                  targetIsAltitude, attackerIsAltitude);
+                  targetIsAltitude, attackerIsAltitude, localPlayer);
 
             // Dead Zone: LOS1 off, Dead Zone on
             losOption.setValue(false);
             deadZoneOption.setValue(true);
             String deadZoneAttacker = computeFullModifiers(game, attackerPos, targetPos,
                   attackerHeight, targetHeight, attackerIsMek, targetIsMek,
-                  attackerIsAltitude, targetIsAltitude);
+                  attackerIsAltitude, targetIsAltitude, localPlayer);
             String deadZoneTarget = computeFullModifiers(game, targetPos, attackerPos,
                   targetHeight, attackerHeight, targetIsMek, attackerIsMek,
-                  targetIsAltitude, attackerIsAltitude);
+                  targetIsAltitude, attackerIsAltitude, localPlayer);
 
             return new LOSComparison(standardAttacker, standardTarget,
                   diagrammedAttacker, diagrammedTarget,
@@ -349,13 +372,38 @@ final class LOSModifierCalculator {
      * @return true if a Mek at the hex is hull-down
      */
     static boolean isMekHullDownAt(Game game, Coords hexPos) {
+        return isMekHullDownAt(game, hexPos, null);
+    }
+
+    /**
+     * Checks if a Mek at the given hex is hull-down, respecting the local player's visibility under double-blind rules.
+     * If {@code localPlayer} is null, no visibility filtering is applied.
+     */
+    static boolean isMekHullDownAt(Game game, Coords hexPos, megamek.common.Player localPlayer) {
         List<Entity> entities = game.getEntitiesVector(hexPos);
         for (Entity entity : entities) {
+            if (!isVisibleToLocalPlayer(game, entity, localPlayer)) {
+                continue;
+            }
             if ((entity instanceof Mek) && entity.isHullDown()) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Returns true if the entity is fully visible (not a sensor return) to the local player. Returns true when
+     * {@code localPlayer} is null (no filtering requested).
+     */
+    private static boolean isVisibleToLocalPlayer(Game game, Entity entity, megamek.common.Player localPlayer) {
+        if (localPlayer == null) {
+            return true;
+        }
+        if (!megamek.common.units.EntityVisibilityUtils.detectedOrHasVisual(localPlayer, game, entity)) {
+            return false;
+        }
+        return !megamek.common.units.EntityVisibilityUtils.onlyDetectedBySensors(localPlayer, entity);
     }
 
     /**
@@ -527,11 +575,24 @@ final class LOSModifierCalculator {
      */
     private static void addTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
           Game game, Coords targetPos, int distance) {
-        List<Entity> entitiesAtTarget = game.getEntitiesVector(targetPos);
-        if (entitiesAtTarget.isEmpty()) {
-            return;
-        }
+        addTargetEntityStateModifiers(thd, losEffects, game, targetPos, distance, null);
+    }
 
-        addKnownTargetEntityStateModifiers(thd, losEffects, entitiesAtTarget.get(0), distance);
+    /**
+     * Adds target entity state modifiers, respecting the local player's visibility under double-blind rules.
+     * Entities the player cannot see (or only detects as sensor returns) are skipped to avoid revealing their
+     * state (prone, immobile, hull-down, stuck) through the ruler's modifier text.
+     *
+     * @param localPlayer the local player for visibility filtering, or null for no filtering
+     */
+    static void addTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
+          Game game, Coords targetPos, int distance, megamek.common.Player localPlayer) {
+        List<Entity> entitiesAtTarget = game.getEntitiesVector(targetPos);
+        for (Entity entity : entitiesAtTarget) {
+            if (isVisibleToLocalPlayer(game, entity, localPlayer)) {
+                addKnownTargetEntityStateModifiers(thd, losEffects, entity, distance);
+                return;
+            }
+        }
     }
 }
