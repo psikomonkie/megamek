@@ -1103,10 +1103,7 @@ public class ProtoMek extends Entity {
      */
     @Override
     public boolean hasActiveEiCockpit() {
-        if (!hasEiCockpit()) {
-            return false;
-        }
-        return (getCritsHit(LOC_HEAD) == 0);
+        return hasEiCockpit() && (getCritsHit(LOC_HEAD) == 0);
     }
 
     @Override
