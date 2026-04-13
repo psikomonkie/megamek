@@ -58,6 +58,7 @@ import megamek.client.ui.clientGUI.GUIPreferences;
 import megamek.client.ui.util.UIUtil;
 import megamek.common.Hex;
 import megamek.common.LosEffects;
+import megamek.common.Player;
 import megamek.common.board.Coords;
 import megamek.common.game.Game;
 import megamek.common.options.OptionsConstants;
@@ -698,7 +699,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
             boolean attackerIsAlt = flip ? atAltitude1 : atAltitude2;
             boolean targetIsAlt = flip ? atAltitude2 : atAltitude1;
 
-            megamek.common.Player localPlayer = bv.getLocalPlayer();
+            Player localPlayer = bv.getLocalPlayer();
             toHit1 = LOSModifierCalculator.computeFullModifiers(game, attackerPos, targetPos,
                   attackerHeight, targetHeight, attackerIsMek, targetIsMek,
                   attackerIsAlt, targetIsAlt, localPlayer);

@@ -37,13 +37,16 @@ import java.util.List;
 
 import megamek.common.Hex;
 import megamek.common.LosEffects;
+import megamek.common.Player;
 import megamek.common.ToHitData;
+import megamek.common.annotations.Nullable;
 import megamek.common.board.Coords;
 import megamek.common.game.Game;
 import megamek.common.options.IOption;
 import megamek.common.options.OptionsConstants;
 import megamek.common.rolls.TargetRoll;
 import megamek.common.units.Entity;
+import megamek.common.units.EntityVisibilityUtils;
 import megamek.common.units.Mek;
 import megamek.common.units.Terrain;
 import megamek.common.units.Terrains;
@@ -154,7 +157,7 @@ final class LOSModifierCalculator {
      */
     static String computeFullModifiers(Game game, Coords attackerPos, Coords targetPos,
           int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek,
-          boolean attackerIsAltitude, boolean targetIsAltitude, megamek.common.Player localPlayer) {
+          boolean attackerIsAltitude, boolean targetIsAltitude, @Nullable Player localPlayer) {
         // LosEffects needs the physical (non-hull-down) heights to correctly detect partial
         // cover, matching the real game where Mek.height() doesn't change for hull-down.
         // The hull-down modifier (+2) is applied separately via addTargetEntityStateModifiers.
@@ -317,7 +320,7 @@ final class LOSModifierCalculator {
      */
     static LOSComparison computeAllModes(Game game, Coords attackerPos, Coords targetPos,
           int attackerHeight, int targetHeight, boolean attackerIsMek, boolean targetIsMek,
-          boolean attackerIsAltitude, boolean targetIsAltitude, megamek.common.Player localPlayer) {
+          boolean attackerIsAltitude, boolean targetIsAltitude, @Nullable Player localPlayer) {
         IOption losOption = game.getOptions().getOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_LOS1);
         IOption deadZoneOption = game.getOptions().getOption(OptionsConstants.ADVANCED_COMBAT_TAC_OPS_DEAD_ZONES);
         boolean originalLos = losOption.booleanValue();
@@ -379,7 +382,7 @@ final class LOSModifierCalculator {
      * Checks if a Mek at the given hex is hull-down, respecting the local player's visibility under double-blind rules.
      * If {@code localPlayer} is null, no visibility filtering is applied.
      */
-    static boolean isMekHullDownAt(Game game, Coords hexPos, megamek.common.Player localPlayer) {
+    static boolean isMekHullDownAt(Game game, Coords hexPos, @Nullable Player localPlayer) {
         List<Entity> entities = game.getEntitiesVector(hexPos);
         for (Entity entity : entities) {
             if (!isVisibleToLocalPlayer(game, entity, localPlayer)) {
@@ -396,14 +399,14 @@ final class LOSModifierCalculator {
      * Returns true if the entity is fully visible (not a sensor return) to the local player. Returns true when
      * {@code localPlayer} is null (no filtering requested).
      */
-    private static boolean isVisibleToLocalPlayer(Game game, Entity entity, megamek.common.Player localPlayer) {
+    private static boolean isVisibleToLocalPlayer(Game game, Entity entity, @Nullable Player localPlayer) {
         if (localPlayer == null) {
             return true;
         }
-        if (!megamek.common.units.EntityVisibilityUtils.detectedOrHasVisual(localPlayer, game, entity)) {
+        if (!EntityVisibilityUtils.detectedOrHasVisual(localPlayer, game, entity)) {
             return false;
         }
-        return !megamek.common.units.EntityVisibilityUtils.onlyDetectedBySensors(localPlayer, entity);
+        return !EntityVisibilityUtils.onlyDetectedBySensors(localPlayer, entity);
     }
 
     /**
@@ -586,7 +589,7 @@ final class LOSModifierCalculator {
      * @param localPlayer the local player for visibility filtering, or null for no filtering
      */
     static void addTargetEntityStateModifiers(ToHitData thd, LosEffects losEffects,
-          Game game, Coords targetPos, int distance, megamek.common.Player localPlayer) {
+          Game game, Coords targetPos, int distance, @Nullable Player localPlayer) {
         List<Entity> entitiesAtTarget = game.getEntitiesVector(targetPos);
         for (Entity entity : entitiesAtTarget) {
             if (isVisibleToLocalPlayer(game, entity, localPlayer)) {
