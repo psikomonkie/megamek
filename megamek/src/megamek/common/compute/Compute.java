@@ -6775,7 +6775,7 @@ public class Compute {
         r = new Report();
         r.subject = attackerId;
         r.indent(4);
-        r.add(getDamageTypeString(origDamageType, mgaSize));
+        r.add(getDamageTypeString(damageType, mgaSize));
         r.messageId = 9979;
         String mod = "1:1";
 
@@ -6886,14 +6886,17 @@ public class Compute {
                 break;
         }
         damage = Math.ceil(damage);
+        priorDamage = Math.ceil(priorDamage);
         r.add(mod);
         r.add((int) priorDamage);
         vReport.add(r);
 
         // Updated report for damage type and MOS mods
-        vReport.addElement(reportModifiedDamage(
-              4, attackerId, origDamageType, priorDamage, damageType, damage, mgaSize, isAttackThruBuilding, false
-        ));
+        if (priorDamage != damage) {
+            vReport.addElement(reportModifiedDamage(
+                  4, attackerId, origDamageType, priorDamage, damageType, damage, mgaSize, isAttackThruBuilding, false
+            ));
+        }
 
         // according to the following ruling, the half damage that mechanized
         // inf get against burst fire should trump the double damage they get
