@@ -368,6 +368,9 @@ public class TWGameManager extends AbstractGameManager {
         // The packet will be sent when clients reconnect and receive the full game state.
         Map<BoardLocation, Integer> cutHexes = this.game.getWoodsClearingTracker().getTurnsRemainingPerHex();
         this.game.setHexesBeingCut(cutHexes);
+
+        // Update game's damage manager with new game instance
+        this.damager.setGame(this.game);
     }
 
     /**
@@ -10245,7 +10248,7 @@ public class TWGameManager extends AbstractGameManager {
                         int[] waaIndex = (int[]) rp.getPacket().data()[1];
                         if (waaIndex != null) {
                             for (int waaNum : waaIndex) {
-                                // -1 in the waaNum indicates that None was selected in addition to others, and can be 
+                                // -1 in the waaNum indicates that None was selected in addition to others, and can be
                                 // ignored
                                 if (waaNum == -1) {
                                     continue;
