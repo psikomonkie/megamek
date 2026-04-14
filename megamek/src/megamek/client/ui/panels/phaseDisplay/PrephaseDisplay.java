@@ -57,9 +57,9 @@ import megamek.client.ui.util.MegaMekController;
 import megamek.client.ui.widget.MegaMekButton;
 import megamek.client.ui.widget.MekPanelTabStrip;
 import megamek.common.actions.GhostTargetAction;
+import megamek.common.board.Coords;
 import megamek.common.enums.GamePhase;
 import megamek.common.equipment.MiscMounted;
-import megamek.common.equipment.MiscType;
 import megamek.common.event.GamePhaseChangeEvent;
 import megamek.common.event.GameTurnChangeEvent;
 import megamek.common.event.entity.GameEntityChangeEvent;
@@ -156,7 +156,7 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
     private String ghostTargetConfirmation = null;
 
     /** Local record of a ghost target assignment before it's sent to the server. */
-    private record PendingGhostTarget(int sourceId, int equipId, int targetId,
+    private record PendingGhostTarget(int sourceId, int equipmentId, int targetId,
           boolean isFriendly, String description) {}
 
     /**
@@ -307,13 +307,12 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
 
         // Ghost Target button: enabled when entity has ghost target equipment (even if already assigned,
         // to allow re-targeting). Also enabled if there are pending assignments to allow changes.
-        boolean isStdMode = isStandardGhostTargetMode();
+        boolean isStandardMode = isStandardGhostTargetMode();
         boolean isPreFiring = phase.isPreFiring();
-        boolean hasAvail = hasAvailableGhostTargetEquipment(ce);
-        boolean hasPending = !pendingGhostTargets.isEmpty();
-        boolean showGhostTarget = isStdMode && isPreFiring && (hasAvail || hasPending);
-        logger.debug("[GT-Refresh] {} - stdMode={}, preFiring={}, hasAvail={}, hasPending={}, show={}",
-              ce.getDisplayName(), isStdMode, isPreFiring, hasAvail, hasPending, showGhostTarget);
+        boolean hasAvailableEquipment = hasAvailableGhostTargetEquipment(ce);
+        boolean hasPendingAssignments = !pendingGhostTargets.isEmpty();
+        boolean showGhostTarget = isStandardMode && isPreFiring
+              && (hasAvailableEquipment || hasPendingAssignments);
         setGhostTargetEnabled(showGhostTarget);
         updateGhostTargetButtonText();
     }
@@ -323,9 +322,10 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         disableButtons();
 
         // Send all pending ghost target actions to the server
-        for (PendingGhostTarget pgt : pendingGhostTargets.values()) {
+        for (PendingGhostTarget pendingGhostTarget : pendingGhostTargets.values()) {
             clientgui.getClient().sendGhostTargetAction(
-                  pgt.sourceId(), pgt.equipId(), pgt.targetId());
+                  pendingGhostTarget.sourceId(), pendingGhostTarget.equipmentId(),
+                  pendingGhostTarget.targetId());
         }
 
         clientgui.getClient().sendPrePhaseData(cen);
@@ -336,8 +336,6 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      * Does turn start stuff
      */
     private void beginMyTurn() {
-        logger.debug("[GT-Turn] beginMyTurn - phase={}, usedEquip={}, pending={}",
-              phase, usedGhostTargetEquipment, pendingGhostTargets.size());
         setStatusBarText(Messages.getFormattedString("PrephaseDisplay.its_your_turn", phase.toString(), ""));
         butDone.setText("<html><b>" + Messages.getString("PrephaseDisplay.Done") + "</b></html>");
 
@@ -371,8 +369,6 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      * Does end turn stuff.
      */
     private void endMyTurn() {
-        logger.debug("[GT-Turn] endMyTurn - clearing usedEquip={}, pending={}",
-              usedGhostTargetEquipment, pendingGhostTargets.size());
         cen = Entity.NONE;
         ghostTargetMode = false;
         ghostTargetConfirmation = null;
@@ -594,8 +590,6 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
             return;
         }
         int remaining = countAvailableGhostTargetEquipment(ce);
-        logger.debug("[GT-Button] {} - remaining={}, pending={}, used={}",
-              ce.getDisplayName(), remaining, pendingGhostTargets.size(), usedGhostTargetEquipment);
         String text = (remaining > 0) ? baseText + " (" + remaining + ")" : baseText;
         buttons.get(PrephaseCommand.PREPHASE_GHOST_TARGET).setText(text);
     }
@@ -606,23 +600,11 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      */
     private int countAvailableGhostTargetEquipment(Entity entity) {
         int count = 0;
-        for (MiscMounted m : entity.getMisc()) {
-            int equipNum = entity.getEquipmentNum(m);
-            boolean isUsed = usedGhostTargetEquipment.contains(equipNum);
-            boolean isCapable = entity.isGhostTargetCapable(m);
-            if (!isUsed && isCapable) {
+        for (MiscMounted equipment : entity.getMisc()) {
+            int equipmentNumber = entity.getEquipmentNum(equipment);
+            boolean isUsed = usedGhostTargetEquipment.contains(equipmentNumber);
+            if (!isUsed && entity.isGhostTargetCapable(equipment)) {
                 count++;
-            }
-            // Log all ECM/Comms/CCC equipment regardless of capability
-            MiscType type = m.getType();
-            if (type.hasFlag(MiscType.F_ECM) || type.hasFlag(MiscType.F_COMMUNICATIONS)
-                  || type.hasFlag(MiscType.F_COMMAND_CONSOLE)) {
-                logger.debug("[GT-Count] {} equip#{} '{}' mode='{}' pendingMode='{}' "
-                            + "isCapable={} isUsed={} isInoperable={} modesCount={}",
-                      entity.getDisplayName(), equipNum, m.getName(),
-                      m.curMode().getName(),
-                      m.pendingMode().getName(),
-                      isCapable, isUsed, m.isInoperable(), m.getType().getModesCount());
             }
         }
         // Cockpit Command Console
@@ -631,11 +613,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
               && (mek.getCockpitType() == Mek.COCKPIT_COMMAND_CONSOLE
               || mek.getCockpitType() == Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
               || mek.getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
-            logger.debug("[GT-Count] {} CCC cockpit type={} - capable, not used",
-                  entity.getDisplayName(), mek.getCockpitType());
             count++;
         }
-        logger.debug("[GT-Count] {} total available: {}", entity.getDisplayName(), count);
         return count;
     }
 
@@ -643,7 +622,6 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         ghostTargetMode = !ghostTargetMode;
         // If re-entering ghost target mode with all equipment assigned, clear to allow re-targeting
         if (ghostTargetMode && !pendingGhostTargets.isEmpty() && !hasAvailableGhostTargetEquipment(currentEntity())) {
-            logger.debug("[GT-Toggle] All equipment used, clearing for re-targeting");
             resetGhostTargets();
         }
         refreshButtons();
@@ -683,8 +661,8 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
         }
 
         // Find the first available ghost-target-capable equipment not yet used this turn
-        int equipId = findAvailableGhostTargetEquipment(source);
-        if (equipId < 0 && equipId != GhostTargetAction.CCC_EQUIPMENT_ID) {
+        int equipmentId = findAvailableGhostTargetEquipment(source);
+        if (equipmentId < 0 && equipmentId != GhostTargetAction.CCC_EQUIPMENT_ID) {
             logger.debug("Ghost target rejected: no available equipment on {}", source.getDisplayName());
             clientgui.addToast(ToastLevel.WARNING,
                   Messages.getString("PrephaseDisplay.ghostTargetNoEquipment"), source);
@@ -710,12 +688,12 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
               : Messages.getString("PrephaseDisplay.ghostTargetJam");
 
         // Store locally - not sent to server until Done is clicked
-        String desc = source.getDisplayName() + " -> " + targetEntity.getDisplayName() + " (" + effectType + ")";
-        pendingGhostTargets.put(equipId, new PendingGhostTarget(
-              source.getId(), equipId, targetEntity.getId(), isFriendly, desc));
+        String description = source.getDisplayName() + " -> " + targetEntity.getDisplayName() + " (" + effectType + ")";
+        pendingGhostTargets.put(equipmentId, new PendingGhostTarget(
+              source.getId(), equipmentId, targetEntity.getId(), isFriendly, description));
 
         // Track this equipment as used
-        usedGhostTargetEquipment.add(equipId);
+        usedGhostTargetEquipment.add(equipmentId);
 
         // Toast confirmation
         clientgui.addToast(ToastLevel.SUCCESS,
@@ -724,17 +702,18 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
               targetEntity);
 
         // Build status bar showing all pending assignments for this entity
-        StringBuilder sb = new StringBuilder(Messages.getString("PrephaseDisplay.ghostTargetStatusPrefix"));
+        StringBuilder statusBuilder = new StringBuilder(
+              Messages.getString("PrephaseDisplay.ghostTargetStatusPrefix"));
         boolean first = true;
-        for (PendingGhostTarget pgt : pendingGhostTargets.values()) {
+        for (PendingGhostTarget pendingGhostTarget : pendingGhostTargets.values()) {
             if (!first) {
-                sb.append(Messages.getString("PrephaseDisplay.ghostTargetStatusSeparator"));
+                statusBuilder.append(Messages.getString("PrephaseDisplay.ghostTargetStatusSeparator"));
             }
-            sb.append(pgt.description());
+            statusBuilder.append(pendingGhostTarget.description());
             first = false;
         }
-        sb.append(Messages.getString("PrephaseDisplay.ghostTargetStatusSuffix"));
-        ghostTargetConfirmation = sb.toString();
+        statusBuilder.append(Messages.getString("PrephaseDisplay.ghostTargetStatusSuffix"));
+        ghostTargetConfirmation = statusBuilder.toString();
 
         // Update button text to show assignment count
         updateGhostTargetButtonText();
@@ -757,17 +736,13 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      * @return the equipment index, or -1 if none available
      */
     private int findAvailableGhostTargetEquipment(Entity entity) {
-        logger.debug("[GT-Find] Searching for available ghost target equipment on {}", entity.getDisplayName());
-        for (MiscMounted m : entity.getMisc()) {
-            int equipNum = entity.getEquipmentNum(m);
-            if (usedGhostTargetEquipment.contains(equipNum)) {
-                logger.debug("[GT-Find] equip#{} '{}' - already used this turn", equipNum, m.getName());
+        for (MiscMounted equipment : entity.getMisc()) {
+            int equipmentNumber = entity.getEquipmentNum(equipment);
+            if (usedGhostTargetEquipment.contains(equipmentNumber)) {
                 continue;
             }
-            if (entity.isGhostTargetCapable(m)) {
-                logger.debug("[GT-Find] equip#{} '{}' mode='{}' - AVAILABLE", equipNum, m.getName(),
-                      m.curMode().getName());
-                return equipNum;
+            if (entity.isGhostTargetCapable(equipment)) {
+                return equipmentNumber;
             }
         }
 
@@ -777,11 +752,9 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
               && (mek.getCockpitType() == Mek.COCKPIT_COMMAND_CONSOLE
               || mek.getCockpitType() == Mek.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE
               || mek.getCockpitType() == Mek.COCKPIT_SMALL_COMMAND_CONSOLE)) {
-            logger.debug("[GT-Find] CCC - AVAILABLE");
             return GhostTargetAction.CCC_EQUIPMENT_ID;
         }
 
-        logger.debug("[GT-Find] No available ghost target equipment found on {}", entity.getDisplayName());
         return -1;
     }
 
@@ -789,14 +762,14 @@ public class PrephaseDisplay extends StatusBarPhaseDisplay implements ListSelect
      * Checks if the entity has any ghost-target-capable equipment that hasn't been used this turn.
      */
     private boolean hasAvailableGhostTargetEquipment(Entity entity) {
-        int equipId = findAvailableGhostTargetEquipment(entity);
-        return equipId >= 0 || equipId == GhostTargetAction.CCC_EQUIPMENT_ID;
+        int equipmentId = findAvailableGhostTargetEquipment(entity);
+        return equipmentId >= 0 || equipmentId == GhostTargetAction.CCC_EQUIPMENT_ID;
     }
 
     /**
      * Finds the first deployed entity at the given coordinates.
      */
-    private Entity findEntityAtCoords(megamek.common.board.Coords coords) {
+    private Entity findEntityAtCoords(Coords coords) {
         for (Entity entity : game().inGameTWEntities()) {
             if (entity.isDeployed() && coords.equals(entity.getPosition())) {
                 return entity;

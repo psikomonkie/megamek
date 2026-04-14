@@ -13357,7 +13357,7 @@ public abstract class Entity extends TurnOrdered
             // included when the option is on; the 7-ton requirement is enforced at usage time
             // in isGhostTargetCapable() since EquipmentType is globally shared across all entities.
             if (misc.getType().hasFlag(MiscType.F_COMMUNICATIONS)) {
-                ArrayList<String> modes = new ArrayList<>();
+                List<String> modes = new ArrayList<>();
                 modes.add("Default");
                 if (gameOpts.booleanOption(OptionsConstants.ADVANCED_TAC_OPS_ECCM)) {
                     modes.add("ECCM");
