@@ -41,10 +41,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
-import javax.swing.*;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JSeparator;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 import com.formdev.flatlaf.FlatClientProperties;
@@ -52,9 +62,9 @@ import megamek.client.Client;
 import megamek.client.ui.GBC2;
 import megamek.client.ui.Messages;
 import megamek.client.ui.clientGUI.ClientGUI;
+import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.client.ui.util.StringDrawer;
 import megamek.client.ui.util.UIUtil;
-import megamek.client.ui.clientGUI.boardview.overlay.ToastLevel;
 import megamek.common.SimpleTechLevel;
 import megamek.common.TechConstants;
 import megamek.common.battleArmor.BattleArmor;
@@ -126,6 +136,8 @@ public class EquipChoicePanel extends JPanel {
     private final JCheckBox chEICockpit = new JCheckBox(Messages.getString("CustomMekDialog.labEICockpit"));
     private final JCheckBox chDamageInterruptCircuit
           = new JCheckBox(Messages.getString("CustomMekDialog.labDamageInterruptCircuit"));
+    /** Ghost target equipment mode selectors, keyed by equipment number on the entity. */
+    private final Map<Integer, JComboBox<String>> ecmModeSelectors = new LinkedHashMap<>();
     private final JComboBox<String> choC3 = new JComboBox<>();
     ClientGUI clientgui;
     Client client;
@@ -250,6 +262,9 @@ public class EquipChoicePanel extends JPanel {
 
         // Set up mines
         setupMines(gbc);
+
+        // Set up ECM equipment mode selectors (ECM/ECCM, and Ghost Targets per TO:AR p.100)
+        setupEcmModes(game, gbc);
 
         // Misc section
         JComponent miscTitle = new SectionTitleLabel(Messages.getString("CustomMekDialog.miscSection"));
@@ -998,6 +1013,9 @@ public class EquipChoicePanel extends JPanel {
             }
         }
 
+        // Apply ghost target equipment mode selections
+        applyEcmModes();
+
         if (entity.hasC3() && (choC3.getSelectedIndex() > -1)) {
             Entity chosen = client.getEntity(entityCorrespondence[choC3.getSelectedIndex()]);
             int entC3nodeCount = client.getGame().getC3SubNetworkMembers(entity).size();
@@ -1077,6 +1095,100 @@ public class EquipChoicePanel extends JPanel {
      */
     public void setEICockpitSelected(boolean selected) {
         chEICockpit.setSelected(selected);
+    }
+
+    /**
+     * Sets up mode dropdowns for ECM equipment. Covers plain ECM/ECCM mode selection as well as Ghost Targets modes
+     * (TO:AR p.100) when that game option is enabled. Also includes Communications Equipment (7+ tons) and Cockpit
+     * Command Console when they can be set to Ghost Targets mode.
+     */
+    private void setupEcmModes(Game game, GBC2 gbc) {
+        boolean hasEccmOption = game.getOptions().booleanOption(OptionsConstants.ADVANCED_TAC_OPS_ECCM);
+        boolean hasGhostTargetOption = game.getOptions()
+              .booleanOption(OptionsConstants.ADVANCED_TAC_OPS_GHOST_TARGET);
+
+        JComponent title = new SectionTitleLabel(Messages.getString("CustomMekDialog.ecmSection"));
+        add(title, gbc.fullLine());
+
+        for (MiscMounted equipment : entity.getMisc()) {
+            if (equipment.isInoperable()) {
+                continue;
+            }
+            MiscType type = equipment.getType();
+            List<String> modes = new ArrayList<>();
+
+            if (type.hasFlag(MiscType.F_ECM) && !type.hasFlag(MiscType.F_NOVA)) {
+                // ECM / Angel ECM
+                modes.add("ECM");
+                if (hasEccmOption) {
+                    modes.add("ECCM");
+                    if (type.hasFlag(MiscType.F_ANGEL_ECM)) {
+                        modes.add("ECM & ECCM");
+                    }
+                }
+                if (hasGhostTargetOption) {
+                    if (type.hasFlag(MiscType.F_ANGEL_ECM)) {
+                        modes.add("ECM & Ghost Targets");
+                        if (hasEccmOption) {
+                            modes.add("ECCM & Ghost Targets");
+                        }
+                    } else {
+                        modes.add("Ghost Targets");
+                    }
+                }
+            } else if (hasGhostTargetOption
+                  && type.hasFlag(MiscType.F_COMMUNICATIONS)
+                  && (entity.getTotalCommGearTons() >= 7)) {
+                modes.add("Default");
+                if (hasEccmOption) {
+                    modes.add("ECCM");
+                }
+                modes.add("Ghost Targets");
+            } else if (hasGhostTargetOption && type.hasFlag(MiscType.F_COMMAND_CONSOLE)) {
+                modes.add("Default");
+                modes.add("Ghost Targets");
+            }
+
+            if (modes.size() > 1) {
+                int equipmentNumber = entity.getEquipmentNum(equipment);
+                JComboBox<String> combo = new JComboBox<>(modes.toArray(new String[0]));
+                combo.setSelectedItem(equipment.curMode().getName());
+
+                JLabel label = new JLabel(equipment.getName() + ":", SwingConstants.RIGHT);
+                add(label, gbc.forLabel());
+                add(combo, gbc.eol());
+                ecmModeSelectors.put(equipmentNumber, combo);
+            }
+        }
+
+        if (ecmModeSelectors.isEmpty()) {
+            remove(title);
+        }
+    }
+
+    /**
+     * Applies the ECM mode selections from the lobby dropdowns to the entity's equipment.
+     */
+    private void applyEcmModes() {
+        for (Map.Entry<Integer, JComboBox<String>> entry : ecmModeSelectors.entrySet()) {
+            int equipmentNumber = entry.getKey();
+            JComboBox<String> combo = entry.getValue();
+            String selectedMode = (String) combo.getSelectedItem();
+            if (selectedMode == null) {
+                continue;
+            }
+            Mounted<?> equipment = entity.getEquipment(equipmentNumber);
+            if (equipment == null) {
+                continue;
+            }
+            // Find the mode index matching the selected string
+            for (int i = 0; i < equipment.getType().getModesCount(); i++) {
+                if (equipment.getType().getMode(i).getName().equals(selectedMode)) {
+                    equipment.setMode(i);
+                    break;
+                }
+            }
+        }
     }
 
     @Override
