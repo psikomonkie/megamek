@@ -1,7 +1,7 @@
 /*
   Copyright (C) 2005, 2006 Ben Mazur (bmazur@sev.org)
  * Copyright © 2013 Edward Cullen (eddy@obsessedcomputers.co.uk)
- * Copyright (C) 2005-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2005-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -35,6 +35,7 @@
 
 package megamek;
 
+import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputFilter;
@@ -134,6 +135,9 @@ public class MegaMek {
             startDedicatedServer(restArgs);
             return;
         }
+
+        // Set an alternate table row color; it uses alpha and is valid for both dark and light UIs
+        UIManager.put("Table.alternateRowColor", new Color(125, 125, 125, 50));
 
         getMMPreferences().loadFromFile(SuiteConstants.MM_PREFERENCES_FILE);
         initializeSuiteGraphicalSetups(MMConstants.PROJECT_NAME);

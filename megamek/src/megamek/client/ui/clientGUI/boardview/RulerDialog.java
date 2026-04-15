@@ -36,6 +36,7 @@ package megamek.client.ui.clientGUI.boardview;
 import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -973,13 +974,11 @@ public class RulerDialog extends JDialog implements BoardViewListener {
      * differ from the active mode with a subtle background.
      */
     private class CompareTableRenderer extends DefaultTableCellRenderer {
-        @Serial
-        private static final long serialVersionUID = 1L;
 
         @Override
-        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+        public Component getTableCellRendererComponent(JTable table, Object value,
               boolean isSelected, boolean hasFocus, int row, int column) {
-            java.awt.Component component = super.getTableCellRendererComponent(
+            Component component = super.getTableCellRendererComponent(
                   table, value, isSelected, hasFocus, row, column);
 
             int activeModeRow = getActiveModeRow();
