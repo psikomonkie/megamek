@@ -39,7 +39,6 @@ import static megamek.client.ui.util.UIUtil.uiGray;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.Serial;
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Optional;
 import java.util.Vector;
@@ -279,6 +278,7 @@ public class Report implements ReportEntry {
     @SuppressWarnings("unchecked")
     public Report(Report r) {
         messageId = r.messageId;
+        extensions = (Vector<Integer>) r.extensions.clone();
         indentation = r.indentation;
         newlines = r.newlines;
         tagData = (Vector<String>) r.tagData.clone();
@@ -350,7 +350,18 @@ public class Report implements ReportEntry {
      * @param id
      */
     public void extend(int id) {
-        this.extensions.add(id);
+        getExtensions().add(id);
+    }
+
+    /**
+     * Safety accessor for extensions
+     * @return extensions Vector of integer values of report messages
+     */
+    public Vector<Integer> getExtensions() {
+        if (this.extensions == null) {
+            this.extensions = new Vector<>();
+        }
+        return this.extensions;
     }
 
     /**
@@ -648,7 +659,7 @@ public class Report implements ReportEntry {
         StringBuilder raw = new StringBuilder();
         raw.append(Optional.ofNullable(ReportMessages.getString(String.valueOf(messageId))).orElse(""));
 
-        for (int extension: this.extensions) {
+        for (int extension: getExtensions()) {
             raw.append(ReportMessages.getString(String.valueOf(extension)));
         }
 
