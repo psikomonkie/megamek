@@ -52,6 +52,7 @@ import megamek.common.units.Dropship;
 import megamek.common.units.Entity;
 import megamek.common.units.Mek;
 import megamek.common.verifier.TestEntity;
+import megamek.server.totalWarfare.TWDamageManager;
 import megamek.server.totalWarfare.TWGameManager;
 import org.junit.jupiter.api.Test;
 

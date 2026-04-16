@@ -39,7 +39,9 @@ import static megamek.client.ui.util.UIUtil.uiGray;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.Serial;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.Optional;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -169,6 +171,11 @@ public class Report implements ReportEntry {
      * Required - associates this object with its text.
      */
     public int messageId = Report.MESSAGE_NONE;
+
+    /**
+     * Additional sections to add to raw message prior to inserting tags
+     */
+    public Vector<Integer> extensions = new Vector<>();
 
     /**
      * The number of spaces this report should be indented.
@@ -336,6 +343,14 @@ public class Report implements ReportEntry {
      */
     public Report noNL() {
         return newLines(0);
+    }
+
+    /**
+     * Add an additional message id that will extend the base message
+     * @param id
+     */
+    public void extend(int id) {
+        this.extensions.add(id);
     }
 
     /**
@@ -630,12 +645,17 @@ public class Report implements ReportEntry {
     @Override
     public String text() {
         // The raw text of the message, with tags.
-        String raw = ReportMessages.getString(String.valueOf(messageId));
+        StringBuilder raw = new StringBuilder();
+        raw.append(Optional.ofNullable(ReportMessages.getString(String.valueOf(messageId))).orElse(""));
+
+        for (int extension: this.extensions) {
+            raw.append(ReportMessages.getString(String.valueOf(extension)));
+        }
 
         // This will be the finished product, with data substituted for tags.
         StringBuffer text = new StringBuffer();
 
-        if (raw == null) {
+        if (raw.isEmpty()) {
             // Should we handle this better? Check alternate language files?
             logger.error("No message found for ID {}", messageId);
             text.append("[Reporting Error for message ID ").append(messageId).append("]");
@@ -645,14 +665,14 @@ public class Report implements ReportEntry {
             while (i < raw.length()) {
                 if (raw.charAt(i) == '<') {
                     // find end of tag
-                    int endTagIdx = raw.indexOf('>', i);
-                    if ((raw.indexOf('<', i + 1) != -1) && (raw.indexOf('<', i + 1) < endTagIdx)) {
+                    int endTagIdx = raw.toString().indexOf('>', i);
+                    if ((raw.toString().indexOf('<', i + 1) != -1) && (raw.toString().indexOf('<', i + 1) < endTagIdx)) {
                         // hmm...this must be a literal '<' character
                         i++;
                         continue;
                     }
                     // copy the preceding characters into the buffer
-                    text.append(raw, mark, i);
+                    text.append(raw.toString(), mark, i);
                     if (raw.substring(i + 1, endTagIdx).equals("data")) {
                         text.append(getTag());
                         tagCounter++;
@@ -664,16 +684,16 @@ public class Report implements ReportEntry {
                     } else if (raw.substring(i + 1, endTagIdx).startsWith("msg:")) {
                         boolean selector = Boolean.parseBoolean(getTag());
                         if (selector) {
-                            text.append(ReportMessages.getString(raw.substring(i + 5, raw.indexOf(',', i))));
+                            text.append(ReportMessages.getString(raw.substring(i + 5, raw.toString().indexOf(',', i))));
                         } else {
-                            text.append(ReportMessages.getString(raw.substring(raw.indexOf(',', i) + 1, endTagIdx)));
+                            text.append(ReportMessages.getString(raw.substring(raw.toString().indexOf(',', i) + 1, endTagIdx)));
                         }
                         tagCounter++;
                     } else if (raw.substring(i + 1, endTagIdx).equals("newline")) {
                         text.append("<br>");
                     } else {
                         // not a special tag, so treat as literal text
-                        text.append(raw, i, endTagIdx + 1);
+                        text.append(raw.toString(), i, endTagIdx + 1);
                     }
                     mark = endTagIdx + 1;
                     i = endTagIdx;

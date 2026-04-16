@@ -905,7 +905,7 @@ class ComputeTest {
               0
         );
         assertEquals(1, newDamage, "5.0 / 10, rounded up.");
-        assertEquals(3, reports.size(), "Report size");
+        assertEquals(1, reports.size(), "Report size");
     }
 
     @Test
@@ -925,13 +925,13 @@ class ComputeTest {
               0
         );
         assertEquals(2, newDamage, "5.0 / 10, rounded up.");
-        assertEquals(4, reports.size(), "Report size");
+        assertEquals(1, reports.size(), "Report size");
     }
 
     @Test
     void testDirectBlowInfantryMechanizedBurstMod() {
-        // Damage should be divided by 10, then rounded, then halved due to burst damage
-        double originalDamage = 20.0;
+        // 5 BA LMGs -> 1D6 / 2, halved by Mechanized Armor vs Burst
+        double originalDamage = 5.0;
         int weaponType = WeaponType.WEAPON_BURST_HALF_D6;
         Vector<Report> reports = new Vector<Report>();
         int newDamage = directBlowInfantryDamage(
@@ -944,16 +944,16 @@ class ComputeTest {
               reports,
               0
         );
-        assertEquals(1, newDamage, "20.0 / 10, rounded up, halved.");
-        assertEquals(4, reports.size(), "Report size");
+        assertTrue(1 >= newDamage, "5 -> 1d6/2, rounded up, then halved and _not_ rounded.");
+        assertEquals(1, reports.size(), "Report size");
     }
 
     @Test
-    void testDirectBlowInfantryMOS3ClusterMissileInBuilding() {
-        // Damage should be divided by 5.0, have between 3 and 18 added, rounded up.
-        // Damage will be 3.0 <= damage <= 12
-        double originalDamage = 15.0;
-        int weaponType = WeaponType.WEAPON_CLUSTER_MISSILE;
+    void testDirectBlowInfantryMOS3BurstInBuilding() {
+        // Burst Weapon in the building attacking infantry also in the building.
+        // 1D6 -> 4D6 -> 4D6 / 2
+        double originalDamage = 10.0;
+        int weaponType = WeaponType.WEAPON_BURST_1D6;
         Vector<Report> reports = new Vector<Report>();
         int newDamage = directBlowInfantryDamage(
               originalDamage,
@@ -963,10 +963,10 @@ class ComputeTest {
               true,
               1,
               reports,
-              0
+              1
         );
-        assertTrue(newDamage >= 6.0 && newDamage <= 21.0, "15 / 5, +3d6, rounded up: " + newDamage);
-        assertEquals(3, reports.size(), "Report size");
-        assertTrue(reports.get(2).text().contains("in building"));
+        assertTrue(newDamage >= 2.0 && newDamage <= 12.0, "10 -> 4D6 / 2.0, rounded up: " + newDamage);
+        assertEquals(1, reports.size(), "Report size");
+        assertTrue(reports.get(0).text().contains("in building"));
     }
 }

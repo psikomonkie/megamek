@@ -6738,7 +6738,8 @@ public class Compute {
      * @param mos                            The margin of success
      * @param damageType                     The damage class of the weapon, used to adjust damage against infantry
      * @param isNonInfantryAgainstMechanized Whether this is a non-infantry attack against mechanized infantry
-     * @param isAttackThruBuilding           Whether the attack is coming through a building hex
+     * @param isAttackThruBuilding           Whether the attack involves attacker and target both within the same
+     *                                       building
      * @param attackerId                     The entity id of the attacking unit
      * @param vReport                        The report messages vector
      * @param mgaSize                        For machine gun array attacks, the number of linked weapons. For other
@@ -6751,9 +6752,6 @@ public class Compute {
           boolean isAttackThruBuilding, int attackerId, Vector<Report> vReport,
           int mgaSize) {
 
-        // TODO: compact reporting into two lines:
-        // 1. all mods to damage in order, including in/out of building
-        // 2. Mechanized damage mod (if applicable)
         // Report initial (original) damage (use dummy report if not provided)
         if (vReport == null) {
             vReport = new Vector<Report>();
@@ -6761,69 +6759,60 @@ public class Compute {
         Report r = new Report();
         r.subject = attackerId;
         r.indent(2);
-        r.add(getDamageTypeString(damageType, mgaSize));
-        r.add((int) damage);
-        r.messageId = 9977;
-        vReport.addElement(r);
+        r.add((int) damage); // field 1
+        r.add(getDamageTypeString(damageType, mgaSize)); // field 2
+        r.messageId = 9970;
+        String mod = "1:1";
 
         // Update for MOS
-        int origDamageType = damageType;
         damageType += mos;
         double priorDamage = damage;
-
-        // Also record initial mod value
-        r = new Report();
-        r.subject = attackerId;
-        r.indent(4);
-        r.add(getDamageTypeString(damageType, mgaSize));
-        r.messageId = 9979;
-        String mod = "1:1";
 
         switch (damageType) {
             case WeaponType.WEAPON_DIRECT_FIRE:
                 damage /= 10;
-                priorDamage = damage;
                 mod = "1/10";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_BALLISTIC:
                 damage /= 10;
                 damage++;
-                priorDamage = damage;
                 mod = "1/10 + 1";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_PULSE:
                 damage /= 10;
                 damage += 2;
-                priorDamage = damage;
                 mod = "1/10 + 2";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE:
                 damage /= 5;
-                priorDamage = damage;
                 mod = "1/5";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_1D6:
                 damage /= 5;
-                priorDamage = damage;
-                damage += Compute.d6();
                 mod = "1/5 + 1d6";
+                damage += Compute.d6();
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_2D6:
                 damage /= 5;
                 mod = "1/5 + 2d6";
-                priorDamage = damage;
                 damage += Compute.d6(2);
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_3D6:
                 damage /= 5;
                 mod = "1/5 + 3d6";
-                priorDamage = damage;
                 damage += Compute.d6(3);
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_BURST_HALF_D6:
                 damage = Compute.d6() / 2.0;
                 priorDamage = damage;
-                mod = "+1d6 / 2";
+                mod = "-> 1d6 / 2";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6831,7 +6820,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_1D6:
                 damage = Compute.d6(mgaSize);
                 priorDamage = damage;
-                mod = "+1d6";
+                mod = "-> 1d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6839,7 +6828,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_2D6:
                 damage = Compute.d6(2 * mgaSize);
                 priorDamage = damage;
-                mod = "+2d6";
+                mod = "-> 2d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6847,7 +6836,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_3D6:
                 damage = Compute.d6(3 * mgaSize);
                 priorDamage = damage;
-                mod = "+3d6";
+                mod = "-> 3d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6855,7 +6844,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_4D6:
                 damage = Compute.d6(4 * mgaSize);
                 priorDamage = damage;
-                mod = "+4d6";
+                mod = "-> 4d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6863,7 +6852,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_5D6:
                 damage = Compute.d6(5 * mgaSize);
                 priorDamage = damage;
-                mod = "+5d6";
+                mod = "-> 5d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6871,7 +6860,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_6D6:
                 damage = Compute.d6(6 * mgaSize);
                 priorDamage = damage;
-                mod = "+6d6";
+                mod = "-> 6d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6879,7 +6868,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_7D6:
                 damage = Compute.d6(7 * mgaSize);
                 priorDamage = damage;
-                mod = "+7d6";
+                mod = "-> 7d6";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6887,15 +6876,22 @@ public class Compute {
         }
         damage = Math.ceil(damage);
         priorDamage = Math.ceil(priorDamage);
-        r.add(mod);
-        r.add((int) priorDamage);
-        vReport.add(r);
 
-        // Updated report for damage type and MOS mods
-        if (priorDamage != damage) {
-            vReport.addElement(reportModifiedDamage(
-                  4, attackerId, origDamageType, priorDamage, damageType, damage, mgaSize, isAttackThruBuilding, false
-            ));
+        if (mos != 0) {
+            // List MOS change to damage
+            r.extend(9971);
+            r.add(getDamageTypeString(damageType, mgaSize)); // new field in 9971
+        }
+
+        r.extend(9972);
+        r.add((int) priorDamage);
+        r.add(mod);
+
+        if (isAttackThruBuilding && (priorDamage != damage)) {
+            // Indicates damage halved for thru-building attack; priorDamage != damage
+            r.extend(9972);
+            r.add((int) damage);
+            r.add(ReportMessages.getString(String.valueOf(9973)));
         }
 
         // according to the following ruling, the half damage that mechanized
@@ -6903,67 +6899,19 @@ public class Compute {
         // from non-infantry rather than cancel it out
         // http://bg.battletech.com/forums/index.php/topic,23928.0.html
         if (isNonInfantryAgainstMechanized) {
-            priorDamage = damage;
             if (damageType < WeaponType.WEAPON_BURST_HALF_D6) {
                 damage *= 2;
             } else {
                 damage /= 2;
             }
-            vReport.addElement(reportModifiedDamage(
-                  4, attackerId, origDamageType, priorDamage, damageType, damage, mgaSize, false, true
-            ));
+            r.extend(9972);
+            // Per TW 7th Ed. pg 217 (and our wonky implementation) this damage is *not* rounded up.
+            r.add((int) damage);
+            r.add(ReportMessages.getString(String.valueOf(9974)));
         }
+        vReport.addElement(r);
 
         return (int) damage;
-    }
-
-    /**
-     * Helper function for printing infantry damage calculation updates
-     * @param attackerId        Attacker ID (for attaching icon)
-     * @param origDamageType    Initial damage type of attack
-     * @param origDamage        Initial damage of the attack
-     * @param damageType        Current calculated damage type due to MOS
-     * @param damage            Current calculated damage due to MOS, mods
-     * @param mgaSize           Burst damage size for Machine Gun Arrays
-     * @param thruBuilding      Whether building will absorb burst damage
-     * @return Report           containing info on mods
-     */
-    private static Report reportModifiedDamage(
-          int indent,
-          int attackerId,
-          int origDamageType,
-          double origDamage,
-          int damageType,
-          double damage,
-          int mgaSize,
-          boolean thruBuilding,
-          boolean dueToMechanized) {
-        Report r = new Report();
-        r.indent(indent);
-
-        r.subject = attackerId;
-
-        r.add(getDamageTypeString(origDamageType, mgaSize));
-
-        if (dueToMechanized) {
-            r.messageId = 9978;
-        } else if (origDamageType != damageType) {
-            if (thruBuilding) {
-                r.messageId = 9973;
-            } else {
-                r.messageId = 9972;
-            }
-            r.add(getDamageTypeString(damageType, mgaSize));
-        } else if (thruBuilding) {
-            r.messageId = 9971;
-        } else {
-            r.messageId = 9970;
-        }
-
-        r.add((int) origDamage);
-        r.add((int) damage);
-
-        return r;
     }
 
     /**

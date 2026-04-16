@@ -370,7 +370,9 @@ public class TWGameManager extends AbstractGameManager {
         this.game.setHexesBeingCut(cutHexes);
 
         // Update game's damage manager with new game instance
-        this.damager.setGame(this.game);
+        if (this.damager != null) {
+            this.damager.setGame(this.game);
+        }
     }
 
     /**
