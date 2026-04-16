@@ -278,7 +278,7 @@ public class Report implements ReportEntry {
     @SuppressWarnings("unchecked")
     public Report(Report r) {
         messageId = r.messageId;
-        extensions = (Vector<Integer>) r.extensions.clone();
+        extensions = (Vector<Integer>) r.getExtensions().clone();
         indentation = r.indentation;
         newlines = r.newlines;
         tagData = (Vector<String>) r.tagData.clone();

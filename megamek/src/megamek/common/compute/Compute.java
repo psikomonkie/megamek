@@ -6752,10 +6752,7 @@ public class Compute {
           boolean isAttackThruBuilding, int attackerId, Vector<Report> vReport,
           int mgaSize) {
 
-        // Report initial (original) damage (use dummy report if not provided)
-        if (vReport == null) {
-            vReport = new Vector<Report>();
-        }
+        // Report initial (original) damage
         Report r = new Report();
         r.subject = attackerId;
         r.indent(2);
@@ -6909,7 +6906,10 @@ public class Compute {
             r.add((int) damage);
             r.add(ReportMessages.getString(String.valueOf(9974)));
         }
-        vReport.addElement(r);
+
+        if (vReport != null) {
+            vReport.addElement(r);
+        }
 
         return (int) damage;
     }
