@@ -6664,11 +6664,11 @@ public class Compute {
             case WeaponType.WEAPON_CLUSTER_BALLISTIC -> Messages.getString("WeaponType.BallisticCluster");
             case WeaponType.WEAPON_PULSE -> Messages.getString("WeaponType.Pulse");
             case WeaponType.WEAPON_CLUSTER_MISSILE -> Messages.getString("WeaponType.Missile");
-            case WeaponType.WEAPON_CLUSTER_MISSILE_1D6,
-                 WeaponType.WEAPON_CLUSTER_MISSILE_2D6,
-                 WeaponType.WEAPON_CLUSTER_MISSILE_3D6 -> Messages.getString("WeaponType.Missile") + " (+X d6)";
+            case WeaponType.WEAPON_CLUSTER_MISSILE_1D6 -> Messages.getString("WeaponType.Missile") + " (+ 1d6)";
+            case WeaponType.WEAPON_CLUSTER_MISSILE_2D6 -> Messages.getString("WeaponType.Missile") + " (+ 2d6)";
+            case WeaponType.WEAPON_CLUSTER_MISSILE_3D6 -> Messages.getString("WeaponType.Missile") + " (+ 3d6)";
             case WeaponType.WEAPON_BURST_HALF_D6 -> Messages.getString("WeaponType.BurstHalf");
-            default -> String.format("%s (%dD6)", Messages.getString("WeaponType.Burst"),
+            default -> String.format("%s (%dd6)", Messages.getString("WeaponType.Burst"),
                   burstMultiplier * (damageType - WeaponType.WEAPON_BURST_HALF_D6));
         };
     }
@@ -6820,7 +6820,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_1D6:
                 damage = Compute.d6(mgaSize);
                 priorDamage = damage;
-                mod = "-> 1d6";
+                mod = "1d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6828,7 +6828,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_2D6:
                 damage = Compute.d6(2 * mgaSize);
                 priorDamage = damage;
-                mod = "-> 2d6";
+                mod = "2d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6836,7 +6836,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_3D6:
                 damage = Compute.d6(3 * mgaSize);
                 priorDamage = damage;
-                mod = "-> 3d6";
+                mod = "3d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6844,7 +6844,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_4D6:
                 damage = Compute.d6(4 * mgaSize);
                 priorDamage = damage;
-                mod = "-> 4d6";
+                mod = "4d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6852,7 +6852,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_5D6:
                 damage = Compute.d6(5 * mgaSize);
                 priorDamage = damage;
-                mod = "-> 5d6";
+                mod = "5d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6860,7 +6860,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_6D6:
                 damage = Compute.d6(6 * mgaSize);
                 priorDamage = damage;
-                mod = "-> 6d6";
+                mod = "6d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
@@ -6868,7 +6868,7 @@ public class Compute {
             case WeaponType.WEAPON_BURST_7D6:
                 damage = Compute.d6(7 * mgaSize);
                 priorDamage = damage;
-                mod = "-> 7d6";
+                mod = "7d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
