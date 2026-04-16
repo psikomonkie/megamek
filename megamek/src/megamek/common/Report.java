@@ -655,13 +655,16 @@ public class Report implements ReportEntry {
      */
     @Override
     public String text() {
-        // The raw text of the message, with tags.
-        StringBuilder raw = new StringBuilder();
-        raw.append(Optional.ofNullable(ReportMessages.getString(String.valueOf(messageId))).orElse(""));
+        // Build the raw text of the message, with tags.
+        StringBuilder rawBuilder = new StringBuilder();
+        rawBuilder.append(Optional.ofNullable(ReportMessages.getString(String.valueOf(messageId))).orElse(""));
 
         for (int extension: getExtensions()) {
-            raw.append(ReportMessages.getString(String.valueOf(extension)));
+            rawBuilder.append(Optional.ofNullable(ReportMessages.getString(String.valueOf(extension))).orElse(""));
         }
+
+        // Use string representation for actual work
+        String raw = rawBuilder.toString();
 
         // This will be the finished product, with data substituted for tags.
         StringBuffer text = new StringBuffer();
@@ -676,14 +679,14 @@ public class Report implements ReportEntry {
             while (i < raw.length()) {
                 if (raw.charAt(i) == '<') {
                     // find end of tag
-                    int endTagIdx = raw.toString().indexOf('>', i);
-                    if ((raw.toString().indexOf('<', i + 1) != -1) && (raw.toString().indexOf('<', i + 1) < endTagIdx)) {
+                    int endTagIdx = raw.indexOf('>', i);
+                    if ((raw.indexOf('<', i + 1) != -1) && (raw.indexOf('<', i + 1) < endTagIdx)) {
                         // hmm...this must be a literal '<' character
                         i++;
                         continue;
                     }
                     // copy the preceding characters into the buffer
-                    text.append(raw.toString(), mark, i);
+                    text.append(raw, mark, i);
                     if (raw.substring(i + 1, endTagIdx).equals("data")) {
                         text.append(getTag());
                         tagCounter++;
@@ -695,16 +698,16 @@ public class Report implements ReportEntry {
                     } else if (raw.substring(i + 1, endTagIdx).startsWith("msg:")) {
                         boolean selector = Boolean.parseBoolean(getTag());
                         if (selector) {
-                            text.append(ReportMessages.getString(raw.substring(i + 5, raw.toString().indexOf(',', i))));
+                            text.append(ReportMessages.getString(raw.substring(i + 5, raw.indexOf(',', i))));
                         } else {
-                            text.append(ReportMessages.getString(raw.substring(raw.toString().indexOf(',', i) + 1, endTagIdx)));
+                            text.append(ReportMessages.getString(raw.substring(raw.indexOf(',', i) + 1, endTagIdx)));
                         }
                         tagCounter++;
                     } else if (raw.substring(i + 1, endTagIdx).equals("newline")) {
                         text.append("<br>");
                     } else {
                         // not a special tag, so treat as literal text
-                        text.append(raw.toString(), i, endTagIdx + 1);
+                        text.append(raw, i, endTagIdx + 1);
                     }
                     mark = endTagIdx + 1;
                     i = endTagIdx;
