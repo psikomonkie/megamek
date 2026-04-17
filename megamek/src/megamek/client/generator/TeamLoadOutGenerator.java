@@ -742,6 +742,71 @@ public class TeamLoadOutGenerator {
     }
 
     /**
+     * Create an availability map with all munition bin counts set to "Unlimited", that is, Integer.MAX_VALUE
+     *
+     * @return HashMap  Availability map set to expected values
+     */
+    public static HashMap<String, Object> createUnlimitedAllMunitionsMap() {
+        return createAllMunitionsMap(Integer.MAX_VALUE);
+    }
+
+    /**
+     * Create a map with all munitions set to a specific value, not restricted by faction/year/tech level
+     * @param count     Count of bins to assign to each munition entry
+     *
+     * @return HashMap  containing per-weapon entries, that contain per-munition entries of "bin counts"
+     */
+    public static HashMap<String, Object> createAllMunitionsMap(int count) {
+        List<EquipmentType> types = EquipmentType.allTypes();
+        HashMap<String, Object> allMunitions = new HashMap<>();
+
+        for (String weaponName : TYPE_LIST) {
+            HashMap<String, Integer> newEntry = new HashMap<>();
+
+            // Grab all AmmoTypes that contain the weapon type name but are not Small Weapon AmmoType
+            List<AmmoType> ammoTypes = types.stream()
+                  .filter(AmmoType.class::isInstance)
+                  .filter(eq -> eq.getName().contains(weaponName) && !(eq instanceof SmallWeaponAmmoType))
+                  .map(AmmoType.class::cast)
+                  .toList();
+
+            // "Standard" munitions usually don't include "Standard" in the name but we know they _are_ the base
+            // ammo type because they don't have a `base` ammo type set!
+            AmmoType standard = ammoTypes.stream()
+                  .filter(munition -> munition.getBaseAmmo() == null)
+                  .findFirst()
+                  .orElse(null);
+            if (standard != null) {
+                newEntry.put("Standard", count);
+            }
+
+            // Munitions must be named in one of the TYPE_MAP sub-maps to be utilized!
+            for (String munitionName: TYPE_MAP.get(weaponName)) {
+                // Get the first munition that matches; tube count or barrel size shouldn't matter for validity checks
+                // Munitions without a base ammo _are_ the base munition and will be marked as "Standard"
+                AmmoType exemplar = ammoTypes.stream()
+                      .filter(munition -> munition.matchesName(munitionName))
+                      .findFirst()
+                      .orElse(null);
+
+                if (exemplar != null) {
+                    // If we found a matching munition in the AmmoTypes, set to passed-in count value
+                    newEntry.put(munitionName, count);
+                }
+            }
+
+            // Ensure "Standard" ammo is set to count if not already set
+            if (newEntry.get("Standard") != count) {
+                newEntry.put("Standard", count);
+            }
+
+            allMunitions.put(weaponName, newEntry);
+        }
+
+        return allMunitions;
+    }
+
+    /**
      * Creates a lookup table of weapon system type -> munition type -> available bins, for the average force
      *
      * @param types       The set of all equipment types within which to search for AmmoTypes

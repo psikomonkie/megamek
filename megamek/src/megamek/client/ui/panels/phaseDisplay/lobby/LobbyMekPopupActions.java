@@ -38,8 +38,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import javax.swing.JFileChooser;
@@ -482,9 +484,12 @@ public record LobbyMekPopupActions(ChatLounge lobby) implements ActionListener {
             case LMP_APPLY_CONFIG:
                 munitionTree = loadLoadout();
                 if (null != munitionTree) {
-                    // Apply to entities
+                    // Apply existing loadout to selected entities.
+                    // Use the unlimited availability map (all munitions allowed in any amount)
                     resetBombChoices(clientGUI, lobby.game(), entityArrayList);
-                    tlg.reconfigureEntities(entityArrayList, faction, munitionTree, reconfigurationParameters, null);
+                    HashMap<String, Object> availMap = TeamLoadOutGenerator.createUnlimitedAllMunitionsMap();
+                    tlg.reconfigureEntities(entityArrayList, faction, munitionTree, reconfigurationParameters,
+                          availMap);
                     reconfigured = true;
                 }
                 break;

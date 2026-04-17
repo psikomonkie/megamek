@@ -999,6 +999,22 @@ class TeamLoadOutGeneratorTest {
         }
     }
 
+    @Test
+    void testCreateUnlimitedAllMunitionsMap() {
+        // This method creates an availability map where all entries are set to "unlimited", that is, Integer.MAX_VALUE.
+        // Primary usage is for applying an existing loadout file to a set of other units; we don't wish to apply any
+        // limits to any of the specified munitions as we assume the player already knows whether they are valid or not.
+        HashMap<String, Object> availMap = TeamLoadOutGenerator.createUnlimitedAllMunitionsMap();
+        for (String weaponName: TeamLoadOutGenerator.TYPE_LIST) {
+            HashMap<String, Integer> entries = (HashMap<String, Integer>) availMap.getOrDefault(weaponName, null);
+            assertNotEquals(null, entries);
+            assertFalse(entries.isEmpty());
+            for (Map.Entry<String, Integer> entry: entries.entrySet()) {
+                assertTrue(entry.getValue() == Integer.MAX_VALUE);
+            }
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"IS", "CC", "CF", "CP", "CS", "DC", "EI", "FC", "FR", "FS", "FW", "LC",
     "MC", "MH", "OA", "TA", "TC", "TH", "RD", "RS", "RA", "RW", "WB", "MERC", "PER",
