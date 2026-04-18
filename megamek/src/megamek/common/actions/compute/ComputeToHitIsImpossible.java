@@ -541,7 +541,7 @@ class ComputeToHitIsImpossible {
         }
 
         // Torpedoes must remain in the water over their whole path to the target
-        if ((ammoType != null) && (ammoType.getAmmoType().isTorpedo()
+        if ((ammoType != null) && (ammoType.getAmmoType() != null && ammoType.getAmmoType().isTorpedo()
               || (((ammoType.getAmmoType() == SRM)
               || (ammoType.getAmmoType() == SRM_IMP)
               || (ammoType.getAmmoType() == MRM)
@@ -550,6 +550,7 @@ class ComputeToHitIsImpossible {
               || (ammoType.getAmmoType() == MML))
               && (ammoType.getMunitionType().contains(AmmoType.Munitions.M_TORPEDO))))
               && (los.getMinimumWaterDepth() < 1)) {
+
             return Messages.getString("WeaponAttackAction.TorpOutOfWater");
         }
 

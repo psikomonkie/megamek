@@ -1411,7 +1411,7 @@ public class Compute {
 
         // allow naval units to target underwater units,
         // torpedo tubes are mounted underwater
-        if ((targetUnderwater || weaponType.getAmmoType().isTorpedo())
+        if ((targetUnderwater || (weaponType.getAmmoType() != null && weaponType.getAmmoType().isTorpedo()))
               && (attackingEntity.getUnitType() == UnitType.NAVAL)) {
             weaponUnderwater = true;
             weaponRanges = weaponType.getWRanges();
