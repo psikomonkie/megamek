@@ -140,6 +140,34 @@ class TeamLoadOutGeneratorTest {
     void generateParameters() {
     }
 
+    /**
+     * Regression test for MekHQ #6833: the static {@code generateParameters} overload that takes
+     * {@link GameOptions} must propagate {@link OptionsConstants#ALLOWED_YEAR} onto the returned
+     * {@link ReconfigurationParameters}. Without this, the munition selection logic always behaves
+     * as if it were 3151, allowing post-Clan-Invasion ammo (e.g. Tandem-Charge SRMs) to appear
+     * on units in early-era campaigns.
+     */
+    @Test
+    void generateParametersPropagatesAllowedYearFromGameOptions() {
+        when(mockGameOptions.intOption(OptionsConstants.ALLOWED_YEAR)).thenReturn(3014);
+
+        ArrayList<Entity> ownEntities = new ArrayList<>();
+        ownEntities.add(createMek("Atlas", "AS7-D", "Pilot"));
+
+        ReconfigurationParameters rp = TeamLoadOutGenerator.generateParameters(
+              game,
+              mockGameOptions,
+              ownEntities,
+              "FS",
+              new ArrayList<>(),
+              new ArrayList<>(),
+              ForceDescriptor.RATING_5,
+              1.0f);
+
+        assertEquals(3014, rp.allowedYear,
+              "generateParameters must propagate GameOptions ALLOWED_YEAR to ReconfigurationParameters.allowedYear");
+    }
+
     @Test
     void generateMunitionTree() {
     }
