@@ -384,10 +384,12 @@ public class CustomMekDialog extends AbstractButtonDialog
             }
 
             // Hide EI Implant group when neural interface rules are Off
-            if (group.getKey().equalsIgnoreCase(PilotOptions.EI_ADVANTAGES) &&
-                  OptionsConstants.NEURAL_INTERFACE_MODE_OFF.equals(
-                        gameOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE))) {
-                continue;
+            if (group.getKey().equalsIgnoreCase(PilotOptions.EI_ADVANTAGES)) {
+                IOption aniOption = gameOptions().getOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
+                String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.toString();
+                if (OptionsConstants.NEURAL_INTERFACE_MODE_OFF.equals(aniMode)) {
+                    continue;
+                }
             }
 
             addGroup(group, gridBagLayout, c);

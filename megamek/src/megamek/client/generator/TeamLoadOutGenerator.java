@@ -940,7 +940,7 @@ public class TeamLoadOutGenerator {
      * @param availMap      An already-constructed munitions availability map
      * @param factor        The value to multiply the existing bin counts by.
      */
-    protected static void scaleAvailabilityMap(HashMap<String, Object> availMap, double factor) {
+    public static void scaleAvailabilityMap(HashMap<String, Object> availMap, double factor) {
         // Traverse all listed weapon types
         for (Map.Entry<String, Object> entry : availMap.entrySet()) {
             // Get the munition name : bin count sub-map for each
@@ -1583,27 +1583,30 @@ public class TeamLoadOutGenerator {
           ReconfigurationParameters reconfigurationParameters, @Nullable HashMap<String, Object> availMap) {
 
         // AvailMap lists how many bins of various munition types would be available to a given faction force at any
-        // given time.  If not provided, one will be generated.
+        // given time.
+        // If not provided, one will be generated.
+        // Generated availMap will also be scaled to account for unit size, availability, and load-out settings.
         // Pre-generating an availMap allows for modifying munition availability for one team/faction, e.g. for special
         // missions.
+        // Note: caller is responsible for calling scaleAvailabilityMap() on a pre-generated availMap, if desired.
         if (availMap == null) {
             availMap = generateValidMunitionsForFactionAndEra(faction);
-        }
 
-        // Increase or reduce availability of limited munitions depending on the total force count and faction quality
-        // Min and max factor are restricted by Defaults.Factors values from YAML.
-        double factor = Math.min(
-              castPropertyDouble("Defaults.Factors.maximumAvailFactor", 2.0),
-              Math.max(
-                    castPropertyDouble("Defaults.Factors.minimumAvailFactor", 0.25),
-                    (entities.size() / castPropertyDouble("Defaults.Factors.defaultForceSize", 36.0)) *
-                        (
-                              castPropertyDouble("Defaults.Factors.qualityRatingMultiplier", 1.0) *
-                              (reconfigurationParameters.friendlyQuality + 1.0) / 6.0
-                        )
-              )
-        );
-        scaleAvailabilityMap(availMap, factor);
+            // Increase or reduce availability of limited munitions depending on the total force count and faction quality
+            // Min and max factor are restricted by Defaults.Factors values from YAML.
+            double factor = Math.min(
+                  castPropertyDouble("Defaults.Factors.maximumAvailFactor", 2.0),
+                  Math.max(
+                        castPropertyDouble("Defaults.Factors.minimumAvailFactor", 0.25),
+                        (entities.size() / castPropertyDouble("Defaults.Factors.defaultForceSize", 36.0)) *
+                            (
+                                  castPropertyDouble("Defaults.Factors.qualityRatingMultiplier", 1.0) *
+                                  (reconfigurationParameters.friendlyQuality + 1.0) / 6.0
+                            )
+                  )
+            );
+            scaleAvailabilityMap(availMap, factor);
+        }
 
         // For Pirate forces, assume fewer rounds per bin at lower quality levels, minimum 20%. If fill ratio is
         // already set, leave it.
