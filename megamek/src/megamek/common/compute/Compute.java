@@ -1463,8 +1463,7 @@ public class Compute {
             }
         } else if (targetUnderwater) {
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Target underwater, but not weapon.");
-        } else if ((weaponType.getAmmoType() == AmmoTypeEnum.LRM_TORPEDO)
-              || (weaponType.getAmmoType() == AmmoTypeEnum.SRM_TORPEDO)) {
+        } else if (weaponType.getAmmoType() != null && weaponType.getAmmoType().isTorpedo()) {
             // Torpedoes only fire underwater.
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Weapon can only fire underwater.");
         }

@@ -33,11 +33,6 @@
 
 package megamek.common.weapons.lrms.innerSphere.torpedo;
 
-import megamek.common.SimpleTechLevel;
-import megamek.common.enums.AvailabilityValue;
-import megamek.common.enums.Faction;
-import megamek.common.enums.TechBase;
-import megamek.common.enums.TechRating;
 import megamek.common.equipment.EquipmentTypeLookup;
 import megamek.common.weapons.lrms.EnhancedLRTWeapon;
 

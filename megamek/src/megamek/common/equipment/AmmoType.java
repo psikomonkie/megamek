@@ -258,6 +258,7 @@ public class AmmoType extends EquipmentType {
                                                                   AmmoTypeEnum.MRM, AmmoTypeEnum.ROCKET_LAUNCHER,
                                                                   AmmoTypeEnum.EXLRM, AmmoTypeEnum.MML,
                                                                   AmmoTypeEnum.NLRM,
+                                                                  AmmoTypeEnum.NLRM_TORPEDO,
                                                                   AmmoTypeEnum.MG, AmmoTypeEnum.MG_LIGHT,
                                                                   AmmoTypeEnum.MG_HEAVY,
                                                                   AmmoTypeEnum.NAIL_RIVET_GUN, AmmoTypeEnum.ATM,
