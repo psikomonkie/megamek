@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000-2005 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2002-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2002-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -1411,8 +1411,7 @@ public class Compute {
 
         // allow naval units to target underwater units,
         // torpedo tubes are mounted underwater
-        if ((targetUnderwater || (weaponType.getAmmoType() == AmmoTypeEnum.LRM_TORPEDO) ||
-              (weaponType.getAmmoType() == AmmoTypeEnum.SRM_TORPEDO))
+        if ((targetUnderwater || weaponType.getAmmoType().isTorpedo())
               && (attackingEntity.getUnitType() == UnitType.NAVAL)) {
             weaponUnderwater = true;
             weaponRanges = weaponType.getWRanges();
@@ -7225,7 +7224,7 @@ public class Compute {
                 switch (ammoType.getAmmoType()) {
                     case SRM_STREAK, LRM_STREAK, LRM, LRM_IMP, LRM_TORPEDO, SRM, SRM_IMP, SRM_TORPEDO, MRM, NARC,
                          INARC, AMS, ARROW_IV, LONG_TOM, SNIPER, THUMPER, SRM_ADVANCED, LRM_TORPEDO_COMBO, ATM, IATM,
-                         MML, EXLRM, NLRM, TBOLT_5, TBOLT_10, TBOLT_15, TBOLT_20, HAG, ROCKET_LAUNCHER -> {
+                         MML, EXLRM, NLRM, NLRM_TORPEDO, TBOLT_5, TBOLT_10, TBOLT_15, TBOLT_20, HAG, ROCKET_LAUNCHER -> {
                         return false;
                     }
                     default -> {

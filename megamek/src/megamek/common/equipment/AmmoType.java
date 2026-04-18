@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004, 2005 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2018-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2018-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -191,7 +191,8 @@ public class AmmoType extends EquipmentType {
         KILLER_WHALE_T(110, "Killer Whale-T", AmmoCategory.Missile),
         WHITE_SHARK_T(111, "White Shark-T", AmmoCategory.Missile),
         BARRACUDA_T(112, "Barracuda-T", AmmoCategory.Missile),
-        INFANTRY(113, "Infantry", AmmoCategory.Special);
+        INFANTRY(113, "Infantry", AmmoCategory.Special),
+        NLRM_TORPEDO(114, "NLRM Torpedo", AmmoCategory.Missile);
 
         private static final Map<Integer, AmmoTypeEnum> INDEX_LOOKUP = new HashMap<>();
 
@@ -239,6 +240,10 @@ public class AmmoType extends EquipmentType {
          */
         public boolean isAnyOf(AmmoTypeEnum type, AmmoTypeEnum... otherTypes) {
             return (this == type) || Arrays.stream(otherTypes).anyMatch(t -> this == t);
+        }
+
+        public boolean isTorpedo() {
+            return this == LRM_TORPEDO || this == SRM_TORPEDO || this == NLRM_TORPEDO;
         }
     }
 
@@ -2623,6 +2628,7 @@ public class AmmoType extends EquipmentType {
         ArrayList<AmmoType> mortarAmmos = new ArrayList<>(4);
         ArrayList<AmmoType> clanMortarAmmos = new ArrayList<>(4);
         ArrayList<AmmoType> lrtAmmos = new ArrayList<>(26);
+        ArrayList<AmmoType> enhancedLrtAmmos = new ArrayList<>(26);
         ArrayList<AmmoType> clanLrtAmmos = new ArrayList<>();
         ArrayList<AmmoType> srtAmmos = new ArrayList<>(26);
         ArrayList<AmmoType> clanSrtAmmos = new ArrayList<>();
@@ -3352,6 +3358,19 @@ public class AmmoType extends EquipmentType {
         EquipmentType.addType(AmmoType.createISLRT15Ammo());
         EquipmentType.addType(AmmoType.createISLRT20Ammo());
 
+        base = AmmoType.createISEnhancedLRT5Ammo();
+        enhancedLrtAmmos.add(base);
+        EquipmentType.addType(base);
+        base = AmmoType.createISEnhancedLRT10Ammo();
+        enhancedLrtAmmos.add(base);
+        EquipmentType.addType(base);
+        base = AmmoType.createISEnhancedLRT15Ammo();
+        enhancedLrtAmmos.add(base);
+        EquipmentType.addType(base);
+        base = AmmoType.createISEnhancedLRT20Ammo();
+        enhancedLrtAmmos.add(base);
+        EquipmentType.addType(base);
+
         base = AmmoType.createISSRT2Ammo();
         srtAmmos.add(base);
         base = AmmoType.createISSRT4Ammo();
@@ -3695,6 +3714,7 @@ public class AmmoType extends EquipmentType {
         munitions.add(ARTEMIS_CAPABLE_MUNITION_MUTATOR);
         AmmoType.createMunitions(srtAmmos, munitions);
         AmmoType.createMunitions(lrtAmmos, munitions);
+        AmmoType.createMunitions(enhancedLrtAmmos, munitions);
 
         // Create the munition types for Clan SRT launchers.
         munitions.clear();
@@ -7896,6 +7916,113 @@ public class AmmoType extends EquipmentType {
         ammo.damagePerShot = 1;
         ammo.rackSize = 20;
         ammo.ammoType = AmmoTypeEnum.NLRM;
+        ammo.shots = 6;
+        ammo.flags = ammo.flags.or(F_HOTLOAD);
+        ammo.setModes("", "HotLoad");
+        ammo.bv = 26;
+        ammo.cost = 31000;
+        ammo.rulesRefs = "138, TO:AUE";
+        // Tech Progression tweaked to combine IntOps with TRO Prototypes/3145 NTNU RS
+        ammo.techAdvancement.setTechBase(TechBase.IS)
+              .setTechRating(TechRating.E)
+              .setAvailability(AvailabilityValue.X, AvailabilityValue.X, AvailabilityValue.F, AvailabilityValue.E)
+              .setISAdvancement(3058, DATE_NONE, 3082, DATE_NONE, DATE_NONE)
+              .setPrototypeFactions(Faction.FS)
+              .setProductionFactions(Faction.FS)
+              .setStaticTechLevel(SimpleTechLevel.STANDARD);
+        return ammo;
+    }
+
+    // Enhanced LRTs
+
+    private static AmmoType createISEnhancedLRT5Ammo() {
+        AmmoType ammo = new AmmoType();
+
+        ammo.name = "Enhanced LRT 5 Ammo";
+        ammo.shortName = "NLRT 5";
+        ammo.setInternalName("ISEnhancedLRT5 Ammo");
+        ammo.damagePerShot = 1;
+        ammo.rackSize = 5;
+        ammo.ammoType = AmmoTypeEnum.NLRM_TORPEDO;
+        ammo.shots = 24;
+        ammo.flags = ammo.flags.or(F_HOTLOAD);
+        ammo.setModes("", "HotLoad");
+        ammo.bv = 7;
+        ammo.cost = 31000;
+        ammo.rulesRefs = "138, TO:AUE";
+        // Tech Progression tweaked to combine IntOps with TRO Prototypes/3145 NTNU RS
+        ammo.techAdvancement.setTechBase(TechBase.IS)
+              .setTechRating(TechRating.E)
+              .setAvailability(AvailabilityValue.X, AvailabilityValue.X, AvailabilityValue.F, AvailabilityValue.E)
+              .setISAdvancement(3058, DATE_NONE, 3082, DATE_NONE, DATE_NONE)
+              .setPrototypeFactions(Faction.FS)
+              .setProductionFactions(Faction.FS)
+              .setStaticTechLevel(SimpleTechLevel.STANDARD);
+
+        return ammo;
+    }
+
+    private static AmmoType createISEnhancedLRT10Ammo() {
+        AmmoType ammo = new AmmoType();
+
+        ammo.name = "Enhanced LRT 10 Ammo";
+        ammo.shortName = "NLRT 10";
+        ammo.setInternalName("ISEnhancedLRT10 Ammo");
+        ammo.damagePerShot = 1;
+        ammo.rackSize = 10;
+        ammo.ammoType = AmmoTypeEnum.NLRM_TORPEDO;
+        ammo.shots = 12;
+        ammo.flags = ammo.flags.or(F_HOTLOAD);
+        ammo.setModes("", "HotLoad");
+        ammo.bv = 13;
+        ammo.cost = 31000;
+        ammo.rulesRefs = "138, TO:AUE";
+        // Tech Progression tweaked to combine IntOps with TRO Prototypes/3145 NTNU RS
+        ammo.techAdvancement.setTechBase(TechBase.IS)
+              .setTechRating(TechRating.E)
+              .setAvailability(AvailabilityValue.X, AvailabilityValue.X, AvailabilityValue.F, AvailabilityValue.E)
+              .setISAdvancement(3058, DATE_NONE, 3082, DATE_NONE, DATE_NONE)
+              .setPrototypeFactions(Faction.FS)
+              .setProductionFactions(Faction.FS)
+              .setStaticTechLevel(SimpleTechLevel.STANDARD);
+        return ammo;
+    }
+
+    private static AmmoType createISEnhancedLRT15Ammo() {
+        AmmoType ammo = new AmmoType();
+
+        ammo.name = "Enhanced LRT 15 Ammo";
+        ammo.shortName = "NLRT 15";
+        ammo.setInternalName("ISEnhancedLRT15 Ammo");
+        ammo.damagePerShot = 1;
+        ammo.rackSize = 15;
+        ammo.ammoType = AmmoTypeEnum.NLRM_TORPEDO;
+        ammo.shots = 8;
+        ammo.flags = ammo.flags.or(F_HOTLOAD);
+        ammo.setModes("", "HotLoad");
+        ammo.bv = 20;
+        ammo.cost = 31000;
+        ammo.rulesRefs = "138, TO:AUE";
+        // Tech Progression tweaked to combine IntOps with TRO Prototypes/3145 NTNU RS
+        ammo.techAdvancement.setTechBase(TechBase.IS)
+              .setTechRating(TechRating.E)
+              .setAvailability(AvailabilityValue.X, AvailabilityValue.X, AvailabilityValue.F, AvailabilityValue.E)
+              .setISAdvancement(3058, DATE_NONE, 3082, DATE_NONE, DATE_NONE)
+              .setPrototypeFactions(Faction.FS)
+              .setProductionFactions(Faction.FS)
+              .setStaticTechLevel(SimpleTechLevel.STANDARD);
+        return ammo;
+    }
+
+    private static AmmoType createISEnhancedLRT20Ammo() {
+        AmmoType ammo = new AmmoType();
+
+        ammo.name = "Enhanced LRT 20 Ammo";
+        ammo.shortName = "NLRT 20";
+        ammo.setInternalName("ISEnhancedLRT20 Ammo");
+        ammo.damagePerShot = 1;
+        ammo.rackSize = 20;
+        ammo.ammoType = AmmoTypeEnum.NLRM_TORPEDO;
         ammo.shots = 6;
         ammo.flags = ammo.flags.or(F_HOTLOAD);
         ammo.setModes("", "HotLoad");
@@ -16047,6 +16174,7 @@ public class AmmoType extends EquipmentType {
                 case NLRM:
                 case SRM_TORPEDO:
                 case LRM_TORPEDO:
+                case NLRM_TORPEDO:
                     // Add the munition name to the end of some ammo names.
                     nameBuf = new StringBuilder(" ");
                     nameBuf.append(name);

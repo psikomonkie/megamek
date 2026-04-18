@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -541,17 +541,15 @@ class ComputeToHitIsImpossible {
         }
 
         // Torpedoes must remain in the water over their whole path to the target
-        if ((ammoType != null) &&
-              ((ammoType.getAmmoType() == LRM_TORPEDO) ||
-                    (ammoType.getAmmoType() == SRM_TORPEDO) ||
-                    (((ammoType.getAmmoType() == SRM) ||
-                          (ammoType.getAmmoType() == SRM_IMP) ||
-                          (ammoType.getAmmoType() == MRM) ||
-                          (ammoType.getAmmoType() == LRM) ||
-                          (ammoType.getAmmoType() == LRM_IMP) ||
-                          (ammoType.getAmmoType() == MML)) &&
-                          (ammoType.getMunitionType().contains(AmmoType.Munitions.M_TORPEDO)))) &&
-              (los.getMinimumWaterDepth() < 1)) {
+        if ((ammoType != null) && (ammoType.getAmmoType().isTorpedo()
+              || (((ammoType.getAmmoType() == SRM)
+              || (ammoType.getAmmoType() == SRM_IMP)
+              || (ammoType.getAmmoType() == MRM)
+              || (ammoType.getAmmoType() == LRM)
+              || (ammoType.getAmmoType() == LRM_IMP)
+              || (ammoType.getAmmoType() == MML))
+              && (ammoType.getMunitionType().contains(AmmoType.Munitions.M_TORPEDO))))
+              && (los.getMinimumWaterDepth() < 1)) {
             return Messages.getString("WeaponAttackAction.TorpOutOfWater");
         }
 
