@@ -41,10 +41,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import megamek.MMConstants;
@@ -557,8 +557,14 @@ public record LobbyMekPopupActions(ChatLounge lobby) implements ActionListener {
             return null;
         }
 
-        String file = jFileChooser.getSelectedFile().getAbsolutePath();
-        munitionTree = new MunitionTree(file);
+        try {
+            String file = jFileChooser.getSelectedFile().getAbsolutePath();
+            munitionTree = new MunitionTree(file);
+        } catch (IllegalArgumentException e) {
+            LobbyErrors.showADFReadError(frame(), e.getMessage());
+
+            return null;
+        }
         return munitionTree;
     }
 
@@ -573,5 +579,9 @@ public record LobbyMekPopupActions(ChatLounge lobby) implements ActionListener {
                 lobby.lobbyActions.tow(entity, info);
                 break;
         }
+    }
+
+    private JFrame frame() {
+        return lobby.getClientGUI().getFrame();
     }
 }

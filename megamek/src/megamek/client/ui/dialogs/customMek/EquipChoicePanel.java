@@ -301,7 +301,7 @@ public class EquipChoicePanel extends JPanel {
         // Only show in Full Tracking mode (hardware + pilot required)
         // DNI is Inner Sphere tech (E/X-X-E-F) - not available for pure Clan units
         IOption aniOption = game.getOptions().getOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
-        String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.toString();
+        String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.stringValue();
 
         boolean isFullTracking = OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(aniMode);
 
@@ -940,7 +940,7 @@ public class EquipChoicePanel extends JPanel {
 
         // update DNI Cockpit Modification setting (IO p.83) - only in Full Tracking mode
         IOption aniOption = game.getOptions().getOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
-        String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.toString();
+        String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.stringValue();
 
         boolean isFullTrackingMode = OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(aniMode);
         if (isFullTrackingMode) {
@@ -1066,7 +1066,7 @@ public class EquipChoicePanel extends JPanel {
     public void refreshNeuralInterfaceCheckboxes() {
         Game game = (clientgui == null) ? client.getGame() : clientgui.getClient().getGame();
         IOption aniOption = game.getOptions().getOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
-        String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.toString();
+        String aniMode = (aniOption == null) ? OptionsConstants.NEURAL_INTERFACE_MODE_OFF : aniOption.stringValue();
 
         if (!OptionsConstants.NEURAL_INTERFACE_MODE_FULL_TRACKING.equals(aniMode)) {
             return;

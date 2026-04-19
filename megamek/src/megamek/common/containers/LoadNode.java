@@ -299,8 +299,8 @@ class LoadNode {
         StringBuilder sb = new StringBuilder();
         if (keys.length == 3) {
             // Create prefix of 3 keys
-            String chassis = (keys[0].isEmpty()) ? "any" : keys[0];
-            String variant = (keys[1].isEmpty()) ? "any" : keys[1];
+            String chassis = (keys[0] == null || keys[0].isEmpty()) ? "any" : keys[0];
+            String variant = (keys[1] == null || keys[1].isEmpty()) ? "any" : keys[1];
             String pilot = "any";
             sb.append(chassis).append(":").append(variant).append(":").append(pilot);
             // Combine all imperatives in one line.

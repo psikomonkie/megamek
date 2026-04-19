@@ -68,6 +68,7 @@ public final class LobbyErrors {
           "A converted force must conform to the rules given in Interstellar Operations. Conversion " +
           "will typically work with companies created in the Force Generator.";
     private static final String NO_DUAL_TOW = "Both units must have an open appropriate tow hitch.";
+    private static final String ADF_READ_ERROR = "Error reading ADF file: ";
 
     public static void showOnlyOwnBot(JFrame owner) {
         JOptionPane.showMessageDialog(owner, ONLY_OWN_BOT);
@@ -171,6 +172,10 @@ public final class LobbyErrors {
 
     public static void showCannotDisconnectMasterUnit(JFrame owner) {
         JOptionPane.showMessageDialog(owner, Messages.getString("LobbyErrors.cannotDisconnectMaster"));
+    }
+
+    public static void showADFReadError(JFrame owner, String message) {
+        JOptionPane.showMessageDialog(owner, ADF_READ_ERROR + message);
     }
 
     private LobbyErrors() {}
