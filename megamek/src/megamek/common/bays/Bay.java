@@ -386,6 +386,7 @@ public class Bay implements Transporter, ITechnology {
     }
 
     @Override
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public int getNumberLoadedThisTurn() {
         return loadedThisTurn;
     }
