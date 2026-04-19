@@ -568,7 +568,7 @@ public class TestSmallCraft extends TestAero {
     }
 
     /**
-     * Returns false and adds error messages to the buffer when a weapon bay has no weapon or ammo for a weapon that is
+     * Returns true and adds error messages to the buffer when a weapon bay has no weapon or ammo for a weapon that is
      * not in this bay, or when the minimum ammo per weapon requirement is not fulfilled (TM p.194). Returns false for
      * units that don't use weapon bays.
      *
@@ -604,7 +604,8 @@ public class TestSmallCraft extends TestAero {
                 // Must use the design spec number of shots, as the in-game remaining shots must be allowed to fall
                 // below 10 without making this unit illegal; the "originalShots" value cannot be used as it is
                 // meaningless during construction and could be any starting value depending on scenario
-                ammoTypeCount.merge(ammoType.getAmmoType(), ammoType.getShots() * (int) ammo.getSize(), Integer::sum);
+                int ammoBins = (int) Math.round(ammo.getSize() / ammoType.getTonnage(vessel));
+                ammoTypeCount.merge(ammoType.getAmmoType(), ammoType.getShots() * ammoBins, Integer::sum);
             }
             for (AmmoTypeEnum at : ammoWeaponCount.keySet()) {
                 if (at != AmmoType.AmmoTypeEnum.NA) {
