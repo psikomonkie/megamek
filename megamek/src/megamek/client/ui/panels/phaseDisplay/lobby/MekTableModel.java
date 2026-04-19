@@ -307,7 +307,7 @@ public class MekTableModel extends AbstractTableModel {
 
             final InGameObject unit = getEntityAt(row);
             if ((unit == null) || (value == null)) {
-                return null;
+                return super.getTableCellRendererComponent(table, "", isSelected, hasFocus, row, column);
             }
 
             setIconTextGap(UIUtil.scaleForGUI(10));

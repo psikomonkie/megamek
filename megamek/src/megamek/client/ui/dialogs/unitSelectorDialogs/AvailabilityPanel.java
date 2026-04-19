@@ -47,6 +47,7 @@ import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
@@ -100,9 +101,7 @@ public class AvailabilityPanel {
 
         private static class FactionCellRenderer extends DefaultTableCellRenderer {
 
-            public FactionCellRenderer() {
-                setBorder(new EmptyBorder(2, 5, 2, 5)); // Padding for the whole cell
-            }
+            private static final EmptyBorder CELL_PADDING = new EmptyBorder(4, 10, 4, 2);
 
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
@@ -115,7 +114,9 @@ public class AvailabilityPanel {
                 } else {
                     setIcon(null);
                 }
-                return super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row, column);
+                super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row, column);
+                setBorder(new CompoundBorder(getBorder(), CELL_PADDING));
+                return this;
             }
         }
 
@@ -545,8 +546,10 @@ public class AvailabilityPanel {
                 List<Object> rowData = new ArrayList<>();
                 String baseAbbr = factionCode.split("\\.")[0];
                 ImageIcon factionIcon = RAT_GENERATOR.getFactionLogo(0, baseAbbr, Color.WHITE);
-                var i = new ImageIcon(ImageUtil.getScaledImage(factionIcon.getImage(), ICON_SIZE, ICON_SIZE));
-                rowData.add(new FixedColumnGrid.FactionCellData(i, factionCode));
+                if (factionIcon != null) {
+                    factionIcon = new ImageIcon(ImageUtil.getScaledImage(factionIcon.getImage(), ICON_SIZE, ICON_SIZE));
+                }
+                rowData.add(new FixedColumnGrid.FactionCellData(factionIcon, factionCode));
 
                 for (Era era : erasToDisplay) {
                     String availabilityText = eraFactionAvailabilityCache
