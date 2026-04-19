@@ -295,17 +295,14 @@ public class TeamOverviewPanel extends JPanel {
         }
 
         private int classIndex(Entity entity) {
-            if (entity instanceof Mek) {
-                return 0;
-            } else if (entity instanceof Tank) {
-                return 1;
-            } else if (entity instanceof Aero) {
-                return 2;
-            } else if (entity instanceof Infantry) {
-                return 3;
-            } else { // ProtoMek
-                return 4;
-            }
+            return switch (entity) {
+                case Mek ignored -> 0;
+                case Tank ignored -> 1;
+                case Aero ignored -> 2;
+                case Infantry ignored -> 3;
+                case null, default ->  // ProtoMek
+                      4;
+            };
         }
 
         private String unitSummary(int[] counts, boolean[] criticalSlots, boolean[] warnings) {

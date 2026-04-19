@@ -60,6 +60,7 @@ public class AmmoType extends EquipmentType {
 
     /**
      * Get the name of the mutator of this ammo type. If this is the "standard" ammo type for the weapon, returns null.
+     *
      * @return A string like "Inferno", or null
      */
     public String getMutatorName() {
@@ -1096,7 +1097,7 @@ public class AmmoType extends EquipmentType {
     // PLAYTEST3 AP ammo new weight
     private static final MunitionMutator ARMOR_PIERCING_PLAYTEST_MUNITION_MUTATOR = new MunitionMutator("Armor"
           + "-Piercing Playtest",
-          (5.0/3),
+          (5.0 / 3),
           Munitions.M_ARMOR_PIERCING_PLAYTEST,
           new TechAdvancement(TechBase.IS).setIntroLevel(false)
                 .setUnofficial(false)
@@ -1186,7 +1187,7 @@ public class AmmoType extends EquipmentType {
 
     // PLAYTEST3 Precision ammo modifier
     private static final MunitionMutator PRECISION_PLAYTEST_MUNITION_MUTATOR = new MunitionMutator("Precision Playtest",
-          (5.0/3),
+          (5.0 / 3),
           Munitions.M_PRECISION_PLAYTEST,
           new TechAdvancement(TechBase.IS).setIntroLevel(false)
                 .setUnofficial(false)
@@ -1458,7 +1459,8 @@ public class AmmoType extends EquipmentType {
                 .setStaticTechLevel(SimpleTechLevel.ADVANCED),
           "169, TO:AUE");
 
-    private static final MunitionMutator DAVY_CROCKETT_M_MUNITION_MUTATOR = new MunitionMutator("Davy Crockett-M", "DC-M",
+    private static final MunitionMutator DAVY_CROCKETT_M_MUNITION_MUTATOR = new MunitionMutator("Davy Crockett-M",
+          "DC-M",
           5,
           Munitions.M_DAVY_CROCKETT_M,
           new TechAdvancement(TechBase.IS).setTechRating(TechRating.D)
@@ -1582,7 +1584,8 @@ public class AmmoType extends EquipmentType {
                 .setStaticTechLevel(SimpleTechLevel.ADVANCED),
           "168, TO:AUE");
 
-    private static final MunitionMutator CLAN_THUNDER_FASCAM_MUNITION_MUTATOR = new MunitionMutator("Thunder (FASCAM)", "T-FASCAM",
+    private static final MunitionMutator CLAN_THUNDER_FASCAM_MUNITION_MUTATOR = new MunitionMutator("Thunder (FASCAM)",
+          "T-FASCAM",
           1,
           Munitions.M_FASCAM,
           new TechAdvancement(TechBase.CLAN).setIntroLevel(false)
@@ -1970,7 +1973,8 @@ public class AmmoType extends EquipmentType {
                 .setStaticTechLevel(SimpleTechLevel.ADVANCED),
           "186, TO:AUE");
 
-    private static final MunitionMutator ANTI_PERSONNEL_MORTAR_MUNITION_MUTATOR = new MunitionMutator("Anti-personnel", "AP",
+    private static final MunitionMutator ANTI_PERSONNEL_MORTAR_MUNITION_MUTATOR = new MunitionMutator("Anti-personnel",
+          "AP",
           1,
           Munitions.M_ANTI_PERSONNEL,
           new TechAdvancement(TechBase.IS).setIntroLevel(false)
@@ -2331,6 +2335,7 @@ public class AmmoType extends EquipmentType {
      *
      * @return true if this ammo is affected by AMS, false otherwise
      */
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public boolean canBeInterceptedBy(@Nullable WeaponMounted amsWeapon, @Nullable GameOptions gameOptions) {
         // Arrow IV Missiles can be affected by AMS/PD BAY, but only with Advanced Point Defense rules in space combat.
         if (((this.getAmmoType() == AmmoTypeEnum.ARROW_IV_BOMB)
@@ -2367,14 +2372,11 @@ public class AmmoType extends EquipmentType {
             return true;
         }
         // Check if the weapon has AMS capabilities
-        if (amsWeapon.getType().hasFlag(WeaponType.F_AMS)
+        return amsWeapon.getType().hasFlag(WeaponType.F_AMS)
               || amsWeapon.getType().hasFlag(WeaponType.F_AMS_BAY)
               || (amsWeapon.getType().hasFlag(WeaponType.F_PD_BAY) && amsWeapon.hasModes() && amsWeapon.curMode()
-              .equals(Weapon.MODE_POINT_DEFENSE))) {
-            return true;
-        }
+              .equals(Weapon.MODE_POINT_DEFENSE));
         // If the weapon is not an AMS or AMS Bay, it cannot intercept this ammo
-        return false;
     }
 
     /**
@@ -3760,9 +3762,7 @@ public class AmmoType extends EquipmentType {
             }
 
             AmmoTypeEnum nType = ammoType.getAmmoType();
-            if (m_vaMunitions.get(nType) == null) {
-                m_vaMunitions.put(nType, new Vector<>());
-            }
+            m_vaMunitions.computeIfAbsent(nType, k -> new Vector<>());
 
             m_vaMunitions.get(nType).addElement(ammoType);
         }
@@ -3853,7 +3853,9 @@ public class AmmoType extends EquipmentType {
 
         incendiary.shortName = base.shortName + spacedIncendiaryModShortName;
         incendiary.setInternalName(base.getInternalName() + spacedIncendiaryMod);
-        incendiary.subMunitionName = (base.subMunitionName.isBlank()) ? INCENDIARY_MOD : base.subMunitionName + spacedIncendiaryMod;
+        incendiary.subMunitionName = (base.subMunitionName.isBlank()) ?
+              INCENDIARY_MOD :
+              base.subMunitionName + spacedIncendiaryMod;
 
         // Add all base lookup names with " w/ Incendiary" suffix
         incendiary.addToEnd(base, spacedIncendiaryMod);
@@ -3905,20 +3907,15 @@ public class AmmoType extends EquipmentType {
     }
 
     /**
-     * Create a new techAdvancement that uses:
-     * 1. the more restrictive tech base
-     * 2. the more-restrictive of all faction tech advancements
-     * 3. the later of all intro dates,
-     * 4. the earlier of all extinction dates,
-     * 5. the smaller of all prototype / production / reintroduction faction lists,
-     * 6. the greater of all extinction faction lists,
-     * 7. the higher static tech level,
-     * 8. the rarer availability level
-     * 9. the higher TechRating score
-     * given two other TechAdvancements.
+     * Create a new techAdvancement that uses: 1. the more restrictive tech base 2. the more-restrictive of all faction
+     * tech advancements 3. the later of all intro dates, 4. the earlier of all extinction dates, 5. the smaller of all
+     * prototype / production / reintroduction faction lists, 6. the greater of all extinction faction lists, 7. the
+     * higher static tech level, 8. the rarer availability level 9. the higher TechRating score given two other
+     * TechAdvancements.
      *
-     * @param base  TechAdvancement of base ammo type being modified
-     * @param mod   TechAdvancement of the mod/mutator; currently only Incendiary
+     * @param base TechAdvancement of base ammo type being modified
+     * @param mod  TechAdvancement of the mod/mutator; currently only Incendiary
+     *
      * @return combination TechAdvancement
      */
     private static TechAdvancement combineTechAdvancements(TechAdvancement base, TechAdvancement mod) {
@@ -3931,18 +3928,22 @@ public class AmmoType extends EquipmentType {
         }
 
         // Advancement - later takes precendent except for extinction, but -1 trumps all
-        for (AdvancementPhase phase : List.of(AdvancementPhase.PROTOTYPE, AdvancementPhase.PRODUCTION, AdvancementPhase.COMMON,
+        for (AdvancementPhase phase : List.of(AdvancementPhase.PROTOTYPE,
+              AdvancementPhase.PRODUCTION,
+              AdvancementPhase.COMMON,
               AdvancementPhase.REINTRODUCED)) {
-            combination.setISAdvancement(phase, laterOrUnsetYear(base.getISAdvancement(phase), mod.getISAdvancement(phase)));
+            combination.setISAdvancement(phase,
+                  laterOrUnsetYear(base.getISAdvancement(phase), mod.getISAdvancement(phase)));
             combination.setISApproximate(phase, (base.getISApproximate(phase) || mod.getISApproximate(phase)));
-            combination.setClanAdvancement(phase, laterOrUnsetYear(base.getClanAdvancement(phase), mod.getClanAdvancement(phase)));
+            combination.setClanAdvancement(phase,
+                  laterOrUnsetYear(base.getClanAdvancement(phase), mod.getClanAdvancement(phase)));
             combination.setClanApproximate(phase, (base.getClanApproximate(phase) || mod.getClanApproximate(phase)));
         }
 
         // Extinction dates: earlier non-"-1" value wins
         AdvancementPhase phase = AdvancementPhase.EXTINCT;
         combination.setISAdvancement(phase, earlierNotUnsetYear(base.getISAdvancement(phase),
-                    mod.getISAdvancement(phase)));
+              mod.getISAdvancement(phase)));
         combination.setISApproximate(phase, (base.getISApproximate(phase) || mod.getISApproximate(phase)));
         combination.setClanAdvancement(phase, earlierNotUnsetYear(base.getClanAdvancement(phase),
               mod.getClanAdvancement(phase)));
@@ -3964,7 +3965,7 @@ public class AmmoType extends EquipmentType {
         combination.setReintroductionFactions(restrictFactions(bReintro, mReintro).toArray(new Faction[0]));
 
         // Extinction should cover the most possible factions
-        Set<Faction> extinct = new HashSet<Faction>(bExtinct);
+        Set<Faction> extinct = new HashSet<>(bExtinct);
         extinct.addAll(mExtinct);
         combination.setExtinctionFactions(extinct.toArray(new Faction[0]));
 
@@ -3975,7 +3976,7 @@ public class AmmoType extends EquipmentType {
         ));
 
         // Availability
-        for (Era era: Era.values()) {
+        for (Era era : Era.values()) {
             combination.setAvailability(
                   era,
                   (base.calcEraAvailability(era).isBetterThan(mod.calcEraAvailability(era)))
@@ -3996,8 +3997,10 @@ public class AmmoType extends EquipmentType {
 
     /**
      * Determine the earlier of two years for purposes of setting extinction year of modified munitions
+     *
      * @param left  Left year
      * @param right Right year
+     *
      * @return Lower year that is not "DATE_NONE", that is, the unset value of -1, or -1 if both are unset.
      */
     private static int earlierNotUnsetYear(int left, int right) {
@@ -4015,8 +4018,10 @@ public class AmmoType extends EquipmentType {
 
     /**
      * Determine the later of two years for purposes of setting intro or re-intro of modified munitions
+     *
      * @param left  Left year
      * @param right Right year
+     *
      * @return DATE_NONE if either or both are DATE_NONE, or later year if both are not DATE_NONE
      */
     private static int laterOrUnsetYear(int left, int right) {
@@ -4034,8 +4039,10 @@ public class AmmoType extends EquipmentType {
 
     /**
      * Determine which factions should be in a restricted Faction set based on Set composition
-     * @param left      Left set
-     * @param right     Right set
+     *
+     * @param left  Left set
+     * @param right Right set
+     *
      * @return the most restrictive set / intersection of both sets / empty set if no matches exist.
      */
     private static Set<Faction> restrictFactions(Set<Faction> left, Set<Faction> right) {
@@ -16318,7 +16325,8 @@ public class AmmoType extends EquipmentType {
                   (munition.getAmmoType() == AmmoTypeEnum.LAC) ||
                   (munition.getAmmoType() == AmmoTypeEnum.PAC)) {
                 // PLAYTEST3 ammo changes
-                if (munition.getMunitionType().contains(Munitions.M_ARMOR_PIERCING) || munition.getMunitionType().contains(Munitions.M_ARMOR_PIERCING_PLAYTEST)) {
+                if (munition.getMunitionType().contains(Munitions.M_ARMOR_PIERCING) || munition.getMunitionType()
+                      .contains(Munitions.M_ARMOR_PIERCING_PLAYTEST)) {
                     cost *= 4;
                 } else if ((munition.getMunitionType().contains(Munitions.M_FLECHETTE)) ||
                       (munition.getMunitionType().contains(Munitions.M_FLAK))) {
@@ -16328,7 +16336,8 @@ public class AmmoType extends EquipmentType {
                     bv *= 1.25;
                 } else if (munition.getMunitionType().contains(Munitions.M_INCENDIARY_AC)) {
                     cost *= 2;
-                } else if (munition.getMunitionType().contains(Munitions.M_PRECISION) || munition.getMunitionType().contains(Munitions.M_PRECISION_PLAYTEST)) {
+                } else if (munition.getMunitionType().contains(Munitions.M_PRECISION) || munition.getMunitionType()
+                      .contains(Munitions.M_PRECISION_PLAYTEST)) {
                     cost *= 6;
                 } else if (munition.getMunitionType().contains(Munitions.M_CASELESS)) {
                     cost *= 1.5;

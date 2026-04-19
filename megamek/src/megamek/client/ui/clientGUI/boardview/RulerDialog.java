@@ -51,6 +51,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
+import jakarta.annotation.Nonnull;
 import megamek.client.event.BoardViewEvent;
 import megamek.client.event.BoardViewListener;
 import megamek.client.ui.Messages;
@@ -1252,8 +1253,8 @@ public class RulerDialog extends JDialog implements BoardViewListener {
     }
 
     /**
-     * Combo box entry for an entity at a hex. When {@code sensorReturn} is true, the display hides
-     * the entity's identity and state to avoid leaking double-blind information.
+     * Combo box entry for an entity at a hex. When {@code sensorReturn} is true, the display hides the entity's
+     * identity and state to avoid leaking double-blind information.
      */
     record EntityItem(Entity entity, boolean sensorReturn) {
         EntityItem(Entity entity) {
@@ -1261,6 +1262,7 @@ public class RulerDialog extends JDialog implements BoardViewListener {
         }
 
         @Override
+        @Nonnull
         public String toString() {
             if (entity == null) {
                 return Messages.getString("Ruler.noEntity");

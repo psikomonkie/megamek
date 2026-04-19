@@ -157,6 +157,7 @@ public final class LobbyErrors {
         JOptionPane.showMessageDialog(owner, ENTITY_OR_FORCE);
     }
 
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public static void showOnlyEmptyForce(JFrame owner) {
         JOptionPane.showMessageDialog(owner, FORCE_EMPTY);
     }
