@@ -748,6 +748,71 @@ public class TeamLoadOutGenerator {
     }
 
     /**
+     * Create an availability map with all munition bin counts set to "Unlimited", that is, Integer.MAX_VALUE
+     *
+     * @return HashMap  Availability map set to expected values
+     */
+    public static HashMap<String, Object> createUnlimitedAllMunitionsMap() {
+        return createAllMunitionsMap(Integer.MAX_VALUE);
+    }
+
+    /**
+     * Create a map with all munitions set to a specific value, not restricted by faction/year/tech level
+     * @param count     Count of bins to assign to each munition entry
+     *
+     * @return HashMap  containing per-weapon entries, that contain per-munition entries of "bin counts"
+     */
+    public static HashMap<String, Object> createAllMunitionsMap(int count) {
+        List<EquipmentType> types = EquipmentType.allTypes();
+        HashMap<String, Object> allMunitions = new HashMap<>();
+
+        for (String weaponName : TYPE_LIST) {
+            HashMap<String, Integer> newEntry = new HashMap<>();
+
+            // Grab all AmmoTypes that contain the weapon type name but are not Small Weapon AmmoType
+            List<AmmoType> ammoTypes = types.stream()
+                  .filter(AmmoType.class::isInstance)
+                  .filter(eq -> eq.getName().contains(weaponName) && !(eq instanceof SmallWeaponAmmoType))
+                  .map(AmmoType.class::cast)
+                  .toList();
+
+            // "Standard" munitions usually don't include "Standard" in the name but we know they _are_ the base
+            // ammo type because they don't have a `base` ammo type set!
+            AmmoType standard = ammoTypes.stream()
+                  .filter(munition -> munition.getBaseAmmo() == null)
+                  .findFirst()
+                  .orElse(null);
+            if (standard != null) {
+                newEntry.put("Standard", count);
+            }
+
+            // Munitions must be named in one of the TYPE_MAP sub-maps to be utilized!
+            for (String munitionName: TYPE_MAP.get(weaponName)) {
+                // Get the first munition that matches; tube count or barrel size shouldn't matter for validity checks
+                // Munitions without a base ammo _are_ the base munition and will be marked as "Standard"
+                AmmoType exemplar = ammoTypes.stream()
+                      .filter(munition -> munition.matchesName(munitionName))
+                      .findFirst()
+                      .orElse(null);
+
+                if (exemplar != null) {
+                    // If we found a matching munition in the AmmoTypes, set to passed-in count value
+                    newEntry.put(munitionName, count);
+                }
+            }
+
+            // Ensure "Standard" ammo is set to count if not already set
+            if (newEntry.get("Standard") != count) {
+                newEntry.put("Standard", count);
+            }
+
+            allMunitions.put(weaponName, newEntry);
+        }
+
+        return allMunitions;
+    }
+
+    /**
      * Creates a lookup table of weapon system type -> munition type -> available bins, for the average force
      *
      * @param types       The set of all equipment types within which to search for AmmoTypes
@@ -885,7 +950,7 @@ public class TeamLoadOutGenerator {
      * @param availMap An already-constructed munitions availability map
      * @param factor   The value to multiply the existing bin counts by.
      */
-    protected static void scaleAvailabilityMap(HashMap<String, Object> availMap, double factor) {
+    public static void scaleAvailabilityMap(HashMap<String, Object> availMap, double factor) {
         // Traverse all listed weapon types
         for (Map.Entry<String, Object> entry : availMap.entrySet()) {
             // Get the munition name : bin count sub-map for each
@@ -1533,12 +1598,14 @@ public class TeamLoadOutGenerator {
           ReconfigurationParameters reconfigurationParameters, @Nullable HashMap<String, Object> availMap) {
 
         // AvailMap lists how many bins of various munition types would be available to a given faction force at any
-        // given time.  If not provided, one will be generated.
+        // given time.
+        // If not provided, one will be generated.
+        // Generated availMap will also be scaled to account for unit size, availability, and load-out settings.
         // Pre-generating an availMap allows for modifying munition availability for one team/faction, e.g. for special
         // missions.
+        // Note: caller is responsible for calling scaleAvailabilityMap() on a pre-generated availMap, if desired.
         if (availMap == null) {
             availMap = generateValidMunitionsForFactionAndEra(faction);
-        }
 
         // Increase or reduce availability of limited munitions depending on the total force count and faction quality
         // Min and max factor are restricted by Defaults.Factors values from YAML.
@@ -1743,6 +1810,7 @@ public class TeamLoadOutGenerator {
             String subType = (binType.contains(" w/")) ? binType.substring(0, binType.indexOf(" w/")) : null;
             Mounted<AmmoType> bin = binList.getFirst();
             AmmoType desired;
+            HashMap<String, Integer> availInts = new HashMap<>();
             boolean available = false;
 
             // Load matching AmmoType
@@ -1773,19 +1841,19 @@ public class TeamLoadOutGenerator {
                             (subType == null || m.getName().contains(subType)))
                       .findFirst()
                       .orElse(null);
-                lookup = binType;
+                // The availability list will use mutator names without weapon type / rack size values;
+                // use that if available, or just the bin type name if not.
+                lookup = (desired != null && desired.getMutatorName() != null && !desired.getMutatorName().isEmpty()) ?
+                      desired.getMutatorName() : binType;
             }
 
             // Does the lookup to see how many bins of the munition are available, and _if_
             // bins are available, remove one.
             for (String key : availMap.keySet()) {
                 if (binName.contains(key)) {
-                    HashMap<String, Integer> availInts = (HashMap<String, Integer>) availMap.getOrDefault(key, null);
+                    availInts = (HashMap<String, Integer>) availMap.getOrDefault(key, null);
                     available = (desired != null) && (availInts != null) && availInts.containsKey(lookup) &&
                           availInts.get(lookup) > 0;
-                    if (available) {
-                        availInts.put(lookup, availInts.get(lookup) - 1);
-                    }
                     break;
                 }
             }
@@ -1808,7 +1876,7 @@ public class TeamLoadOutGenerator {
             }
 
             // Continue filling with this munition type until count is fulfilled or there are no more bins
-            while (counts.getOrDefault(binType, 0) > 0 && !binList.isEmpty()) {
+            while (available && counts.getOrDefault(binType, 0) > 0 && !binList.isEmpty()) {
                 try {
                     // fill one ammo bin with the requested ammo type
 
@@ -1824,6 +1892,10 @@ public class TeamLoadOutGenerator {
                     }
                     // Apply ammo change
                     binList.getFirst().changeAmmoType(desired);
+
+                    // Decrement available ammo bins and update availability
+                    availInts.put(lookup, availInts.get(lookup) - 1);
+                    available = availInts.get(lookup) > 0;
 
                     // Decrement count and remove bin from list
                     counts.put(binType, counts.get(binType) - 1);

@@ -225,6 +225,10 @@ public class MunitionTree {
             try {
                 String[] parts = line.split("::");
                 String[] keys = parts[0].split(":");
+                if (keys.length != 3) {
+                    // Record the whole line, to avoid a bunch of messy processing
+                    throw new IllegalArgumentException("Malformed entry: \n" + line);
+                }
                 HashMap<String, String> imperatives = new HashMap<>();
                 String imperative;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2021-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -49,15 +49,7 @@ import java.io.Serial;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.ListSelectionModel;
-import javax.swing.ScrollPaneConstants;
+import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -89,9 +81,6 @@ import megamek.common.units.Tank;
  * the stored ClientGUI.
  */
 public class TeamOverviewPanel extends JPanel {
-
-    @Serial
-    private static final long serialVersionUID = -4754010220963493049L;
 
     private enum TOP_COLS {
         TEAM, MEMBERS, TONNAGE, COST, BV, HIDDEN, UNITS
@@ -449,11 +438,8 @@ public class TeamOverviewPanel extends JPanel {
 
     /** A specialized renderer for the mek table. */
     private class MemberListRenderer extends JPanel implements TableCellRenderer {
-        @Serial
-        private static final long serialVersionUID = 6379065972840999336L;
 
         MemberListRenderer() {
-            super();
             setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
         }
 
@@ -488,7 +474,11 @@ public class TeamOverviewPanel extends JPanel {
                 setBackground(table.getSelectionBackground());
             } else {
                 setForeground(table.getForeground());
-                setBackground(table.getBackground());
+                if (row % 2 == 0) {
+                    setBackground(table.getBackground());
+                } else {
+                    setBackground(UIManager.getColor("Table.alternateRowColor"));
+                }
             }
             return this;
         }
