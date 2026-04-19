@@ -173,5 +173,9 @@ public final class LobbyErrors {
         JOptionPane.showMessageDialog(owner, Messages.getString("LobbyErrors.cannotDisconnectMaster"));
     }
 
+    public static void showADFReadError(JFrame owner, String message) {
+        JOptionPane.showMessageDialog(owner, message);
+    }
+
     private LobbyErrors() {}
 }
