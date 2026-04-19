@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000-2005 Ben Mazur (bmazur@sev.org)
- * Copyright (C) 2002-2025 The MegaMek Team. All Rights Reserved.
+ * Copyright (C) 2002-2026 The MegaMek Team. All Rights Reserved.
  *
  * This file is part of MegaMek.
  *
@@ -1411,8 +1411,7 @@ public class Compute {
 
         // allow naval units to target underwater units,
         // torpedo tubes are mounted underwater
-        if ((targetUnderwater || (weaponType.getAmmoType() == AmmoTypeEnum.LRM_TORPEDO) ||
-              (weaponType.getAmmoType() == AmmoTypeEnum.SRM_TORPEDO))
+        if ((targetUnderwater || (weaponType.getAmmoType() != null && weaponType.getAmmoType().isTorpedo()))
               && (attackingEntity.getUnitType() == UnitType.NAVAL)) {
             weaponUnderwater = true;
             weaponRanges = weaponType.getWRanges();
@@ -1464,8 +1463,7 @@ public class Compute {
             }
         } else if (targetUnderwater) {
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Target underwater, but not weapon.");
-        } else if ((weaponType.getAmmoType() == AmmoTypeEnum.LRM_TORPEDO)
-              || (weaponType.getAmmoType() == AmmoTypeEnum.SRM_TORPEDO)) {
+        } else if (weaponType.getAmmoType() != null && weaponType.getAmmoType().isTorpedo()) {
             // Torpedoes only fire underwater.
             return new ToHitData(TargetRoll.IMPOSSIBLE, "Weapon can only fire underwater.");
         }
@@ -3392,7 +3390,7 @@ public class Compute {
           List<WeaponAttackAction> vAttacks, boolean assumeHit) {
         WeaponAttackAction waaHighest;
         WeaponAttackAction waaSecondHighest;
-        
+
         // Copy the list to a new list
         List<WeaponAttackAction> attacksClone = new ArrayList<>(vAttacks);
         // Find the highest damage
@@ -6663,12 +6661,12 @@ public class Compute {
             case WeaponType.WEAPON_DIRECT_FIRE -> Messages.getString("WeaponType.DirectFire");
             case WeaponType.WEAPON_CLUSTER_BALLISTIC -> Messages.getString("WeaponType.BallisticCluster");
             case WeaponType.WEAPON_PULSE -> Messages.getString("WeaponType.Pulse");
-            case WeaponType.WEAPON_CLUSTER_MISSILE,
-                 WeaponType.WEAPON_CLUSTER_MISSILE_1D6,
-                 WeaponType.WEAPON_CLUSTER_MISSILE_2D6,
-                 WeaponType.WEAPON_CLUSTER_MISSILE_3D6 -> Messages.getString("WeaponType.Missile");
+            case WeaponType.WEAPON_CLUSTER_MISSILE -> Messages.getString("WeaponType.Missile");
+            case WeaponType.WEAPON_CLUSTER_MISSILE_1D6 -> Messages.getString("WeaponType.Missile") + " (+ 1d6)";
+            case WeaponType.WEAPON_CLUSTER_MISSILE_2D6 -> Messages.getString("WeaponType.Missile") + " (+ 2d6)";
+            case WeaponType.WEAPON_CLUSTER_MISSILE_3D6 -> Messages.getString("WeaponType.Missile") + " (+ 3d6)";
             case WeaponType.WEAPON_BURST_HALF_D6 -> Messages.getString("WeaponType.BurstHalf");
-            default -> String.format("%s (%dD6)", Messages.getString("WeaponType.Burst"),
+            default -> String.format("%s (%dd6)", Messages.getString("WeaponType.Burst"),
                   burstMultiplier * (damageType - WeaponType.WEAPON_BURST_HALF_D6));
         };
     }
@@ -6731,13 +6729,15 @@ public class Compute {
 
     /**
      * Method replicates the Non-Conventional Damage against Infantry damage table as well as shifting for direct blows.
-     * also adjust for non-infantry damaging mechanized infantry
+     * also adjust for non-infantry damaging mechanized infantry.
+     * No mods for Plasma weapons.
      *
      * @param damage                         The base amount of damage
      * @param mos                            The margin of success
      * @param damageType                     The damage class of the weapon, used to adjust damage against infantry
      * @param isNonInfantryAgainstMechanized Whether this is a non-infantry attack against mechanized infantry
-     * @param isAttackThruBuilding           Whether the attack is coming through a building hex
+     * @param isAttackThruBuilding           Whether the attack involves attacker and target both within the same
+     *                                       building
      * @param attackerId                     The entity id of the attacking unit
      * @param vReport                        The report messages vector
      * @param mgaSize                        For machine gun array attacks, the number of linked weapons. For other
@@ -6750,86 +6750,144 @@ public class Compute {
           boolean isAttackThruBuilding, int attackerId, Vector<Report> vReport,
           int mgaSize) {
 
-        int origDamageType = damageType;
+        // Report initial (original) damage
+        Report r = new Report();
+        r.subject = attackerId;
+        r.indent(2);
+        r.add((int) damage); // field 1
+        r.add(getDamageTypeString(damageType, mgaSize)); // field 2
+        r.messageId = 9970;
+        String mod = "1:1";
+
+        // Update for MOS
         damageType += mos;
-        double origDamage = damage;
+        double priorDamage = damage;
+
         switch (damageType) {
             case WeaponType.WEAPON_DIRECT_FIRE:
                 damage /= 10;
+                mod = "1/10";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_BALLISTIC:
                 damage /= 10;
                 damage++;
+                mod = "1/10 + 1";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_PULSE:
                 damage /= 10;
                 damage += 2;
+                mod = "1/10 + 2";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE:
                 damage /= 5;
+                mod = "1/5";
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_1D6:
                 damage /= 5;
+                mod = "1/5 + 1d6";
                 damage += Compute.d6();
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_2D6:
                 damage /= 5;
+                mod = "1/5 + 2d6";
                 damage += Compute.d6(2);
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_CLUSTER_MISSILE_3D6:
                 damage /= 5;
+                mod = "1/5 + 3d6";
                 damage += Compute.d6(3);
+                priorDamage = damage;
                 break;
             case WeaponType.WEAPON_BURST_HALF_D6:
                 damage = Compute.d6() / 2.0;
+                priorDamage = damage;
+                mod = "-> 1d6 / 2";
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_1D6:
                 damage = Compute.d6(mgaSize);
+                priorDamage = damage;
+                mod = "1d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_2D6:
                 damage = Compute.d6(2 * mgaSize);
+                priorDamage = damage;
+                mod = "2d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_3D6:
                 damage = Compute.d6(3 * mgaSize);
+                priorDamage = damage;
+                mod = "3d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_4D6:
                 damage = Compute.d6(4 * mgaSize);
+                priorDamage = damage;
+                mod = "4d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_5D6:
                 damage = Compute.d6(5 * mgaSize);
+                priorDamage = damage;
+                mod = "5d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_6D6:
                 damage = Compute.d6(6 * mgaSize);
+                priorDamage = damage;
+                mod = "6d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
             case WeaponType.WEAPON_BURST_7D6:
                 damage = Compute.d6(7 * mgaSize);
+                priorDamage = damage;
+                mod = "7d6 X " + mgaSize;
                 if (isAttackThruBuilding) {
                     damage *= 0.5;
                 }
                 break;
         }
         damage = Math.ceil(damage);
+        priorDamage = Math.ceil(priorDamage);
+
+        if (mos != 0) {
+            // List MOS change to damage
+            r.extend(9971);
+            r.add(getDamageTypeString(damageType, mgaSize)); // new field in 9971
+        }
+
+        r.extend(9972);
+        r.add((int) priorDamage);
+        r.add(mod);
+
+        if (isAttackThruBuilding && (priorDamage != damage)) {
+            // Indicates damage halved for thru-building attack; priorDamage != damage
+            r.extend(9972);
+            r.add((int) damage);
+            r.add(ReportMessages.getString(String.valueOf(9973)));
+        }
 
         // according to the following ruling, the half damage that mechanized
         // inf get against burst fire should trump the double damage they get
@@ -6841,31 +6899,16 @@ public class Compute {
             } else {
                 damage /= 2;
             }
+            r.extend(9972);
+            // Per TW 7th Ed. pg 217 (and our wonky implementation) this damage is *not* rounded up.
+            r.add((int) damage);
+            r.add(ReportMessages.getString(String.valueOf(9974)));
         }
 
         if (vReport != null) {
-            Report r = new Report();
-            r.subject = attackerId;
-            r.indent(2);
-
-            r.add(getDamageTypeString(origDamageType, mgaSize));
-            if (origDamageType != damageType) {
-                if (isAttackThruBuilding) {
-                    r.messageId = 9973;
-                } else {
-                    r.messageId = 9972;
-                }
-                r.add(getDamageTypeString(damageType, mgaSize));
-            } else if (isAttackThruBuilding) {
-                r.messageId = 9971;
-            } else {
-                r.messageId = 9970;
-            }
-
-            r.add((int) origDamage);
-            r.add((int) damage);
             vReport.addElement(r);
         }
+
         return (int) damage;
     }
 
@@ -7180,7 +7223,7 @@ public class Compute {
                 switch (ammoType.getAmmoType()) {
                     case SRM_STREAK, LRM_STREAK, LRM, LRM_IMP, LRM_TORPEDO, SRM, SRM_IMP, SRM_TORPEDO, MRM, NARC,
                          INARC, AMS, ARROW_IV, LONG_TOM, SNIPER, THUMPER, SRM_ADVANCED, LRM_TORPEDO_COMBO, ATM, IATM,
-                         MML, EXLRM, NLRM, TBOLT_5, TBOLT_10, TBOLT_15, TBOLT_20, HAG, ROCKET_LAUNCHER -> {
+                         MML, EXLRM, NLRM, NLRM_TORPEDO, TBOLT_5, TBOLT_10, TBOLT_15, TBOLT_20, HAG, ROCKET_LAUNCHER -> {
                         return false;
                     }
                     default -> {

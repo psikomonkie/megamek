@@ -12090,7 +12090,8 @@ public abstract class Entity extends TurnOrdered
         if (game == null) {
             return OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
         }
-        String mode = gameOptions().stringOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
+        IOption option = gameOptions().getOption(OptionsConstants.ADVANCED_NEURAL_INTERFACE_MODE);
+        String mode = (option == null) ? null : option.stringValue();
         if ((mode == null) || mode.isBlank()) {
             return OptionsConstants.NEURAL_INTERFACE_MODE_OFF;
         }

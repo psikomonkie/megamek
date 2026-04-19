@@ -959,7 +959,7 @@ public class TeamLoadOutGenerator {
             enemyEntities.clear();
         }
 
-        return generateParameters(ownEntities,
+        ReconfigurationParameters rp = generateParameters(ownEntities,
               enemyEntities,
               friendlyFaction,
               enemyFactions,
@@ -969,6 +969,9 @@ public class TeamLoadOutGenerator {
               spaceEnvironment,
               rating,
               fillRatio);
+        // Propagate the game's allowed year so munition selection respects campaign era
+        rp.allowedYear = gOpts.intOption(OptionsConstants.ALLOWED_YEAR);
+        return rp;
     }
 
     public static ReconfigurationParameters generateParameters(ArrayList<Entity> ownTeamEntities,
