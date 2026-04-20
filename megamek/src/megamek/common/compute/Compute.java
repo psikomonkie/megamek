@@ -36,7 +36,6 @@ package megamek.common.compute;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static megamek.codeUtilities.MathUtility.clamp;
 
 import java.util.*;
 
@@ -329,7 +328,7 @@ public class Compute {
 
         // Compute sum in long to avoid overflow, then clamp to int range
         long sum = (long) highest + (long) second;
-        return (int) clamp(sum, Integer.MIN_VALUE, Integer.MAX_VALUE);
+        return Math.clamp(sum, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     /**
@@ -437,13 +436,13 @@ public class Compute {
      * would not. The returned entity is the entity causing the violation.
      * <p>
      * The position and elevation for the stacking violation are derived from the Entity represented by the passed
-     * Entity ID.
-     * By default, ignores hidden units.
+     * Entity ID. By default, ignores hidden units.
      *
      * @param game       The Game instance
      * @param enteringId The gameId of the moving Entity
      * @param coords     The hex being entered
      * @param climbMode  The moving Entity's climb mode at the point it enters the destination hex
+     *
      * @return Entity instance that is causing the violation
      */
     public static Entity stackingViolation(Game game, int enteringId, Coords coords, boolean climbMode) {
@@ -460,12 +459,13 @@ public class Compute {
      * <p>
      * The position and elevation for the stacking violation are derived from the passed Entity.
      *
-     * @param game      The Game instance
-     * @param entering  The Entity entering the hex
-     * @param dest      The hex being entered
-     * @param transport Represents the unit transporting entering, which may affect stacking, can be null
-     * @param climbMode The moving Entity's climb mode at the point it enters the destination hex
+     * @param game         The Game instance
+     * @param entering     The Entity entering the hex
+     * @param dest         The hex being entered
+     * @param transport    Represents the unit transporting entering, which may affect stacking, can be null
+     * @param climbMode    The moving Entity's climb mode at the point it enters the destination hex
      * @param ignoreHidden true by default.
+     *
      * @return Entity instance that is causing the violation
      */
     public static Entity stackingViolation(Game game, Entity entering,
@@ -480,13 +480,14 @@ public class Compute {
      * <p>
      * The position is derived from the passed Entity, while the elevation is derived from the passed Entity parameter.
      *
-     * @param game      The Game instance
-     * @param entering  The Entity entering the hex
-     * @param elevation The elevation of the moving Entity
-     * @param dest      The hex being entered
-     * @param transport Represents the unit transporting entering, which may affect stacking, can be null
-     * @param climbMode The moving Entity's climb mode at the point it enters the destination hex
+     * @param game         The Game instance
+     * @param entering     The Entity entering the hex
+     * @param elevation    The elevation of the moving Entity
+     * @param dest         The hex being entered
+     * @param transport    Represents the unit transporting entering, which may affect stacking, can be null
+     * @param climbMode    The moving Entity's climb mode at the point it enters the destination hex
      * @param ignoreHidden true by default.
+     *
      * @return Entity instance that is causing the violation
      */
     public static Entity stackingViolation(Game game, Entity entering,
@@ -495,16 +496,18 @@ public class Compute {
               elevation, dest, entering.getBoardId(), transport, climbMode, ignoreHidden);
     }
 
-    /** Used by Princess / bots for checking deployment positions.
+    /**
+     * Used by Princess / bots for checking deployment positions.
      *
-     * @param game      The Game instance
-     * @param entering  The Entity entering the hex
+     * @param game         The Game instance
+     * @param entering     The Entity entering the hex
      * @param origPosition The coords of the hex the moving Entity is leaving
-     * @param elevation The elevation of the moving Entity
-     * @param dest      The hex being entered
-     * @param transport Represents the unit transporting entering, which may affect stacking, can be null
-     * @param climbMode The moving Entity's climb mode at the point it enters the destination hex
+     * @param elevation    The elevation of the moving Entity
+     * @param dest         The hex being entered
+     * @param transport    Represents the unit transporting entering, which may affect stacking, can be null
+     * @param climbMode    The moving Entity's climb mode at the point it enters the destination hex
      * @param ignoreHidden true by default.
+     *
      * @return Entity instance that is causing the violation
      */
     public static Entity stackingViolation(Game game, Entity entering,
@@ -516,14 +519,15 @@ public class Compute {
     /**
      * Board-aware check used when compiling movepaths
      *
-     * @param game      The Game instance
-     * @param entering  The Entity entering the hex
-     * @param elevation The elevation of the moving Entity
-     * @param dest      The hex being entered
-     * @param destBoardId Allows setting a different board for checking destination hex
-     * @param transport Represents the unit transporting entering, which may affect stacking, can be null
-     * @param climbMode The moving Entity's climb mode at the point it enters the destination hex
+     * @param game         The Game instance
+     * @param entering     The Entity entering the hex
+     * @param elevation    The elevation of the moving Entity
+     * @param dest         The hex being entered
+     * @param destBoardId  Allows setting a different board for checking destination hex
+     * @param transport    Represents the unit transporting entering, which may affect stacking, can be null
+     * @param climbMode    The moving Entity's climb mode at the point it enters the destination hex
      * @param ignoreHidden true by default.
+     *
      * @return Entity instance that is causing the violation
      */
     public static Entity stackingViolation(Game game, Entity entering,
@@ -543,10 +547,11 @@ public class Compute {
      * @param origPosition The coords of the hex the moving Entity is leaving
      * @param elevation    The elevation of the moving Entity
      * @param dest         The hex being entered
-     * @param destBoardId Allows setting a different board for checking destination hex
+     * @param destBoardId  Allows setting a different board for checking destination hex
      * @param transport    Represents the unit transporting entering, which may affect stacking, can be null
      * @param climbMode    The moving Entity's climb mode at the point it enters the destination hex
      * @param ignoreHidden true by default.
+     *
      * @return Entity instance that is causing the violation
      */
     public static Entity stackingViolation(Game game, Entity entering,
@@ -564,8 +569,9 @@ public class Compute {
 
         // LAM in fighter mode shouldn't be treated as a Mek for all this
         boolean isMek =
-              ((entering instanceof Mek) && !(entering instanceof LandAirMek lam && lam.getConversionMode() == LandAirMek.CONV_MODE_FIGHTER))
-              || (entering instanceof SmallCraft);
+              ((entering instanceof Mek) && !(entering instanceof LandAirMek lam
+                    && lam.getConversionMode() == LandAirMek.CONV_MODE_FIGHTER))
+                    || (entering instanceof SmallCraft);
         boolean isLargeSupport = (entering instanceof LargeSupportTank)
               || (entering instanceof Dropship)
               || ((entering instanceof Mek) && entering.isSuperHeavy());
@@ -2095,15 +2101,15 @@ public class Compute {
             distance += (2 * attacker.getAltitude());
         }
 
-        if (game.isOnSpaceMap(attacker) && !attacker.getPosition().equals(targetPos.get(0))) {
+        if (game.isOnSpaceMap(attacker) && !attacker.getPosition().equals(targetPos.getFirst())) {
             // Atmospheric hexes count as extra range
             Board attackerBoard = game.getBoard(attacker);
             Coords currentCoords = attacker.getPosition();
-            currentCoords = Coords.nextHex(currentCoords, targetPos.get(0));
+            currentCoords = Coords.nextHex(currentCoords, targetPos.getFirst());
             int safetyCounter = 0;
-            while (!currentCoords.equals(targetPos.get(0)) && (safetyCounter < 1000)) {
+            while (!currentCoords.equals(targetPos.getFirst()) && (safetyCounter < 1000)) {
                 safetyCounter++; // prevent infinite loops
-                currentCoords = Coords.nextHex(currentCoords, targetPos.get(0));
+                currentCoords = Coords.nextHex(currentCoords, targetPos.getFirst());
                 if (BoardHelper.isAtmosphericRow(game, attackerBoard, currentCoords)
                       || BoardHelper.isGroundRowHex(attackerBoard, currentCoords)) {
                     distance += BoardHelper.highAltAtmosphereRowRangeIncrease(game);
@@ -2939,7 +2945,9 @@ public class Compute {
         if (game.getOptions().booleanOption(OptionsConstants.ADVANCED_GROUND_MOVEMENT_TAC_OPS_STANDING_STILL)
               && (entity.mpUsed == 0)
               && !entity.isImmobile()
-              && !((entity instanceof Infantry) || (entity instanceof VTOL) || (entity.isBuildingEntityOrGunEmplacement()))) {
+              && !((entity instanceof Infantry)
+              || (entity instanceof VTOL)
+              || (entity.isBuildingEntityOrGunEmplacement()))) {
             ToHitData toHit = new ToHitData();
             toHit.addModifier(-1, "target did not move");
             return toHit;
@@ -3383,8 +3391,8 @@ public class Compute {
     }
 
     /**
-     * Returns the weapon attack out of a list that has the second highest expected damage
-     * Used for Playtest 3 AMS engaging multiple salvos
+     * Returns the weapon attack out of a list that has the second highest expected damage Used for Playtest 3 AMS
+     * engaging multiple salvos
      */
     public static WeaponAttackAction getSecondHighestExpectedDamage(Game g,
           List<WeaponAttackAction> vAttacks, boolean assumeHit) {
@@ -3916,6 +3924,7 @@ public class Compute {
      * infernos, do no damage or have special properties and so the damage is an estimation of effectiveness
      */
 
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public static double getAmmoAdjDamage(Game game, WeaponAttackAction weaponAttackAction) {
         boolean noBin = true;
         boolean multiBin = false;
@@ -4409,7 +4418,9 @@ public class Compute {
             Entity targetedEntity = (Entity) target;
 
             // Beyond altitude 8, on ground maps, aerospace can't spot ground units
-            if (attackingEntity.isAirborneAeroOnGroundMap() && (attackingEntity.getAltitude() > 8) && !target.isAirborne()) {
+            if (attackingEntity.isAirborneAeroOnGroundMap()
+                  && (attackingEntity.getAltitude() > 8)
+                  && !target.isAirborne()) {
                 visualRange = 0;
             }
 
@@ -4474,6 +4485,7 @@ public class Compute {
      * @param game     The current {@link Game}
      * @param targetId - the ID# of the target entity we're looking for
      */
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public static boolean isAnySensorContact(Game game, int targetId) {
         Entity targetEntity = game.getEntity(targetId);
 
@@ -4789,6 +4801,7 @@ public class Compute {
         return roll >= tn;
     }
 
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public static boolean calcFutureTargetFiringSolution(Game game, Entity attacker,
           Targetable target, Coords futureTargetPosition) {
         if (target.getTargetType() == Targetable.TYPE_ENTITY) {
@@ -5463,7 +5476,7 @@ public class Compute {
         }
         nRoll += nMod;
         if (!advancedAMS) {
-            nRoll = min(max(nRoll, 2), 12);
+            nRoll = Math.clamp(nRoll, 2, 12);
         } else {
             nRoll = min(nRoll, 12);
         }
@@ -6729,8 +6742,7 @@ public class Compute {
 
     /**
      * Method replicates the Non-Conventional Damage against Infantry damage table as well as shifting for direct blows.
-     * also adjust for non-infantry damaging mechanized infantry.
-     * No mods for Plasma weapons.
+     * also adjust for non-infantry damaging mechanized infantry. No mods for Plasma weapons.
      *
      * @param damage                         The base amount of damage
      * @param mos                            The margin of success
@@ -7221,9 +7233,36 @@ public class Compute {
                 }
 
                 switch (ammoType.getAmmoType()) {
-                    case SRM_STREAK, LRM_STREAK, LRM, LRM_IMP, LRM_TORPEDO, SRM, SRM_IMP, SRM_TORPEDO, MRM, NARC,
-                         INARC, AMS, ARROW_IV, LONG_TOM, SNIPER, THUMPER, SRM_ADVANCED, LRM_TORPEDO_COMBO, ATM, IATM,
-                         MML, EXLRM, NLRM, NLRM_TORPEDO, TBOLT_5, TBOLT_10, TBOLT_15, TBOLT_20, HAG, ROCKET_LAUNCHER -> {
+                    case SRM_STREAK,
+                         LRM_STREAK,
+                         LRM,
+                         LRM_IMP,
+                         LRM_TORPEDO,
+                         SRM,
+                         SRM_IMP,
+                         SRM_TORPEDO,
+                         MRM,
+                         NARC,
+                         INARC,
+                         AMS,
+                         ARROW_IV,
+                         LONG_TOM,
+                         SNIPER,
+                         THUMPER,
+                         SRM_ADVANCED,
+                         LRM_TORPEDO_COMBO,
+                         ATM,
+                         IATM,
+                         MML,
+                         EXLRM,
+                         NLRM,
+                         NLRM_TORPEDO,
+                         TBOLT_5,
+                         TBOLT_10,
+                         TBOLT_15,
+                         TBOLT_20,
+                         HAG,
+                         ROCKET_LAUNCHER -> {
                         return false;
                     }
                     default -> {
@@ -7974,7 +8013,9 @@ public class Compute {
 
     /**
      * Fast log2 implementation; throws if number &le; 0
-     * @param number        positive int to get the log2 of
+     *
+     * @param number positive int to get the log2 of
+     *
      * @return int          approximate log2 of number; functionally (Math.floor(log10(10)/log10(2))
      */
     public static int log2(int number) throws IllegalArgumentException {
@@ -7985,12 +8026,14 @@ public class Compute {
     }
 
     /**
-     * Helper to get the coordinates from which a unit can load other units.  Not in Entity to avoid bloat.
-     * May need extension for different map types but unlikely.
-     * @param carrier   Entity that will be doing the loading
-     * @param position  Coords of hex to use as the center of the carrier; may not match carrier's current position
-     *                  value.
-     * @param boardId   For future use, e.g. low-altitude or multi-board maps
+     * Helper to get the coordinates from which a unit can load other units.  Not in Entity to avoid bloat. May need
+     * extension for different map types but unlikely.
+     *
+     * @param carrier  Entity that will be doing the loading
+     * @param position Coords of hex to use as the center of the carrier; may not match carrier's current position
+     *                 value.
+     * @param boardId  For future use, e.g. low-altitude or multi-board maps
+     *
      * @return ArrayList of Coords that the carrier entity can legally load units from
      */
     public static ArrayList<Coords> getLoadableCoords(Entity carrier, Coords position, int boardId) {
@@ -8004,12 +8047,15 @@ public class Compute {
         if (carrier.isDropShip() && carrier.isAeroLandedOnGroundMap()) {
             list.addAll(position.allAtDistance(2));
         } else if (
-              // SmallCraft, Large Support Vehicles, flying DropShips, and presumably spaceborne WarShips load from
-              // directly adjacent hexes
-              carrier instanceof SmallCraft ||
-              (carrier.isSupportVehicle() && (carrier.getWeightClass() == EntityWeightClass.WEIGHT_LARGE_SUPPORT)) ||
-              (carrier.isDropShip() && carrier.isAirborne()) ||
-              (carrier.isWarShip())
+            // SmallCraft, Large Support Vehicles, flying DropShips, and presumably spaceborne WarShips load from
+            // directly adjacent hexes
+              carrier instanceof SmallCraft
+                    ||
+                    (carrier.isSupportVehicle() && (carrier.getWeightClass() == EntityWeightClass.WEIGHT_LARGE_SUPPORT))
+                    ||
+                    (carrier.isDropShip() && carrier.isAirborne())
+                    ||
+                    (carrier.isWarShip())
         ) {
             list.addAll(position.allAtDistance(1));
         } else {

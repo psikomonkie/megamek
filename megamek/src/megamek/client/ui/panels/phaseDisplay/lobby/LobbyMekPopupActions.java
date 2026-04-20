@@ -445,7 +445,7 @@ public record LobbyMekPopupActions(ChatLounge lobby) implements ActionListener {
         ArrayList<Entity> entityArrayList = new ArrayList<>(entities);
         ClientGUI clientGUI = lobby.getClientGUI();
         // Team team = lobby.game().getTeamForPlayer(entityArrayList.get(0).getOwner());
-        Team team = clientGUI.getClient().getGame().getTeamForPlayer(entityArrayList.get(0).getOwner());
+        Team team = clientGUI.getClient().getGame().getTeamForPlayer(entityArrayList.getFirst().getOwner());
         String faction = (team != null) ? team.getFaction() : FactionRecord.IS_GENERAL_KEY;
 
         // Parameters are generated _from_ the teams' information, _for_ the selected entities
@@ -497,7 +497,7 @@ public record LobbyMekPopupActions(ChatLounge lobby) implements ActionListener {
         if (reconfigured) {
             // Have to send reconfig as controlling player
             clientGUI.chatlounge.sendProxyUpdates(entityArrayList,
-                  lobby.game().getPlayer(entityArrayList.get(0).getOwnerId()));
+                  lobby.game().getPlayer(entityArrayList.getFirst().getOwnerId()));
         }
     }
 
@@ -513,7 +513,7 @@ public record LobbyMekPopupActions(ChatLounge lobby) implements ActionListener {
             }
         }
         if (!resetBombers.isEmpty()) {
-            clientgui.chatlounge.sendProxyUpdates(resetBombers, game.getPlayer(el.get(0).getOwnerId()));
+            clientgui.chatlounge.sendProxyUpdates(resetBombers, game.getPlayer(el.getFirst().getOwnerId()));
         }
     }
 

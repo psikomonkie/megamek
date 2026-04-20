@@ -753,7 +753,7 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
         if (summaries.size() != 1) {
             return null;
         }
-        return summaries.get(0);
+        return summaries.getFirst();
     }
 
     public List<MekSummary> getSelectedMekSummaries() {
@@ -806,8 +806,8 @@ public abstract class AbstractUnitSelectorDialog extends JDialog implements Runn
             GUIP.setMekSelectorUnitType(comboUnitType.getSelectedIndex());
             GUIP.setMekSelectorWeightClass(comboWeight.getSelectedIndex());
             GUIP.setMekSelectorRulesLevels(Arrays.toString(listTechLevel.getSelectedIndices()));
-            GUIP.setMekSelectorSortColumn(tableUnits.getRowSorter().getSortKeys().get(0).getColumn());
-            GUIP.setMekSelectorSortOrder(tableUnits.getRowSorter().getSortKeys().get(0).getSortOrder().name());
+            GUIP.setMekSelectorSortColumn(tableUnits.getRowSorter().getSortKeys().getFirst().getColumn());
+            GUIP.setMekSelectorSortOrder(tableUnits.getRowSorter().getSortKeys().getFirst().getSortOrder().name());
             GUIP.setMekSelectorSizeHeight(getSize().height);
             GUIP.setMekSelectorSizeWidth(getSize().width);
             GUIP.setMekSelectorPosX(getLocation().x);

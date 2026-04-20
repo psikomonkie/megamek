@@ -34,6 +34,8 @@
 
 package megamek.common.containers;
 
+import static megamek.common.equipment.AmmoType.INCENDIARY_MOD;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -53,8 +55,6 @@ import megamek.common.equipment.Mounted;
 import megamek.common.equipment.enums.BombType.BombTypeEnum;
 import megamek.common.units.Entity;
 import megamek.logging.MMLogger;
-
-import static megamek.common.equipment.AmmoType.INCENDIARY_MOD;
 
 public class MunitionTree {
     private static final MMLogger LOGGER = MMLogger.create(MunitionTree.class);
@@ -322,6 +322,7 @@ public class MunitionTree {
         root.insert(imperatives, chassis, variant, pilot);
     }
 
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public void insertMangledImperatives(String chassis, String variant, String pilot,
           HashMap<String, String> imperatives) {
         // switch imperative keys to lowercase to avoid case-based matching issues strip out extraneous characters
@@ -347,6 +348,7 @@ public class MunitionTree {
     /**
      * @return entire imperative string that would act on the provided key set
      */
+    @Deprecated(since = "0.51.0", forRemoval = true)
     public String getEffectiveImperative(String chassis, String variant, String pilot, String binType) {
         LoadNode node = root.retrieve(chassis, variant, pilot);
         if (null != node) {

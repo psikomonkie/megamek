@@ -75,6 +75,7 @@ class LoadNode {
     /**
      * Testing version of LoadNode, for imperative lookups
      */
+    @Deprecated(since = "0.51.0", forRemoval = true)
     LoadNode(HashMap<String, String> imperatives) {
         this.imperatives = imperatives;
     }
