@@ -758,7 +758,8 @@ public class TeamLoadOutGenerator {
 
     /**
      * Create a map with all munitions set to a specific value, not restricted by faction/year/tech level
-     * @param count     Count of bins to assign to each munition entry
+     *
+     * @param count Count of bins to assign to each munition entry
      *
      * @return HashMap  containing per-weapon entries, that contain per-munition entries of "bin counts"
      */
@@ -787,7 +788,7 @@ public class TeamLoadOutGenerator {
             }
 
             // Munitions must be named in one of the TYPE_MAP sub-maps to be utilized!
-            for (String munitionName: TYPE_MAP.get(weaponName)) {
+            for (String munitionName : TYPE_MAP.get(weaponName)) {
                 // Get the first munition that matches; tube count or barrel size shouldn't matter for validity checks
                 // Munitions without a base ammo _are_ the base munition and will be marked as "Standard"
                 AmmoType exemplar = ammoTypes.stream()
@@ -1607,56 +1608,57 @@ public class TeamLoadOutGenerator {
         if (availMap == null) {
             availMap = generateValidMunitionsForFactionAndEra(faction);
 
-        // Increase or reduce availability of limited munitions depending on the total force count and faction quality
-        // Min and max factor are restricted by Defaults.Factors values from YAML.
-        double factor = Math.min(
-              castPropertyDouble("Defaults.Factors.maximumAvailFactor", 2.0),
-              Math.max(
-                    castPropertyDouble("Defaults.Factors.minimumAvailFactor", 0.25),
-                    (entities.size() / castPropertyDouble("Defaults.Factors.defaultForceSize", 36.0)) *
-                          (
-                                castPropertyDouble("Defaults.Factors.qualityRatingMultiplier", 1.0) *
-                                      (reconfigurationParameters.friendlyQuality + 1.0) / 6.0
-                          )
-              )
-        );
-        scaleAvailabilityMap(availMap, factor);
+            // Increase or reduce availability of limited munitions depending on the total force count and faction quality
+            // Min and max factor are restricted by Defaults.Factors values from YAML.
+            double factor = Math.min(
+                  castPropertyDouble("Defaults.Factors.maximumAvailFactor", 2.0),
+                  Math.max(
+                        castPropertyDouble("Defaults.Factors.minimumAvailFactor", 0.25),
+                        (entities.size() / castPropertyDouble("Defaults.Factors.defaultForceSize", 36.0)) *
+                              (
+                                    castPropertyDouble("Defaults.Factors.qualityRatingMultiplier", 1.0) *
+                                          (reconfigurationParameters.friendlyQuality + 1.0) / 6.0
+                              )
+                  )
+            );
+            scaleAvailabilityMap(availMap, factor);
 
-        // For Pirate forces, assume fewer rounds per bin at lower quality levels, minimum 20%. If fill ratio is
-        // already set, leave it.
-        if (reconfigurationParameters.binFillPercent == UNSET_FILL_RATIO) {
-            if (reconfigurationParameters.isPirate) {
-                reconfigurationParameters.binFillPercent = (float) (Math.min(castPropertyDouble(
-                            "Defaults.Factors.pirateMaxAllowedBinFillRatio",
-                            1.0),
-                      Math.max(castPropertyDouble("Defaults.Factors.pirateMinAllowedBinFillRatio", 0.2),
-                            Math.random() / castPropertyDouble("Defaults.Factors.pirateRandomRangeDivisor", 4.0) +
-                                  (reconfigurationParameters.friendlyQuality /
-                                        castPropertyDouble("Defaults.Factors.pirateQualityDivisor", 8.0)))));
-            } else {
-                // If we get this far without setting the ratio, but are not pirates, reset to fill
-                reconfigurationParameters.binFillPercent = 1.0f;
+            // For Pirate forces, assume fewer rounds per bin at lower quality levels, minimum 20%. If fill ratio is
+            // already set, leave it.
+            if (reconfigurationParameters.binFillPercent == UNSET_FILL_RATIO) {
+                if (reconfigurationParameters.isPirate) {
+                    reconfigurationParameters.binFillPercent = (float) (Math.min(castPropertyDouble(
+                                "Defaults.Factors.pirateMaxAllowedBinFillRatio",
+                                1.0),
+                          Math.max(castPropertyDouble("Defaults.Factors.pirateMinAllowedBinFillRatio", 0.2),
+                                Math.random() / castPropertyDouble("Defaults.Factors.pirateRandomRangeDivisor", 4.0) +
+                                      (reconfigurationParameters.friendlyQuality /
+                                            castPropertyDouble("Defaults.Factors.pirateQualityDivisor", 8.0)))));
+                } else {
+                    // If we get this far without setting the ratio, but are not pirates, reset to fill
+                    reconfigurationParameters.binFillPercent = 1.0f;
+                }
             }
-        }
 
-        // Commented out until A2G Attack Errata are implemented. No need to allocate memory for something not in use.
-        // ArrayList<Entity> aeroSpaceUnits = new ArrayList<>();
-        for (Entity entity : entities) {
-            if (!entity.isAero()) {
-                // TODO: Will be used when A2G attack errata are implemented
-                //                aeroSpaceUnits.add(entity);
-                //           } else {
-                reconfigureEntity(entity, mt, availMap, reconfigurationParameters.binFillPercent);
+            // Commented out until A2G Attack Errata are implemented. No need to allocate memory for something not in use.
+            // ArrayList<Entity> aeroSpaceUnits = new ArrayList<>();
+            for (Entity entity : entities) {
+                if (!entity.isAero()) {
+                    // TODO: Will be used when A2G attack errata are implemented
+                    //                aeroSpaceUnits.add(entity);
+                    //           } else {
+                    reconfigureEntity(entity, mt, availMap, reconfigurationParameters.binFillPercent);
+                }
             }
-        }
 
-        populateAeroBombs(entities,
-              this.allowedYear,
-              reconfigurationParameters.groundMap ||
-                    reconfigurationParameters.enemyCount > reconfigurationParameters.enemyFliers,
-              reconfigurationParameters.friendlyQuality,
-              reconfigurationParameters.isPirate,
-              faction);
+            populateAeroBombs(entities,
+                  this.allowedYear,
+                  reconfigurationParameters.groundMap ||
+                        reconfigurationParameters.enemyCount > reconfigurationParameters.enemyFliers,
+                  reconfigurationParameters.friendlyQuality,
+                  reconfigurationParameters.isPirate,
+                  faction);
+        }
     }
 
     /**
