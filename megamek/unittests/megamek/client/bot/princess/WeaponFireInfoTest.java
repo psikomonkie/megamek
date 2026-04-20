@@ -378,6 +378,7 @@ class WeaponFireInfoTest {
         AeroSpaceFighter aeroSpaceFighter = new AeroSpaceFighter();
         aeroSpaceFighter.setId(1);
         aeroSpaceFighter.setDeployed(true);
+        aeroSpaceFighter.addBomb(EquipmentType.get("HEBomb"), AeroSpaceFighter.LOC_NOSE);
         WeaponMounted diveBomb = (WeaponMounted) aeroSpaceFighter.addEquipment(EquipmentType.get(
               "DiveBombAttack"), AeroSpaceFighter.LOC_NOSE);
         assertNotNull(aeroSpaceFighter.getBombs());
